@@ -1,0 +1,926 @@
+/* Work Flower · área Corpo
+   Treinos, cargas, dieta, água, calorias, quadro arrastável e blocos livres.
+   Sem build: a view carrega este arquivo e o Alpine já está na página. */
+(function () {
+    'use strict';
+
+    /* ================= utilidades ================= */
+    const pad = n => String(n).padStart(2, '0');
+    const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const hoje = () => iso(new Date());
+    const agora = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const r1 = n => Math.round((Number(n) || 0) * 10) / 10;
+    const num = v => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : 0; };
+    const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+    const snap = v => Math.round(v / 8) * 8;
+    const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const dataBR = s => { const [, m, d] = s.split('-'); return `${d}/${m}`; };
+
+    const DIAS = [
+        { id: 'seg', nome: 'Segunda', c: 'Seg' }, { id: 'ter', nome: 'Terça', c: 'Ter' },
+        { id: 'qua', nome: 'Quarta', c: 'Qua' }, { id: 'qui', nome: 'Quinta', c: 'Qui' },
+        { id: 'sex', nome: 'Sexta', c: 'Sex' }, { id: 'sab', nome: 'Sábado', c: 'Sáb' },
+        { id: 'dom', nome: 'Domingo', c: 'Dom' },
+    ];
+    const LETRAS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+    const PALETA = ['#2f6fc7', '#2dd4bf', '#a78bfa', '#fb923c', '#f472b6', '#f2c230', '#94a3b8', '#4ade80'];
+    const REFEICOES = [
+        { id: 'cafe', nome: 'Café da manhã', hora: '07:30' },
+        { id: 'almoco', nome: 'Almoço', hora: '12:30' },
+        { id: 'lanche', nome: 'Lanche', hora: '16:00' },
+        { id: 'jantar', nome: 'Jantar', hora: '20:00' },
+    ];
+    const MM = { w: 188, h: 38 }; // tamanho de um nó do mapa mental
+
+    /* Posição inicial dos itens (para uma área de 1088 px de largura). O usuário muda tudo. */
+    const PADRAO = {
+        tarefas: {
+            'tarefa-form': { x: 0, y: 0, w: 340, h: 440 },
+            'tarefa-lista': { x: 356, y: 0, w: 732, h: 520 },
+        },
+        treinos: {
+            'semana': { x: 0, y: 0, w: 1088, h: 250 },
+            'treino-form': { x: 0, y: 266, w: 380, h: 600 },
+            'treino-lista': { x: 396, y: 266, w: 692, h: 600 },
+        },
+        cargas: {
+            'carga-nova': { x: 0, y: 0, w: 340, h: 360 },
+            'carga-lista': { x: 356, y: 0, w: 732, h: 580 },
+        },
+        dietas: {
+            'dieta-resumo': { x: 0, y: 0, w: 340, h: 420 },
+            'dieta-plano': { x: 356, y: 0, w: 732, h: 660 },
+        },
+        agua: {
+            'agua-hoje': { x: 0, y: 0, w: 420, h: 520 },
+            'agua-meta': { x: 436, y: 0, w: 300, h: 380 },
+            'agua-semana': { x: 752, y: 0, w: 336, h: 380 },
+        },
+        calorias: {
+            'cal-registrar': { x: 0, y: 0, w: 380, h: 560 },
+            'cal-resumo': { x: 396, y: 0, w: 692, h: 380 },
+            'cal-diario': { x: 396, y: 396, w: 692, h: 420 },
+        },
+        metas: { 'metas': { x: 0, y: 0, w: 560, h: 480 } },
+        mapa: {},
+        livre: {},
+    };
+
+    /* ================= alimentos (por 100 g/ml; valores aproximados, base TACO/USDA) =================
+       nome, kcal, proteína, carboidrato, gordura, fibra, [peso de 1 unidade em g] */
+    const BASE = [
+        ['Arroz branco cozido', 128, 2.5, 28.1, 0.2, 1.6],
+        ['Arroz integral cozido', 124, 2.6, 25.8, 1.0, 2.7],
+        ['Feijão carioca cozido', 76, 4.8, 13.6, 0.5, 8.5],
+        ['Feijão preto cozido', 77, 4.5, 14.0, 0.5, 8.4],
+        ['Lentilha cozida', 93, 6.3, 16.3, 0.5, 7.9],
+        ['Grão-de-bico cozido', 164, 8.9, 27.4, 2.6, 7.6],
+        ['Macarrão cozido', 102, 3.4, 19.9, 0.5, 1.2],
+        ['Batata inglesa cozida', 52, 1.2, 11.9, 0.0, 1.3],
+        ['Batata-doce cozida', 77, 0.6, 18.4, 0.1, 2.2],
+        ['Mandioca cozida', 125, 0.6, 30.1, 0.3, 1.6],
+        ['Cuscuz de milho cozido', 113, 2.2, 25.3, 0.7, 2.1],
+        ['Pão francês', 300, 8.0, 58.6, 3.1, 2.3, 50],
+        ['Pão de forma integral', 253, 9.4, 49.9, 3.7, 6.9, 25],
+        ['Pão de queijo', 363, 5.1, 34.2, 22.8, 0.6, 25],
+        ['Aveia em flocos', 394, 13.9, 66.6, 8.5, 9.1],
+        ['Frango peito grelhado', 159, 32.0, 0, 2.5, 0],
+        ['Frango peito cozido', 163, 31.5, 0, 3.2, 0],
+        ['Carne bovina patinho grelhado', 219, 35.9, 0, 7.3, 0],
+        ['Carne bovina alcatra grelhada', 241, 31.9, 0, 11.6, 0],
+        ['Carne moída refogada', 212, 26.7, 0, 10.9, 0],
+        ['Carne suína lombo assado', 210, 35.7, 0, 6.4, 0],
+        ['Tilápia grelhada', 128, 26.0, 0, 2.6, 0],
+        ['Salmão grelhado', 206, 22.1, 0, 12.4, 0],
+        ['Atum em conserva natural', 116, 25.5, 0, 0.8, 0],
+        ['Ovo cozido', 146, 13.3, 0.6, 9.5, 0, 50],
+        ['Ovo frito', 240, 15.6, 1.2, 18.6, 0, 46],
+        ['Leite integral', 61, 3.2, 4.6, 3.3, 0],
+        ['Leite desnatado', 35, 3.4, 4.9, 0.1, 0],
+        ['Iogurte natural integral', 51, 4.1, 1.9, 3.0, 0],
+        ['Iogurte natural desnatado', 41, 3.8, 5.8, 0.3, 0],
+        ['Queijo mussarela', 330, 22.6, 3.0, 25.2, 0, 15],
+        ['Queijo minas frescal', 264, 17.4, 3.2, 20.2, 0, 30],
+        ['Requeijão cremoso', 257, 9.6, 2.4, 23.4, 0, 30],
+        ['Whey protein', 400, 80, 8, 6, 0, 30],
+        ['Banana prata', 98, 1.3, 26.0, 0.1, 2.0, 70],
+        ['Maçã', 56, 0.3, 15.2, 0.0, 1.3, 130],
+        ['Laranja pera', 37, 1.0, 8.9, 0.1, 0.8, 180],
+        ['Mamão papaia', 40, 0.5, 10.4, 0.1, 1.0],
+        ['Manga', 64, 0.4, 16.7, 0.3, 1.6],
+        ['Abacate', 96, 1.2, 6.0, 8.4, 6.3],
+        ['Uva', 53, 0.7, 13.6, 0.2, 0.9],
+        ['Morango', 30, 0.9, 6.8, 0.3, 1.7],
+        ['Melancia', 33, 0.9, 8.1, 0.0, 0.1],
+        ['Abacaxi', 48, 0.9, 12.3, 0.1, 1.0],
+        ['Brócolis cozido', 25, 2.1, 4.4, 0.5, 3.4],
+        ['Alface', 11, 1.3, 1.7, 0.2, 1.8],
+        ['Tomate', 15, 1.1, 3.1, 0.2, 1.2],
+        ['Cenoura cozida', 30, 0.8, 6.7, 0.2, 2.6],
+        ['Couve refogada', 90, 1.7, 8.7, 6.6, 5.7],
+        ['Azeite de oliva', 884, 0, 0, 100, 0, 13],
+        ['Manteiga', 726, 0.4, 0.1, 82.4, 0, 10],
+        ['Pasta de amendoim', 588, 25, 20, 50, 6, 15],
+        ['Amendoim torrado', 606, 27.2, 12.5, 54.0, 8.0],
+        ['Castanha-do-pará', 643, 14.5, 15.1, 63.5, 7.9],
+        ['Amêndoa', 579, 21.2, 21.6, 49.9, 12.5],
+        ['Chocolate ao leite', 540, 7.2, 59.6, 30.3, 2.2],
+        ['Mel', 309, 0.4, 84.0, 0, 0, 21],
+        ['Açúcar', 387, 0, 99.5, 0, 0],
+        ['Café sem açúcar', 2, 0.1, 0.3, 0, 0],
+        ['Suco de laranja', 45, 0.7, 10.4, 0.1, 0.2],
+        ['Refrigerante de cola', 42, 0, 10.6, 0, 0],
+    ].map((a, i) => ({ id: 'b' + i, nome: a[0], kcal: a[1], p: a[2], c: a[3], gd: a[4], fib: a[5], un: a[6] || 0 }));
+
+    let fonteCustom = () => []; // alimentos criados pelo usuário (definido no init)
+
+    const STOP = new Set(['de', 'da', 'do', 'das', 'dos', 'com', 'e', 'a', 'o', 'sopa', 'cha', 'copo', 'xicara', 'fatia', 'fatias']);
+    const tokens = s => norm(s).split(' ').filter(t => t && !STOP.has(t));
+
+    /** "arroz 150g", "2 ovos", "banana", "leite 200 ml" -> { nome, qtd, un } */
+    function interpretar(texto) {
+        let t = String(texto || '').trim();
+        if (!t) return null;
+        let qtd = null, un = '';
+        const m = t.match(/(\d+(?:[.,]\d+)?)\s*(kg|gramas?|gr|g|ml|litros?|l|unidades?|unid|un|fatias?|colher(?:es)?|scoops?|doses?)?(?![a-zà-ú])/i);
+        if (m) {
+            qtd = num(m[1]);
+            un = (m[2] || '').toLowerCase();
+            t = (t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length));
+        }
+        return { nome: t.replace(/\s+/g, ' ').trim(), qtd, un };
+    }
+
+    function gramas(p, f) {
+        const n = p.qtd, u = p.un;
+        if (n == null) return f.un || 100;
+        if (u === 'kg') return n * 1000;
+        if (/^(g|gr|gramas?|ml)$/.test(u)) return n;
+        if (/^(l|litros?)$/.test(u)) return n * 1000;
+        if (u) return n * (f.un || 100);
+        return f.un && n <= 20 ? n * f.un : n;
+    }
+
+    const score = (x, qt) => (x.f.custom ? -1 : 0) + (x.ft[0] && x.ft[0].startsWith(qt[0]) ? 0 : 5) + x.ft.length;
+
+    function buscar(nome) {
+        const qt = tokens(nome);
+        if (!qt.length) return [];
+        return [...fonteCustom(), ...BASE]
+            .map((f, ordem) => ({ f, ordem, ft: tokens(f.nome) }))
+            .filter(({ ft }) => qt.every(q => ft.some(t => t.startsWith(q) || (q.length >= 3 && t.length >= 3 && q.startsWith(t)))))
+            .sort((a, b) => score(a, qt) - score(b, qt) || a.ordem - b.ordem)
+            .map(x => x.f);
+    }
+
+    function calcular(f, g) {
+        const k = g / 100;
+        return {
+            nome: f.nome, g: r1(g), kcal: Math.round(f.kcal * k),
+            p: r1(f.p * k), c: r1(f.c * k), gd: r1(f.gd * k), fib: r1((f.fib || 0) * k),
+        };
+    }
+
+    const somar = itens => {
+        const t = { kcal: 0, p: 0, c: 0, gd: 0, fib: 0 };
+        itens.forEach(i => { t.kcal += i.kcal || 0; t.p += i.p || 0; t.c += i.c || 0; t.gd += i.gd || 0; t.fib += i.fib || 0; });
+        return { kcal: Math.round(t.kcal), p: r1(t.p), c: r1(t.c), gd: r1(t.gd), fib: r1(t.fib) };
+    };
+
+    /* Campo de busca de alimento (usado na dieta e nas calorias). Avisa o componente pai por evento. */
+    window.buscaAlimento = function (alvo) {
+        return {
+            alvo, q: '', aberto: false, i: 0,
+            get p() { return interpretar(this.q); },
+            get sug() {
+                const p = this.p;
+                if (!p || !p.nome) return [];
+                return buscar(p.nome).slice(0, 6).map(f => ({ f, item: calcular(f, gramas(p, f)) }));
+            },
+            escolher(s) {
+                this.$dispatch('add-alimento', { alvo: this.alvo, item: s.item });
+                this.q = ''; this.i = 0; this.aberto = false;
+            },
+            enter() { const s = this.sug[this.i]; if (s) this.escolher(s); },
+        };
+    };
+
+    /* ================= estado inicial e migração ================= */
+    function podar(h, max = 90) {
+        const ks = Object.keys(h).sort();
+        while (ks.length > max) delete h[ks.shift()];
+    }
+
+    function virarDia(e) {
+        const h = hoje();
+        if (e.agua.dia !== h) {
+            const t = e.agua.log.reduce((s, x) => s + x.ml, 0);
+            if (t > 0) e.agua.hist[e.agua.dia] = t;
+            e.agua.log = []; e.agua.dia = h; podar(e.agua.hist);
+        }
+        if (e.cal.dia !== h) {
+            if (e.cal.itens.length) { const t = somar(e.cal.itens); e.cal.hist[e.cal.dia] = { kcal: t.kcal, p: t.p, c: t.c, gd: t.gd }; }
+            e.cal.itens = []; e.cal.dia = h; podar(e.cal.hist);
+        }
+        Object.keys(e.execucoes).sort().slice(0, -120).forEach(k => delete e.execucoes[k]);
+    }
+
+    function mapaSemente() {
+        return {
+            id: 'mapa-inicial', secao: 'mapa', tipo: 'mapa', titulo: 'Mapa mental', links: [],
+            dados: { nos: [{ id: uid(), t: 'Tema central', x: 40, y: 200, pai: null, cor: PALETA[0] }] },
+        };
+    }
+
+    function completar(e) {
+        e.layout ??= {}; e.treinos ??= []; e.exercicios ??= []; e.execucoes ??= {};
+        e.dieta ??= {};
+        e.dieta.refeicoes ??= REFEICOES.map(r => ({ ...r, itens: [], nota: '' }));
+        const a = (e.agua ??= {});
+        a.meta ??= 2500; a.passos ??= [200, 300, 500]; a.peso ??= null; a.dia ??= hoje(); a.log ??= []; a.hist ??= {};
+        const c = (e.cal ??= {});
+        c.metas ??= { kcal: 2000, p: 150, c: 250, gd: 70, fib: 25 };
+        c.dia ??= hoje(); c.itens ??= []; c.hist ??= {};
+        e.alimentos ??= []; e.metas ??= []; e.blocos ??= [];
+        if (!e.mapaSemeado) {
+            e.mapaSemeado = true;
+            e.blocos.push(mapaSemente());
+            (e.layout.mapa ??= {})['mapa-inicial'] = { x: 0, y: 0, w: 1088, h: 560, z: 1 };
+        }
+        return e;
+    }
+
+    /** Traz o que a versão antiga guardava no navegador (localStorage) na primeira abertura. */
+    function migrarLocal(e) {
+        const ler = k => { try { return JSON.parse(localStorage.getItem('corpo.' + k)); } catch { return null; } };
+        const paraIso = s => { const m = String(s || '').match(/(\d{2})\/(\d{2})\/(\d{4})/); return m ? `${m[3]}-${m[2]}-${m[1]}` : hoje(); };
+
+        const metas = ler('metas');
+        if (Array.isArray(metas)) e.metas = metas;
+
+        const cargas = ler('cargas');
+        if (Array.isArray(cargas)) {
+            cargas.slice().reverse().forEach(c => {
+                if (!c || !c.exercicio) return;
+                let ex = e.exercicios.find(x => norm(x.nome) === norm(c.exercicio));
+                if (!ex) { ex = { id: uid(), nome: c.exercicio, series: 3, reps: c.reps || 10, kg: 0, hist: [] }; e.exercicios.push(ex); }
+                ex.kg = num(c.kg); ex.reps = num(c.reps) || ex.reps;
+                ex.hist.push({ d: paraIso(c.data), kg: num(c.kg), reps: ex.reps });
+            });
+        }
+
+        const agua = ler('agua');
+        if (agua && typeof agua === 'object') {
+            if (agua.meta) e.agua.meta = num(agua.meta);
+            if (agua.dia === hoje() && agua.atual > 0) e.agua.log.push({ id: uid(), ml: num(agua.atual), h: '--:--' });
+        }
+
+        const vazioItem = (nome, kcal, p = 0, c = 0, gd = 0) => ({ id: uid(), ref: 'outros', h: '--:--', nome, g: 0, kcal: Math.round(kcal), p, c, gd, fib: 0 });
+        const cal = ler('calorias');
+        if (cal && typeof cal === 'object') {
+            if (cal.meta) e.cal.metas.kcal = num(cal.meta);
+            if (cal.dia === hoje() && Array.isArray(cal.itens)) cal.itens.forEach(i => e.cal.itens.push(vazioItem(i.nome, num(i.kcal))));
+        }
+        const nut = ler('nutricao');
+        if (nut && nut.dia === hoje() && Array.isArray(nut.itens)) {
+            nut.itens.forEach(i => e.cal.itens.push(vazioItem(i.nome, num(i.p) * 4 + num(i.c) * 4 + num(i.g) * 9, num(i.p), num(i.c), num(i.g))));
+        }
+
+        const treinos = ler('treinos');
+        if (treinos && typeof treinos === 'object') {
+            DIAS.forEach(d => {
+                const txt = String(treinos[d.id] || '').trim();
+                if (txt) e.treinos.push({ id: uid(), nome: txt.split('\n')[0].slice(0, 40), dias: [d.id], hora: '', nota: txt, itens: [] });
+            });
+        }
+        const dietas = ler('dietas');
+        if (dietas && typeof dietas === 'object') {
+            e.dieta.refeicoes.forEach(r => { if (dietas[r.id]) r.nota = String(dietas[r.id]); });
+        }
+
+        const mapa = ler('mapa');
+        if (mapa && (mapa.centro || (mapa.ramos || []).length)) {
+            const raiz = { id: uid(), t: mapa.centro || 'Tema central', x: 40, y: 220, pai: null, cor: PALETA[0] };
+            const nos = [raiz];
+            let y = 20;
+            (mapa.ramos || []).forEach((r, i) => {
+                const cor = PALETA[(i + 1) % PALETA.length];
+                const rn = { id: uid(), t: r.texto || 'Ideia', x: 300, y, pai: raiz.id, cor };
+                nos.push(rn);
+                (r.filhos || []).forEach((f, k) => nos.push({ id: uid(), t: f.texto || 'Detalhe', x: 560, y: y + k * 46, pai: rn.id, cor }));
+                y += Math.max(1, (r.filhos || []).length) * 46 + 24;
+            });
+            const semente = e.blocos.find(b => b.id === 'mapa-inicial');
+            if (semente) semente.dados.nos = nos;
+        }
+    }
+
+    function lerCfg() {
+        try {
+            const c = JSON.parse(document.getElementById('corpo-cfg').textContent);
+            c.dados = Array.isArray(c.dados) ? {} : (c.dados || {});
+            return c;
+        } catch { return { url: '', dados: {}, tarefas: [] }; }
+    }
+
+    function carregar(cfg) {
+        let e = null;
+        try { if (cfg.dados.estado) e = JSON.parse(cfg.dados.estado); } catch { /* usa o padrão */ }
+        const novo = !e;
+        e = completar(e || {});
+        if (novo) migrarLocal(e);
+        return e;
+    }
+
+    async function enviar(url, texto, metodo = 'PUT') {
+        const r = await fetch(url, {
+            method: metodo,
+            credentials: 'same-origin',
+            keepalive: !texto || texto.length < 50000,
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+            },
+            body: metodo === 'PUT' ? JSON.stringify({ valor: texto }) : undefined,
+        });
+        if (r.status === 401 || r.status === 419) { location.reload(); throw new Error('sessão'); }
+        if (!r.ok) throw new Error(String(r.status));
+    }
+
+    /** Reduz a imagem escolhida (máx. 1100 px) para não pesar no banco. */
+    function reduzir(arquivo, max = 1100, qualidade = 0.82) {
+        return new Promise((ok, falha) => {
+            const img = new Image();
+            const url = URL.createObjectURL(arquivo);
+            img.onload = () => {
+                const k = Math.min(1, max / Math.max(img.width, img.height));
+                const cv = document.createElement('canvas');
+                cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+                const cx = cv.getContext('2d');
+                cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
+                cx.drawImage(img, 0, 0, cv.width, cv.height);
+                URL.revokeObjectURL(url);
+                ok(cv.toDataURL('image/jpeg', qualidade));
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); falha(new Error('imagem')); };
+            img.src = url;
+        });
+    }
+
+    const itemVazio = () => ({ k: uid(), nome: '', series: 3, reps: 10, kg: '' });
+    const treinoVazio = () => ({ id: null, nome: '', dias: [], hora: '', nota: '', itens: [itemVazio()] });
+
+    /* ================= componente da página ================= */
+    window.corpoAbas = function () {
+        const cfg = lerCfg();
+        const estado = carregar(cfg);
+        const imagens = {};
+        Object.keys(cfg.dados).filter(k => k.startsWith('img.')).forEach(k => {
+            try { imagens[k.slice(4)] = JSON.parse(cfg.dados[k]); } catch { /* ignora imagem corrompida */ }
+        });
+
+        return {
+            cfg, estado, imagens, tarefas: cfg.tarefas || [],
+            dias: DIAS, paleta: PALETA, macros: [
+                { k: 'p', nome: 'Proteína', u: 'g' }, { k: 'c', nome: 'Carboidrato', u: 'g' },
+                { k: 'gd', nome: 'Gordura', u: 'g' }, { k: 'fib', nome: 'Fibra', u: 'g' },
+            ],
+            aba: 'tarefas',
+            abas: [
+                { id: 'tarefas', nome: 'Tarefas', icone: '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>' },
+                { id: 'treinos', nome: 'Treinos', icone: '<path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/>' },
+                { id: 'cargas', nome: 'Cargas', icone: '<path d="M5 20V10M12 20V4M19 20v-7"/>' },
+                { id: 'dietas', nome: 'Dietas', icone: '<path d="M6 3v6a3 3 0 003 3v9M12 3v6M9 3v9M18 3c-2 2-3 5-3 8h3v10"/>' },
+                { id: 'agua', nome: 'Água', icone: '<path d="M12 3.5C9 7.5 6.5 10.2 6.5 13.5a5.5 5.5 0 0011 0C17.5 10.2 15 7.5 12 3.5z"/>' },
+                { id: 'calorias', nome: 'Calorias', icone: '<path d="M12 3c1 4 5 5 5 10a5 5 0 01-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z"/>' },
+                { id: 'metas', nome: 'Metas', icone: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>' },
+                { id: 'mapa', nome: 'Mapa mental', icone: '<circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="20" r="2"/><path d="M10 10.5L6.5 7.5M14 10.5l3.5-3M12 14.5v3.5"/>' },
+                { id: 'livre', nome: 'Quadro livre', icone: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4" rx="1.5"/><rect x="13" y="10" width="7" height="10" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/>' },
+            ],
+            tiposBloco: [
+                { id: 'texto', nome: 'Campo de texto' }, { id: 'tabela', nome: 'Tabela' },
+                { id: 'lista', nome: 'Lista de itens' }, { id: 'imagem', nome: 'Imagem' },
+                { id: 'mapa', nome: 'Mapa mental' },
+            ],
+
+            // interface
+            larg: 1088, salvo: 'ok', msg: '', zTop: 10, arrastando: null, menuBloco: false, destaque: null,
+            tf: treinoVazio(), tfErro: '',
+            cn: { nome: '', series: '', reps: '', kg: '' }, cnErro: '',
+            calRef: '', cf: { nome: '', kcal: '', p: '', c: '', gd: '', fib: '' }, cfAberto: false, cfErro: '',
+            novoPasso: '', aguaCustom: '', novaMeta: '', _v: 0,
+
+            init() {
+                fonteCustom = () => this.estado.alimentos;
+                const guardada = sessionStorage.getItem('corpo.aba');
+                this.aba = this.abas.some(a => a.id === guardada) ? guardada : 'tarefas';
+                this.$watch('aba', v => { sessionStorage.setItem('corpo.aba', v); this.menuBloco = false; });
+                this.zTop = this.maiorZ();
+                this.calRef = this.estado.dieta.refeicoes[0]?.id || 'outros';
+
+                this.$watch('estado', () => this.agendar());
+                virarDia(this.estado);
+                setInterval(() => virarDia(this.estado), 60000);
+
+                this.$nextTick(() => {
+                    const medir = () => { this.larg = this.$refs.area.clientWidth || 1088; };
+                    medir();
+                    new ResizeObserver(medir).observe(this.$refs.area);
+                });
+
+                const urgente = () => { if (this.salvo === 'pendente') this.gravarEstado(); };
+                document.addEventListener('visibilitychange', () => { if (document.hidden) urgente(); });
+                window.addEventListener('pagehide', urgente);
+                if (!this.cfg.dados.estado) this.agendar(); // grava o estado inicial (inclui o que veio do localStorage)
+            },
+
+            hoje, uid,
+            fmt(n) { return String(r1(n)).replace('.', ','); },
+            pct(v, m) { return m > 0 ? clamp(v / m * 100, 0, 100) : 0; },
+            aviso(txt) { this.msg = txt; clearTimeout(this._m); this._m = setTimeout(() => { this.msg = ''; }, 2600); },
+            ir(sec) { this.aba = sec; },
+            rotuloSalvo() {
+                return { ok: 'Tudo salvo', pendente: 'Alterações…', salvando: 'Salvando…', erro: 'Erro ao salvar. Tentando de novo' }[this.salvo];
+            },
+
+            /* ---------- salvar no servidor ---------- */
+            agendar() {
+                this._v++;
+                this.salvo = 'pendente';
+                clearTimeout(this._t);
+                this._t = setTimeout(() => this.gravarEstado(), 800);
+            },
+            async gravarEstado() {
+                clearTimeout(this._t);
+                const v = this._v;
+                this.salvo = 'salvando';
+                try {
+                    await enviar(this.cfg.url + '/estado', JSON.stringify(this.estado));
+                    if (v === this._v) this.salvo = 'ok';
+                } catch {
+                    this.salvo = 'erro';
+                    this._t = setTimeout(() => this.gravarEstado(), 10000);
+                }
+            },
+
+            /* ================= quadro: arrastar, redimensionar, cor ================= */
+            empilhado() { return window.matchMedia('(max-width: 899px)').matches; },
+            maiorZ() {
+                let z = 10;
+                Object.values(this.estado.layout).forEach(sec => Object.values(sec).forEach(l => { z = Math.max(z, l.z || 0); }));
+                return z;
+            },
+            base(sec, id) {
+                const p = PADRAO[sec]?.[id] || { x: 0, y: 0, w: 360, h: 260 };
+                const f = this.larg > 0 && this.larg < 1088 ? this.larg / 1088 : 1;
+                return { x: Math.round(p.x * f), y: p.y, w: Math.round(p.w * f), h: p.h };
+            },
+            rect(sec, id) { return this.estado.layout[sec]?.[id] || this.base(sec, id); },
+            caixa(sec, id) {
+                const l = this.rect(sec, id);
+                const w = Math.min(l.w, this.larg);
+                const x = clamp(l.x, 0, Math.max(0, this.larg - w));
+                return `--x:${x}px;--y:${l.y}px;--w:${w}px;--h:${l.h}px;z-index:${l.z || 1};--wc:${l.cor || 'var(--prim)'}`;
+            },
+            entrada(sec, id) {
+                if (!this.estado.layout[sec]) this.estado.layout[sec] = {};
+                const L = this.estado.layout[sec];
+                if (!L[id]) L[id] = this.base(sec, id);
+                return L[id];
+            },
+            alturaConteudo(sec) {
+                const ids = new Set([...Object.keys(PADRAO[sec] || {}), ...Object.keys(this.estado.layout[sec] || {})]);
+                let alt = 0;
+                ids.forEach(id => { const l = this.rect(sec, id); alt = Math.max(alt, l.y + l.h); });
+                return alt;
+            },
+            alturaQuadro(sec) { return Math.max(360, this.alturaConteudo(sec) + 40); },
+            frente(sec, id) {
+                const l = this.rect(sec, id);
+                if ((l.z || 1) >= this.zTop) return;
+                this.entrada(sec, id).z = ++this.zTop;
+            },
+            arrastar(e, sec, id) {
+                if (e.button !== 0 || this.empilhado()) return;
+                if (e.target.closest('button,input,select,textarea,label,a')) return;
+                e.preventDefault();
+                const l = this.entrada(sec, id);
+                const larg = e.currentTarget.closest('.wf-quadro').clientWidth;
+                const x0 = e.clientX, y0 = e.clientY, lx = l.x, ly = l.y;
+                this.arrastando = id;
+                const mover = ev => {
+                    l.x = clamp(snap(lx + ev.clientX - x0), 0, Math.max(0, larg - Math.min(l.w, larg)));
+                    l.y = Math.max(0, snap(ly + ev.clientY - y0));
+                };
+                const fim = () => {
+                    this.arrastando = null;
+                    window.removeEventListener('pointermove', mover);
+                    window.removeEventListener('pointerup', fim);
+                    window.removeEventListener('pointercancel', fim);
+                };
+                window.addEventListener('pointermove', mover);
+                window.addEventListener('pointerup', fim);
+                window.addEventListener('pointercancel', fim);
+            },
+            redimensionar(e, sec, id, minw, minh) {
+                if (this.empilhado()) return;
+                const l = this.entrada(sec, id);
+                const larg = e.currentTarget.closest('.wf-quadro').clientWidth;
+                const x0 = e.clientX, y0 = e.clientY, w0 = l.w, h0 = l.h;
+                this.arrastando = id;
+                const mover = ev => {
+                    l.w = clamp(snap(w0 + ev.clientX - x0), minw, Math.max(minw, larg - l.x));
+                    l.h = Math.max(minh, snap(h0 + ev.clientY - y0));
+                };
+                const fim = () => {
+                    this.arrastando = null;
+                    window.removeEventListener('pointermove', mover);
+                    window.removeEventListener('pointerup', fim);
+                    window.removeEventListener('pointercancel', fim);
+                };
+                window.addEventListener('pointermove', mover);
+                window.addEventListener('pointerup', fim);
+                window.addEventListener('pointercancel', fim);
+            },
+            corDe(sec, id) {
+                return this.estado.layout[sec]?.[id]?.cor
+                    || getComputedStyle(document.documentElement).getPropertyValue('--prim').trim() || '#2f6fc7';
+            },
+            setCor(sec, id, cor) { this.entrada(sec, id).cor = cor; },
+            reorganizar() {
+                const sec = this.aba, W = this.larg || 1088;
+                const novo = {};
+                let y = 0;
+                Object.keys(PADRAO[sec] || {}).forEach(id => { const b = this.base(sec, id); y = Math.max(y, b.y + b.h); });
+                if (y) y += 16;
+                let x = 0, linha = 0;
+                this.blocosDe(sec).forEach(b => {
+                    const o = this.estado.layout[sec]?.[b.id] || { w: 360, h: 260 };
+                    const w = Math.min(o.w, W);
+                    if (x + w > W) { x = 0; y += linha + 16; linha = 0; }
+                    novo[b.id] = { x, y, w, h: o.h, z: 1, ...(o.cor ? { cor: o.cor } : {}) };
+                    x += w + 16; linha = Math.max(linha, o.h);
+                });
+                this.estado.layout[sec] = novo;
+                this.aviso('Layout reorganizado.');
+            },
+
+            /* ================= exercícios, cargas e treinos (integrados) ================= */
+            exPorId(id) { return this.estado.exercicios.find(e => e.id === id); },
+            exPorNome(nome) { const k = norm(nome); return k ? this.estado.exercicios.find(e => norm(e.nome) === k) : undefined; },
+            garantirEx(nome, series, reps) {
+                let ex = this.exPorNome(nome);
+                if (!ex) {
+                    this.estado.exercicios.push({ id: uid(), nome: nome.trim(), series: num(series) || 3, reps: num(reps) || 10, kg: 0, hist: [] });
+                    ex = this.exPorNome(nome);
+                }
+                return ex;
+            },
+            /** Única porta de entrada para mudar uma carga: treino e Cargas leem do mesmo exercício. */
+            setCarga(id, kg, reps) {
+                const ex = this.exPorId(id);
+                if (!ex) return;
+                kg = Math.max(0, r1(num(kg)));
+                if (reps != null && reps !== '' && num(reps) > 0) ex.reps = num(reps);
+                if (kg === ex.kg && (ex.hist.length || !kg)) return;
+                if (!kg && !ex.hist.length) return;
+                ex.kg = kg;
+                const d = hoje(), ult = ex.hist[ex.hist.length - 1];
+                if (ult && ult.d === d) { ult.kg = kg; ult.reps = ex.reps; }
+                else ex.hist.push({ d, kg, reps: ex.reps });
+                if (ex.hist.length > 200) ex.hist.splice(0, ex.hist.length - 200);
+            },
+            recorde(ex) {
+                if (ex.hist.length < 2 || !ex.kg) return false;
+                return ex.kg > Math.max(...ex.hist.slice(0, -1).map(h => h.kg));
+            },
+            variacaoTxt(ex) {
+                if (ex.hist.length < 2) return 'primeiro registro';
+                const d = r1(ex.kg - ex.hist[0].kg);
+                return `${d > 0 ? '+' : ''}${this.fmt(d)} kg desde ${dataBR(ex.hist[0].d)}`;
+            },
+            pontos(ex) {
+                const h = ex.hist.slice(-12);
+                if (h.length < 2) return '';
+                const v = h.map(x => x.kg), mn = Math.min(...v), span = (Math.max(...v) - mn) || 1;
+                return h.map((x, i) => `${(i / (h.length - 1) * 100).toFixed(1)},${(26 - ((x.kg - mn) / span) * 22).toFixed(1)}`).join(' ');
+            },
+            exsOrdenados() { return [...this.estado.exercicios].sort((a, b) => (b.hist.at(-1)?.d || '').localeCompare(a.hist.at(-1)?.d || '') || a.nome.localeCompare(b.nome)); },
+            treinosDoEx(id) { return this.estado.treinos.filter(t => t.itens.includes(id)); },
+            exsDoTreino(t) { return t.itens.map(id => this.exPorId(id)).filter(Boolean); },
+            puxarEx(o) {
+                const ex = this.exPorNome(o.nome);
+                if (ex) { o.series = ex.series; o.reps = ex.reps; o.kg = ex.kg || ''; }
+            },
+            registrarCarga() {
+                const f = this.cn;
+                if (!f.nome.trim()) { this.cnErro = 'Informe o exercício.'; return; }
+                if (num(f.kg) <= 0) { this.cnErro = 'Informe a carga em kg.'; return; }
+                const ex = this.garantirEx(f.nome, f.series, f.reps);
+                if (num(f.series) > 0) ex.series = num(f.series);
+                this.setCarga(ex.id, f.kg, f.reps);
+                this.cn = { nome: '', series: '', reps: '', kg: '' }; this.cnErro = '';
+                this.aviso('Carga registrada.');
+            },
+            excluirEx(ex) {
+                if (!confirm(`Excluir "${ex.nome}" e o histórico de cargas? Ele também sai dos treinos.`)) return;
+                this.estado.treinos.forEach(t => { const i = t.itens.indexOf(ex.id); if (i >= 0) t.itens.splice(i, 1); });
+                const i = this.estado.exercicios.findIndex(x => x.id === ex.id);
+                if (i >= 0) this.estado.exercicios.splice(i, 1);
+            },
+
+            // montagem do treino
+            alternarDia(id) { const i = this.tf.dias.indexOf(id); if (i >= 0) this.tf.dias.splice(i, 1); else this.tf.dias.push(id); },
+            editarTreino(t) {
+                const itens = t.itens.map(id => this.exPorId(id)).filter(Boolean)
+                    .map(ex => ({ k: uid(), nome: ex.nome, series: ex.series, reps: ex.reps, kg: ex.kg || '' }));
+                this.tf = { id: t.id, nome: t.nome, dias: [...t.dias], hora: t.hora || '', nota: t.nota || '', itens: itens.length ? itens : [itemVazio()] };
+                this.tfErro = '';
+                this.ir('treinos');
+            },
+            cancelarTreino() { this.tf = treinoVazio(); this.tfErro = ''; },
+            salvarTreino() {
+                const f = this.tf;
+                if (!f.nome.trim()) { this.tfErro = 'Dê um nome ao treino.'; return; }
+                const ids = [];
+                f.itens.forEach(it => {
+                    if (!it.nome.trim()) return;
+                    const ex = this.garantirEx(it.nome, it.series, it.reps);
+                    ex.series = Math.max(1, num(it.series) || ex.series);
+                    ex.reps = Math.max(1, num(it.reps) || ex.reps);
+                    if (it.kg !== '' && it.kg !== null && num(it.kg) !== ex.kg) this.setCarga(ex.id, it.kg, ex.reps);
+                    if (!ids.includes(ex.id)) ids.push(ex.id);
+                });
+                const dados = { nome: f.nome.trim(), dias: [...f.dias], hora: f.hora || '', nota: f.nota || '', itens: ids };
+                if (f.id) {
+                    const t = this.estado.treinos.find(x => x.id === f.id);
+                    if (t) Object.assign(t, dados);
+                } else {
+                    this.estado.treinos.push({ id: uid(), ...dados });
+                }
+                this.tf = treinoVazio(); this.tfErro = '';
+                this.aviso('Treino salvo. As cargas já estão em Cargas.');
+            },
+            excluirTreino(t) {
+                if (!confirm(`Excluir o treino "${t.nome}"? O histórico de cargas continua em Cargas.`)) return;
+                const i = this.estado.treinos.findIndex(x => x.id === t.id);
+                if (i >= 0) this.estado.treinos.splice(i, 1);
+                if (this.tf.id === t.id) this.cancelarTreino();
+            },
+
+            // semana
+            semana() {
+                const d0 = new Date(), idx = (d0.getDay() + 6) % 7;
+                return DIAS.map((d, i) => {
+                    const dt = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() - idx + i);
+                    return { ...d, data: iso(dt), num: dt.getDate(), hoje: i === idx };
+                });
+            },
+            treinosDoDia(id) { return this.estado.treinos.filter(t => t.dias.includes(id)); },
+            feito(tid, data) { return (this.estado.execucoes[data] || []).includes(tid); },
+            alternar(tid, data) {
+                if (!this.estado.execucoes[data]) this.estado.execucoes[data] = [];
+                const arr = this.estado.execucoes[data], i = arr.indexOf(tid);
+                if (i >= 0) arr.splice(i, 1); else arr.push(tid);
+            },
+            progressoSemana() {
+                let plan = 0, feitos = 0;
+                this.semana().forEach(d => {
+                    const ts = this.treinosDoDia(d.id);
+                    plan += ts.length; feitos += ts.filter(t => this.feito(t.id, d.data)).length;
+                });
+                return { plan, feitos };
+            },
+            diasTxt(t) { return t.dias.length ? DIAS.filter(d => t.dias.includes(d.id)).map(d => d.c).join(' · ') : 'sem dia fixo'; },
+
+            /* ================= dieta ================= */
+            refsCal() { return [...this.estado.dieta.refeicoes.map(r => ({ id: r.id, nome: r.nome })), { id: 'outros', nome: 'Outros' }]; },
+            refAtual() { return this.refsCal().some(r => r.id === this.calRef) ? this.calRef : 'outros'; },
+            addRefeicao() {
+                this.estado.dieta.refeicoes.push({ id: uid(), nome: 'Nova refeição', hora: '', itens: [], nota: '' });
+            },
+            remRefeicao(r) {
+                if (!confirm(`Excluir a refeição "${r.nome}"?`)) return;
+                const i = this.estado.dieta.refeicoes.findIndex(x => x.id === r.id);
+                if (i >= 0) this.estado.dieta.refeicoes.splice(i, 1);
+            },
+            totalRef(r) { return somar(r.itens); },
+            totalDieta() { return somar(this.estado.dieta.refeicoes.flatMap(r => r.itens)); },
+            registrarRefeicao(r) {
+                if (!r.itens.length) { this.aviso('Essa refeição ainda não tem alimentos.'); return; }
+                r.itens.forEach(i => {
+                    const { id, ...resto } = i;
+                    this.estado.cal.itens.push({ id: uid(), ref: r.id, h: agora(), ...resto });
+                });
+                this.aviso(`${r.nome} registrada nas calorias de hoje.`);
+            },
+            aoAdicionar({ alvo, item }) {
+                if (alvo.tipo === 'dieta') {
+                    const r = this.estado.dieta.refeicoes.find(x => x.id === alvo.ref);
+                    if (r) r.itens.push({ id: uid(), ...item });
+                } else {
+                    this.estado.cal.itens.push({ id: uid(), ref: this.refAtual(), h: agora(), ...item });
+                }
+            },
+            criarAlimento({ nome }) {
+                this.ir('calorias');
+                this.cf.nome = nome || ''; this.cfAberto = true;
+            },
+
+            /* ================= calorias ================= */
+            totalCal() { return somar(this.estado.cal.itens); },
+            porRef(id) {
+                const ids = this.estado.dieta.refeicoes.map(r => r.id);
+                return this.estado.cal.itens.filter(i => id === 'outros' ? !ids.includes(i.ref) : i.ref === id);
+            },
+            somaItens(itens) { return somar(itens); },
+            removerCal(id) { const i = this.estado.cal.itens.findIndex(x => x.id === id); if (i >= 0) this.estado.cal.itens.splice(i, 1); },
+            salvarAlimento() {
+                const f = this.cf;
+                if (!f.nome.trim()) { this.cfErro = 'Dê um nome ao alimento.'; return; }
+                if (num(f.kcal) <= 0) { this.cfErro = 'Informe as calorias por 100 g.'; return; }
+                this.estado.alimentos.push({ id: 'u' + uid(), custom: true, nome: f.nome.trim(), kcal: num(f.kcal), p: num(f.p), c: num(f.c), gd: num(f.gd), fib: num(f.fib), un: 0 });
+                this.cf = { nome: '', kcal: '', p: '', c: '', gd: '', fib: '' }; this.cfErro = '';
+                this.aviso('Alimento cadastrado. Já aparece na busca.');
+            },
+            removerAlimento(id) { const i = this.estado.alimentos.findIndex(x => x.id === id); if (i >= 0) this.estado.alimentos.splice(i, 1); },
+            falta(k) {
+                const m = this.estado.cal.metas[k], v = this.totalCal()[k];
+                return m > v ? `faltam ${this.fmt(m - v)}` : 'meta batida';
+            },
+
+            /* ================= água ================= */
+            totalAgua() { return this.estado.agua.log.reduce((s, x) => s + x.ml, 0); },
+            pctAgua() { return this.pct(this.totalAgua(), this.estado.agua.meta); },
+            beber(ml) {
+                ml = Math.round(num(ml));
+                if (ml <= 0 || ml > 5000) return;
+                this.estado.agua.log.push({ id: uid(), ml, h: agora() });
+            },
+            beberCustom() { this.beber(this.aguaCustom); this.aguaCustom = ''; },
+            desfazerAgua() { this.estado.agua.log.pop(); },
+            removerAgua(id) { const i = this.estado.agua.log.findIndex(x => x.id === id); if (i >= 0) this.estado.agua.log.splice(i, 1); },
+            addPasso() {
+                const v = Math.round(num(this.novoPasso));
+                if (v > 0 && v <= 2000 && !this.estado.agua.passos.includes(v)) this.estado.agua.passos.push(v);
+                this.estado.agua.passos.sort((a, b) => a - b);
+                this.novoPasso = '';
+            },
+            remPasso(i) { this.estado.agua.passos.splice(i, 1); },
+            sugerirMeta() {
+                const kg = num(this.estado.agua.peso);
+                if (kg > 0) { this.estado.agua.meta = Math.round(kg * 35 / 50) * 50; this.aviso('Meta ajustada: 35 ml por kg.'); }
+            },
+            barras(tipo) {
+                const dados = [];
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date(); d.setDate(d.getDate() - i);
+                    const k = iso(d), eHoje = i === 0;
+                    const v = tipo === 'agua'
+                        ? (eHoje ? this.totalAgua() : (this.estado.agua.hist[k] || 0))
+                        : (eHoje ? this.totalCal().kcal : (this.estado.cal.hist[k]?.kcal || 0));
+                    dados.push({ k, v, l: LETRAS[d.getDay()], hoje: eHoje });
+                }
+                const meta = tipo === 'agua' ? this.estado.agua.meta : this.estado.cal.metas.kcal;
+                const max = Math.max(meta, ...dados.map(x => x.v)) || 1;
+                return { itens: dados.map(x => ({ ...x, h: Math.round(x.v / max * 100) })), meta: Math.round(meta / max * 100) };
+            },
+
+            /* ================= metas ================= */
+            addMeta() {
+                if (!this.novaMeta.trim()) return;
+                this.estado.metas.push({ id: uid(), texto: this.novaMeta.trim(), feita: false });
+                this.novaMeta = '';
+            },
+            remMeta(id) { const i = this.estado.metas.findIndex(x => x.id === id); if (i >= 0) this.estado.metas.splice(i, 1); },
+            metasFeitas() { return this.estado.metas.filter(m => m.feita).length; },
+
+            /* ================= blocos livres (texto, tabela, lista, imagem, mapa mental) ================= */
+            blocosDe(sec) { return this.estado.blocos.filter(b => b.secao === sec); },
+            novoBloco(sec, tipo) {
+                const def = {
+                    texto: [340, 240, 'Texto', { texto: '', tam: 'm' }],
+                    tabela: [480, 280, 'Tabela', { cab: ['Item', 'Valor'], linhas: [['', ''], ['', '']] }],
+                    lista: [320, 300, 'Lista', { itens: [] }],
+                    imagem: [360, 300, 'Imagem', { ajuste: 'cover', legenda: '' }],
+                    mapa: [720, 480, 'Mapa mental', { nos: [{ id: uid(), t: 'Tema central', x: 40, y: 180, pai: null, cor: PALETA[0] }] }],
+                }[tipo];
+                if (!def) return;
+                const id = 'b' + uid();
+                const W = this.larg || 1088, y0 = this.alturaConteudo(sec);
+                this.estado.blocos.push({ id, secao: sec, tipo, titulo: def[2], links: [], dados: def[3] });
+                if (!this.estado.layout[sec]) this.estado.layout[sec] = {};
+                this.estado.layout[sec][id] = { x: 0, y: y0 ? y0 + 16 : 0, w: Math.min(def[0], W), h: def[1], z: ++this.zTop };
+                this.menuBloco = false;
+                this.aviso(`${def[2]} adicionado ao fim da aba. Arraste para onde quiser.`);
+            },
+            removerBloco(b) {
+                if (!confirm(`Excluir o bloco "${b.titulo || 'sem título'}"?`)) return;
+                const { id, secao } = b;
+                const i = this.estado.blocos.findIndex(x => x.id === id);
+                if (i >= 0) this.estado.blocos.splice(i, 1);
+                if (this.estado.layout[secao]) delete this.estado.layout[secao][id];
+                if (this.imagens[id]) {
+                    delete this.imagens[id];
+                    enviar(`${this.cfg.url}/img.${id}`, null, 'DELETE').catch(() => {});
+                }
+            },
+
+            // tabela
+            tabCol(b) { b.dados.cab.push('Coluna ' + (b.dados.cab.length + 1)); b.dados.linhas.forEach(l => l.push('')); },
+            tabColRem(b, j) { if (b.dados.cab.length < 2) return; b.dados.cab.splice(j, 1); b.dados.linhas.forEach(l => l.splice(j, 1)); },
+            tabLinha(b) { b.dados.linhas.push(b.dados.cab.map(() => '')); },
+
+            // lista
+            addItem(b, el) {
+                const t = el.value.trim();
+                if (!t) return;
+                b.dados.itens.push({ id: uid(), t, f: false });
+                el.value = '';
+            },
+            remItem(b, id) { const i = b.dados.itens.findIndex(x => x.id === id); if (i >= 0) b.dados.itens.splice(i, 1); },
+
+            // imagem
+            async lerImagem(b, arquivo) {
+                if (!arquivo || !arquivo.type.startsWith('image/')) return;
+                try {
+                    this.imagens[b.id] = await reduzir(arquivo);
+                    await enviar(`${this.cfg.url}/img.${b.id}`, JSON.stringify(this.imagens[b.id]));
+                } catch { this.aviso('Não consegui salvar a imagem.'); }
+            },
+
+            // vínculos com treinos e tarefas
+            vincular(b, el) {
+                const v = el.value; el.value = '';
+                if (!v) return;
+                const [t, id] = v.split(':');
+                if (!b.links.some(l => l.t === t && String(l.id) === id)) b.links.push({ t, id });
+            },
+            rotuloLink(l) {
+                if (l.t === 'treino') return this.estado.treinos.find(t => t.id === l.id)?.nome || 'treino removido';
+                return this.tarefas.find(t => String(t.id) === String(l.id))?.titulo || 'tarefa removida';
+            },
+            abrirLink(l) {
+                if (l.t === 'treino') {
+                    this.ir('treinos');
+                    this.destaque = 'treino:' + l.id;
+                    this.$nextTick(() => document.getElementById('treino-' + l.id)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+                    setTimeout(() => { this.destaque = null; }, 2200);
+                } else {
+                    this.ir('tarefas');
+                }
+            },
+
+            /* ---------- mapa mental ---------- */
+            mmTam(b) {
+                const nos = b.dados.nos;
+                return { w: Math.max(...nos.map(n => n.x)) + MM.w + 60, h: Math.max(...nos.map(n => n.y)) + MM.h + 60 };
+            },
+            mmLinhas(b) {
+                return b.dados.nos.filter(n => n.pai).map(n => {
+                    const pai = b.dados.nos.find(x => x.id === n.pai);
+                    if (!pai) return '';
+                    const dir = (n.x + MM.w / 2) >= (pai.x + MM.w / 2);
+                    const x1 = dir ? pai.x + MM.w : pai.x, x2 = dir ? n.x : n.x + MM.w;
+                    const y1 = pai.y + MM.h / 2, y2 = n.y + MM.h / 2, mx = (x1 + x2) / 2;
+                    return `M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}`;
+                }).join(' ');
+            },
+            mmAdd(b, paiId) {
+                const nos = b.dados.nos, pai = nos.find(n => n.id === paiId);
+                if (!pai) return;
+                const irmaos = nos.filter(n => n.pai === paiId).length;
+                const cor = pai.pai ? pai.cor : PALETA[(irmaos + 1) % PALETA.length];
+                nos.push({ id: uid(), t: 'Nova ideia', x: pai.x + MM.w + 48, y: pai.y + irmaos * (MM.h + 12), pai: paiId, cor });
+            },
+            mmRem(b, id) {
+                const del = new Set([id]);
+                let mudou = true;
+                while (mudou) {
+                    mudou = false;
+                    b.dados.nos.forEach(n => { if (n.pai && del.has(n.pai) && !del.has(n.id)) { del.add(n.id); mudou = true; } });
+                }
+                b.dados.nos = b.dados.nos.filter(n => !del.has(n.id));
+            },
+            mmCor(n) { n.cor = PALETA[(PALETA.indexOf(n.cor) + 1) % PALETA.length]; },
+            mmMover(e, b, n) {
+                const x0 = e.clientX, y0 = e.clientY, nx = n.x, ny = n.y;
+                const mover = ev => { n.x = Math.max(0, Math.round(nx + ev.clientX - x0)); n.y = Math.max(0, Math.round(ny + ev.clientY - y0)); };
+                const fim = () => {
+                    window.removeEventListener('pointermove', mover);
+                    window.removeEventListener('pointerup', fim);
+                    window.removeEventListener('pointercancel', fim);
+                };
+                window.addEventListener('pointermove', mover);
+                window.addEventListener('pointerup', fim);
+                window.addEventListener('pointercancel', fim);
+            },
+        };
+    };
+
+    // usado só para testes manuais no console
+    window.WF = { interpretar, buscar, calcular, gramas, somar, BASE };
+})();
