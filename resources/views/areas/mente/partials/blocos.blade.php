@@ -132,7 +132,7 @@
                 </div>
             </template>
 
-{{-- Cartão ativo (de outra página) --}}
+            {{-- Cartão ativo (de outra página) --}}
             @include('areas.partials.bloco-vivo')
 
             {{-- ===== Mapa mental ===== --}}
@@ -155,25 +155,6 @@
                 </div>
             </template>
 
-            {{-- ===== Vínculos (tarefas, livros, estudos, anotações, disciplinas). Imagens não têm vínculo. ===== --}}
-            <div class="flex flex-wrap items-center gap-1.5 pt-2" style="border-top: 1px solid var(--linha)"
-                 x-show="b.tipo !== 'mapa' && b.tipo !== 'vivo' && b.tipo !== 'imagem'">
-                <template x-for="(l, i) in b.links" :key="l.t + l.id">
-                    <span class="chip cursor-pointer" role="button" tabindex="0" @click="abrirLink(l)" @keydown.enter="abrirLink(l)">
-                        <span x-text="iconeLink(l.t)"></span>
-                        <span class="truncate max-w-[10rem]" x-text="rotuloLink(l)"></span>
-                        <span title="Desvincular" @click.stop="b.links.splice(i, 1)">✕</span>
-                    </span>
-                </template>
-                <select class="campo wf-link-sel" aria-label="Vincular" @change="vincular(b, $event.target)">
-                    <option value="">🔗 Vincular…</option>
-                    <template x-for="t in tarefas" :key="'t' + t.id"><option :value="'tarefa:' + t.id" x-text="'✓ ' + t.titulo"></option></template>
-                    <template x-for="x in estado.livros" :key="'l' + x.id"><option :value="'livro:' + x.id" x-text="'📖 ' + x.titulo"></option></template>
-                    <template x-for="x in estado.estudos.itens" :key="'e' + x.id"><option :value="'estudo:' + x.id" x-text="'🎓 ' + x.titulo"></option></template>
-                    <template x-for="x in estado.notas" :key="'n' + x.id"><option :value="'nota:' + x.id" x-text="'📝 ' + x.titulo"></option></template>
-                    <template x-for="x in estado.fac.disciplinas" :key="'d' + x.id"><option :value="'disc:' + x.id" x-text="'🏛️ ' + x.nome"></option></template>
-                </select>
-            </div>
         </div>
     </x-mente.item>
 </template>

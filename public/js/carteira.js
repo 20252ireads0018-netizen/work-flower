@@ -1,17 +1,17 @@
 /* Work Flower · área Carteira
    Carteira individual, investimentos, negócios, trabalho, documentos, quadro e blocos livres.
-   Depende de quadro.js (carregue antes). */
+   Depende de quadro.js e documentos.js (carregue antes). A lógica de documentos fica em documentos.js. */
 (function () {
     'use strict';
 
     const Q = window.WFQuadro;
+    const D = window.WFDocs;
     const { iso, hoje, uid, r1, num, norm, dataBR } = Q.util;
     const PALETA = Q.PALETA;
 
     const brl = n => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const mesIni = () => { const d = new Date(); return iso(new Date(d.getFullYear(), d.getMonth(), 1)); };
     const somaDias = n => { const d = new Date(); d.setDate(d.getDate() + n); return iso(d); };
-    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const LETRAS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
     const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -53,30 +53,12 @@
             'projetos': { x: 0, y: 536, w: 1088, h: 440 },
         },
         docs: {
-            'doc-lista': { x: 0, y: 0, w: 280, h: 420 },
-            'doc-editor': { x: 296, y: 0, w: 380, h: 780 },
-            'doc-previa': { x: 692, y: 0, w: 396, h: 780 },
+            'doc-lista': { x: 0, y: 0, w: 232, h: 520 },
+            'doc-editor': { x: 248, y: 0, w: 400, h: 860 },
+            'doc-previa': { x: 664, y: 0, w: 424, h: 860 },
         },
         mapa: {},
         livre: {},
-    };
-
-    /* ================= modelos de documento ================= */
-    const MODELOS = {
-        curriculo: {
-            nome: 'Currículo', titulo: 'Meu currículo',
-            secoes: ['Resumo profissional', 'Experiência', 'Formação', 'Habilidades'],
-        },
-        contrato: {
-            nome: 'Contrato', titulo: 'Contrato de prestação de serviços',
-            secoes: ['Partes', 'Objeto', 'Valor e pagamento', 'Prazo', 'Disposições gerais', 'Assinaturas'],
-        },
-        livre: { nome: 'Documento', titulo: 'Novo documento', secoes: ['Texto'] },
-    };
-    const FONTES = {
-        sans: "'DM Sans', Arial, sans-serif",
-        serif: "Georgia, 'Times New Roman', serif",
-        mono: "ui-monospace, Menlo, monospace",
     };
 
     /* ================= estado inicial ================= */
@@ -94,6 +76,7 @@
         e.lanc ??= []; e.invest ??= []; e.radar ??= [];
         e.negocios ??= []; e.negAtivo ??= null;
         e.projetos ??= []; e.docs ??= []; e.docAtivo ??= null;
+        e.docs.forEach(d => D.migrar(d));   // documentos antigos ganham os novos campos sem perder nada
         if (!e.mapaSemeado) {
             e.mapaSemeado = true;
             e.blocos.push(mapaSemente());
@@ -128,9 +111,11 @@
         return {
             ...Q.estadoUI(),
             ...Q.metodos(PADRAO),
+            ...D.estadoUI(),
+            ...D.metodos(),
             cfg, estado, imagens, tarefas: cfg.tarefas || [],
             paleta: PALETA, formatos: FORMATOS, catsCusto: CATS_CUSTO, tiposInvest: TIPOS_INVEST,
-            fontes: [{ id: 'sans', nome: 'Sem serifa' }, { id: 'serif', nome: 'Com serifa' }, { id: 'mono', nome: 'Monoespaçada' }],
+            fontes: D.FONTES_LISTA,
             colunas: [{ id: 'fazer', nome: 'A fazer' }, { id: 'andando', nome: 'Em andamento' }, { id: 'feito', nome: 'Concluído' }],
             aba: 'carteira',
             abas: [
@@ -420,7 +405,7 @@
             addProjeto() {
                 const t = this.novoProj.trim();
                 if (!t) return;
-                this.estado.projetos.push({ id: uid(), nome: t, status: 'fazer', nota: '', doc: '' });
+                this.estado.projetos.push({ id: uid(), nome: t, status: 'fazer', nota: '', doc: '', anexos: [] });
                 this.novoProj = '';
             },
             projDe(st) { return this.estado.projetos.filter(p => p.status === st); },
@@ -430,61 +415,41 @@
             },
             remProj(id) { const i = this.estado.projetos.findIndex(x => x.id === id); if (i >= 0) this.estado.projetos.splice(i, 1); },
 
-            /* ================= documentos ================= */
-            docAtual() { return this.estado.docs.find(d => d.id === this.estado.docAtivo) || null; },
-            novoDoc(tipo) {
-                const m = MODELOS[tipo];
-                const d = {
-                    id: uid(), tipo, titulo: m.titulo,
-                    layout: { fonte: tipo === 'contrato' ? 'serif' : 'sans', tam: 'm', cor: PALETA[0], cab: tipo === 'curriculo' ? 'esq' : 'centro' },
-                    campos: { nome: '', cargo: '', email: '', tel: '', cidade: '' },
-                    secoes: m.secoes.map(t => ({ id: uid(), titulo: t, texto: '' })),
+            /* ---- anexos externos dos projetos (PDF, Word, texto e links) ---- */
+            anexarArquivo(p, file) {
+                if (!file) return;
+                if (!/\.(pdf|docx?|odt|rtf|txt)$/i.test(file.name)) { this.aviso('Use PDF, Word ou texto.'); return; }
+                if (file.size > 3 * 1024 * 1024) { this.aviso('O arquivo passa de 3 MB.'); return; }
+                const r = new FileReader();
+                r.onload = () => {
+                    (p.anexos ??= []).push({ id: uid(), tipo: 'arquivo', nome: file.name, mime: file.type, data: r.result });
+                    this.aviso('Arquivo anexado.');
                 };
-                this.estado.docs.push(d);
-                this.estado.docAtivo = d.id;
+                r.readAsDataURL(file);
             },
-            tipoDoc(t) { return MODELOS[t]?.nome || 'Documento'; },
-            remDoc(d) {
-                if (!confirm(`Excluir "${d.titulo}"?`)) return;
-                const i = this.estado.docs.findIndex(x => x.id === d.id);
-                if (i >= 0) this.estado.docs.splice(i, 1);
-                if (this.estado.docAtivo === d.id) this.estado.docAtivo = this.estado.docs[0]?.id || null;
+            anexarLink(p, url) {
+                url = String(url || '').trim();
+                if (!url) return;
+                if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+                let nome;
+                try { nome = new URL(url).hostname.replace(/^www\./, ''); } catch { this.aviso('Link inválido.'); return; }
+                (p.anexos ??= []).push({ id: uid(), tipo: 'link', nome, url });
             },
-            addSecao(d) { d.secoes.push({ id: uid(), titulo: 'Nova seção', texto: '' }); },
-            remSecao(d, i) { d.secoes.splice(i, 1); },
-            moverSecao(d, i, dir) {
-                const j = i + dir;
-                if (j < 0 || j >= d.secoes.length) return;
-                [d.secoes[i], d.secoes[j]] = [d.secoes[j], d.secoes[i]];
+            remAnexo(p, id) {
+                const i = (p.anexos || []).findIndex(x => x.id === id);
+                if (i >= 0) p.anexos.splice(i, 1);
             },
-            /** HTML do documento só com estilos inline: serve para a prévia e para a impressão. */
-            docHtml(d) {
-                if (!d) return '';
-                const L = d.layout;
-                const c = /^#[0-9a-f]{6}$/i.test(L.cor) ? L.cor : '#2f6fc7';
-                const f = FONTES[L.fonte] || FONTES.sans;
-                const sz = { p: 12, m: 14, g: 16 }[L.tam] || 14;
-                const al = L.cab === 'centro' ? 'center' : 'left';
-                const k = d.campos || {};
-                const cab = d.tipo === 'curriculo'
-                    ? `<h1 style="margin:0;font-size:${sz * 2}px;color:${c}">${esc(k.nome) || 'Seu nome'}</h1>`
-                      + `<p style="margin:4px 0 0;font-size:${sz * 1.1}px">${esc(k.cargo)}</p>`
-                      + `<p style="margin:2px 0 0;opacity:.7">${[k.email, k.tel, k.cidade].filter(Boolean).map(esc).join(' · ')}</p>`
-                    : `<h1 style="margin:0;font-size:${sz * 1.8}px;color:${c}">${esc(d.titulo)}</h1>`;
-                const secs = d.secoes.map(s =>
-                    `<h2 style="font-size:${sz * 1.05}px;color:${c};border-bottom:2px solid ${c};padding-bottom:2px;margin:${sz * 1.3}px 0 ${sz * .5}px">${esc(s.titulo)}</h2>`
-                    + `<div style="white-space:pre-wrap;line-height:1.5;text-align:left">${esc(s.texto)}</div>`).join('');
-                return `<div style="font-family:${f};font-size:${sz}px;color:#1b1f24;background:#fff;padding:32px;min-height:100%;box-sizing:border-box">`
-                    + `<div style="text-align:${al}">${cab}</div>${secs}</div>`;
+            async abrirAnexo(a) {
+                if (a.tipo === 'link') { window.open(a.url, '_blank', 'noopener'); return; }
+                const blob = await (await fetch(a.data)).blob();
+                const url = URL.createObjectURL(blob);
+                if (a.mime === 'application/pdf') window.open(url, '_blank');
+                else { const l = document.createElement('a'); l.href = url; l.download = a.nome; l.click(); }
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
             },
-            imprimir(d) {
-                const w = window.open('', '_blank');
-                if (!w) { this.aviso('Libere os pop-ups para imprimir.'); return; }
-                w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(d.titulo)}</title>`
-                    + `<style>@page{margin:12mm}body{margin:0}</style></head><body>${this.docHtml(d)}</body></html>`);
-                w.document.close(); w.focus();
-                setTimeout(() => w.print(), 250); // na janela de impressão, escolha "Salvar como PDF"
-            },
+
+            /* ================= documentos =================
+               Toda a lógica (modelos, elementos, formatação, prévia, impressão) está em documentos.js. */
 
             /* ================= vínculos dos blocos ================= */
             rotuloLink(l) {
@@ -496,6 +461,18 @@
                 if (l.t === 'negocio') { this.estado.negAtivo = l.id; this.ir('negocios'); }
                 else if (l.t === 'doc') { this.estado.docAtivo = l.id; this.ir('docs'); }
                 else this.ir('trabalho');
+            },
+
+            /* Ajusta a altura do bloco à proporção da imagem (só quando a imagem muda). */
+            ajustarImagem(b, img) {
+                if (!img.naturalWidth) return;
+                const ratio = img.naturalHeight / img.naturalWidth;
+                if (b.dados.ratio === ratio) return;          // não sobrescreve redimensionamento manual
+                b.dados.ratio = ratio;
+                const L = this.estado.layout?.[b.secao]?.[b.id];
+                if (!L) return;
+                const cabecalho = 46, padding = 32;           // topo do bloco + padding do corpo
+                L.h = Math.max(Math.round((L.w - padding) * ratio) + cabecalho + padding, 80);
             },
         };
     };

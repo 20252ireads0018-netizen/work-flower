@@ -63,6 +63,9 @@
 
     .wf-bloco { display: flex; flex-direction: column; gap: .75rem; min-height: 100%; }
     .wf-cresce { flex: 1; min-height: 6rem; }
+    /* Bloco de altura fixa (leitor de PDF): o cartão não cresce, quem rola é o painel interno */
+    .wf-bloco.fixo { height: 100%; min-height: 0; }
+    .wf-bloco.fixo .wf-cresce { min-height: 0; }
 
     .chip {
         display: inline-flex; align-items: center; gap: .35rem; padding: .25rem .6rem; border-radius: 9999px;
@@ -96,8 +99,12 @@
     .wf-linha.sel { background: var(--prim-suave); border-color: var(--prim-linha); }
     .wf-linha.atrasada { border-left-color: #f87171; }
 
-    /* ----- Leitor de PDF ----- */
-    .wf-leitor { background: color-mix(in srgb, var(--papel) 70%, #000); border: 1px solid var(--linha); border-radius: .6rem; padding: .75rem; overflow: auto; flex: 1; min-height: 12rem; }
+    /* ----- Leitor de PDF (rolagem contínua) ----- */
+    .wf-leitor {
+        position: relative; /* necessário: o offsetTop das páginas é medido a partir daqui */
+        background: color-mix(in srgb, var(--papel) 70%, #000); border: 1px solid var(--linha);
+        border-radius: .6rem; padding: .75rem; overflow: auto; flex: 1; min-height: 12rem;
+    }
     .wf-pagina { position: relative; margin: 0 auto; background: #fff; box-shadow: 0 6px 24px rgba(0, 0, 0, .45); }
     .wf-pagina canvas { display: block; }
     .wf-dest { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
@@ -150,6 +157,7 @@
         .wf-topo { cursor: default; touch-action: auto; }
         .wf-redim { display: none; }
         .wf-leitor { max-height: 70vh; }
+        .wf-bloco.fixo { height: auto; }
     }
 </style>
 
@@ -269,7 +277,7 @@
                     <h2 class="titulo text-base flex-1 truncate" x-text="livroAtual()?.titulo || 'Leitor'"></h2>
                 </x-slot>
 
-                <div class="wf-bloco">
+                <div class="wf-bloco fixo">
                     <p x-show="!livroAtual()" class="text-sm texto-2">Escolha um livro na biblioteca para ler, marcar páginas e destacar trechos.</p>
 
                     <div x-show="livroAtual()" class="flex flex-col gap-3 wf-cresce">
@@ -322,20 +330,25 @@
                             <p x-show="leitor.carregando" class="text-sm texto-2">Abrindo PDF…</p>
                             <p x-show="leitor.erro" class="erro" x-text="leitor.erro"></p>
 
-                            <div class="wf-leitor" x-show="!leitor.erro">
-                                <div class="wf-pagina" x-ref="pdfPagina" @mouseup="capturar()" @touchend="setTimeout(() => capturar(), 250)">
-                                    <canvas x-ref="pdfCanvas" :style="leitor.noite ? 'filter:invert(.92) hue-rotate(180deg)' : ''"></canvas>
-                                    <div class="wf-dest">
-                                        <template x-for="d in destPg()" :key="d.id">
-                                            <div>
-                                                <template x-for="(r, i) in d.rects" :key="i">
-                                                    <i :style="`left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%;background:${d.cor}`"></i>
-                                                </template>
-                                            </div>
-                                        </template>
+                            {{-- Painel de rolagem contínua: uma .wf-pagina por página do PDF --}}
+                            <div class="wf-leitor" x-ref="pdfLeitor" x-show="!leitor.erro"
+                                 @scroll.passive="aoRolar()"
+                                 @mouseup="capturar()" @touchend="setTimeout(() => capturar(), 250)">
+                                <template x-for="n in Array.from({ length: leitor.total }, (_, i) => i + 1)" :key="n">
+                                    <div class="wf-pagina" :data-pg="n" style="margin-bottom: .75rem">
+                                        <canvas :style="leitor.noite ? 'filter:invert(.92) hue-rotate(180deg)' : ''"></canvas>
+                                        <div class="wf-dest">
+                                            <template x-for="d in destDe(n)" :key="d.id">
+                                                <div>
+                                                    <template x-for="(r, i) in d.rects" :key="i">
+                                                        <i :style="`left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%;background:${d.cor}`"></i>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <div class="textLayer"></div>
                                     </div>
-                                    <div class="textLayer" x-ref="pdfTexto"></div>
-                                </div>
+                                </template>
                             </div>
                         </div>
                     </div>

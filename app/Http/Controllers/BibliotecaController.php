@@ -32,7 +32,7 @@ class BibliotecaController extends Controller
             'itens'           => ['present', 'array', 'max:60'],
             'itens.*.id'      => ['required', 'string', 'max:40'],
             'itens.*.nome'    => ['required', 'string', 'max:120'],
-            'itens.*.tipo'    => ['required', 'in:texto,tabela,lista,imagem,documento,mapa,vivo,compras,campos,escrita,social,loja,codigo'],
+            'itens.*.tipo'    => ['required', 'in:texto,tabela,lista,imagem,documento,mapa,vivo,compras,campos,escrita,social,loja,codigo,tabletop'],
             'itens.*.titulo'  => ['nullable', 'string', 'max:200'],
             'itens.*.dados'   => ['nullable', 'array'], // itens antigos ficaram sem 'dados': aceita e completa abaixo
             'itens.*.cor'     => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],

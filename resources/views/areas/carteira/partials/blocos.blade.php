@@ -75,22 +75,18 @@
 
                 {{-- Imagem --}}
                 <template x-if="b.tipo === 'imagem'">
-                    <div class="h-full flex flex-col gap-2">
+                    <div data-img class="w-full">
                         <template x-if="imagens[b.id]">
-                            <img :src="imagens[b.id]" :alt="b.dados.legenda || b.titulo"
-                                 class="w-full flex-1 min-h-0 rounded-lg" :style="{ objectFit: b.dados.ajuste }">
+                            <img :src="imagens[b.id]" :alt="b.titulo"
+                                class="block w-full h-auto rounded-lg cursor-pointer"
+                                title="Duplo clique para trocar a imagem"
+                                @load="ajustarImagem(b, $el)"
+                                @dblclick="$el.closest('[data-img]').querySelector('input[type=file]').click()">
                         </template>
-                        <div class="flex gap-2 items-center">
-                            <label class="btn-sec cursor-pointer">
-                                <span x-text="imagens[b.id] ? 'Trocar imagem' : 'Escolher imagem'"></span>
-                                <input type="file" accept="image/*" class="hidden" @change="lerImagem(b, $event.target.files[0]); $event.target.value = ''">
-                            </label>
-                            <select class="campo wf-link-sel" x-model="b.dados.ajuste" aria-label="Ajuste da imagem">
-                                <option value="cover">Preencher</option>
-                                <option value="contain">Inteira</option>
-                            </select>
-                        </div>
-                        <input class="campo" x-model="b.dados.legenda" placeholder="Legenda">
+                        <button type="button" class="btn-sec" x-show="!imagens[b.id]"
+                                @click="$el.closest('[data-img]').querySelector('input[type=file]').click()">Escolher imagem</button>
+                        <input type="file" accept="image/*" class="hidden"
+                            @change="lerImagem(b, $event.target.files[0]); $event.target.value = ''">
                     </div>
                 </template>
 
@@ -116,22 +112,6 @@
                         </div>
                     </div>
                 </template>
-            </div>
-
-            {{-- Vínculos --}}
-            <div class="flex flex-wrap items-center gap-1.5">
-                <template x-for="(l, i) in b.links" :key="l.t + l.id">
-                    <span class="chip">
-                        <button type="button" @click="abrirLink(l)" x-text="rotuloLink(l)" title="Abrir"></button>
-                        <button type="button" title="Desvincular" @click="b.links.splice(i, 1)">✕</button>
-                    </span>
-                </template>
-                <select class="campo wf-link-sel" @change="vincular(b, $el)" aria-label="Vincular">
-                    <option value="">+ Vincular</option>
-                    <template x-for="n in estado.negocios" :key="'n' + n.id"><option :value="'negocio:' + n.id" x-text="'Negócio · ' + n.nome"></option></template>
-                    <template x-for="d in estado.docs" :key="'d' + d.id"><option :value="'doc:' + d.id" x-text="'Documento · ' + d.titulo"></option></template>
-                    <template x-for="t in tarefas" :key="'t' + t.id"><option :value="'tarefa:' + t.id" x-text="'Tarefa · ' + t.titulo"></option></template>
-                </select>
             </div>
         </div>
     </x-carteira.item>

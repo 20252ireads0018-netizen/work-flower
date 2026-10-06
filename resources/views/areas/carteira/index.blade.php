@@ -87,8 +87,9 @@
 </style>
 
 <script type="application/json" id="carteira-cfg">{!! json_encode($cfg, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) !!}</script>
-{{-- Precisam vir antes do Alpine iniciar (o Alpine do layout usa defer) --}}
+{{-- Precisam vir antes do Alpine iniciar (o Alpine do layout usa defer). Ordem: quadro → documentos → carteira --}}
 <script src="{{ asset('js/quadro.js') }}?v={{ @filemtime(public_path('js/quadro.js')) }}"></script>
+<script src="{{ asset('js/documentos.js') }}?v={{ @filemtime(public_path('js/documentos.js')) }}"></script>
 <script src="{{ asset('js/carteira.js') }}?v={{ @filemtime(public_path('js/carteira.js')) }}"></script>
 
 <div x-data="carteiraAbas()" class="space-y-6">
@@ -554,6 +555,24 @@
                                         <template x-for="d in estado.docs" :key="d.id"><option :value="d.id" x-text="d.titulo"></option></template>
                                     </select>
                                     <button type="button" class="link-prim text-xs" x-show="p.doc" @click="abrirLink({ t: 'doc', id: p.doc })">Abrir documento</button>
+                                    {{-- Anexos externos --}}
+                                    <div class="space-y-1" x-data="{ link: '' }">
+                                        <template x-for="a in (p.anexos || [])" :key="a.id">
+                                            <div class="flex items-center gap-1 text-xs">
+                                                <button type="button" class="link-prim truncate flex-1 text-left" :title="a.nome" @click="abrirAnexo(a)"
+                                                        x-text="(a.tipo === 'link' ? '🔗 ' : '📎 ') + a.nome"></button>
+                                                <button type="button" class="mini-btn perigo" title="Remover anexo" @click="remAnexo(p, a.id)">✕</button>
+                                            </div>
+                                        </template>
+                                        <div class="flex items-center gap-1.5 pt-1">
+                                            <label class="link-prim text-xs cursor-pointer">+ Arquivo
+                                                <input type="file" class="hidden" accept=".pdf,.doc,.docx,.odt,.rtf,.txt"
+                                                    @change="anexarArquivo(p, $event.target.files[0]); $event.target.value = ''">
+                                            </label>
+                                            <input class="campo !py-0.5 !text-xs flex-1 min-w-0" x-model="link" placeholder="ou cole um link (Google Docs…)"
+                                                @keydown.enter.prevent="anexarLink(p, link); link = ''">
+                                        </div>
+                                    </div>
                                 </div>
                             </template>
                         </div>
@@ -567,82 +586,8 @@
         {{-- ================= DOCUMENTOS ================= --}}
         <section class="wf-quadro" x-show="aba === 'docs'" x-cloak :style="{ minHeight: alturaQuadro('docs') + 'px' }">
 
-            <x-carteira.item sec="'docs'" bid="'doc-lista'" titulo="Documentos" :minw="240" :minh="220">
-                <div class="space-y-4">
-                    <div class="flex flex-wrap gap-1.5">
-                        <button type="button" class="btn-sec" @click="novoDoc('curriculo')">+ Currículo</button>
-                        <button type="button" class="btn-sec" @click="novoDoc('contrato')">+ Contrato</button>
-                        <button type="button" class="btn-sec" @click="novoDoc('livre')">+ Documento</button>
-                    </div>
-                    <p x-show="!estado.docs.length" class="text-sm texto-2">Crie um currículo, contrato ou documento livre.</p>
-                    <ul class="space-y-2">
-                        <template x-for="d in estado.docs" :key="d.id">
-                            <li class="wf-linha cursor-pointer" :style="estado.docAtivo === d.id ? 'border-color:var(--prim)' : ''" @click="estado.docAtivo = d.id">
-                                <div class="min-w-0"><p class="font-medium truncate" x-text="d.titulo"></p><p class="text-xs texto-2" x-text="tipoDoc(d.tipo)"></p></div>
-                                <button type="button" class="mini-btn perigo" title="Excluir" @click.stop="remDoc(d)">✕</button>
-                            </li>
-                        </template>
-                    </ul>
-                </div>
-            </x-carteira.item>
-
-            <x-carteira.item sec="'docs'" bid="'doc-editor'" titulo="Editor" :minw="320" :minh="320">
-                <p x-show="!docAtual()" class="text-sm texto-2">Selecione ou crie um documento.</p>
-                <template x-if="docAtual()">
-                    <div x-data="{ get d() { return docAtual() } }" class="space-y-4">
-                        <div><label class="rotulo">Título</label><input class="campo" x-model="d.titulo"></div>
-
-                        <template x-if="d.tipo === 'curriculo'">
-                            <div class="grid grid-cols-2 gap-2">
-                                <div class="col-span-2"><label class="rotulo">Nome</label><input class="campo" x-model="d.campos.nome"></div>
-                                <div class="col-span-2"><label class="rotulo">Cargo</label><input class="campo" x-model="d.campos.cargo"></div>
-                                <div><label class="rotulo">E-mail</label><input class="campo" x-model="d.campos.email"></div>
-                                <div><label class="rotulo">Telefone</label><input class="campo" x-model="d.campos.tel"></div>
-                                <div class="col-span-2"><label class="rotulo">Cidade</label><input class="campo" x-model="d.campos.cidade"></div>
-                            </div>
-                        </template>
-
-                        <div class="grid grid-cols-2 gap-2">
-                            <div><label class="rotulo">Fonte</label>
-                                <select class="campo" x-model="d.layout.fonte"><template x-for="f in fontes" :key="f.id"><option :value="f.id" x-text="f.nome"></option></template></select></div>
-                            <div><label class="rotulo">Tamanho</label>
-                                <select class="campo" x-model="d.layout.tam"><option value="p">Pequeno</option><option value="m">Médio</option><option value="g">Grande</option></select></div>
-                            <div><label class="rotulo">Cabeçalho</label>
-                                <select class="campo" x-model="d.layout.cab"><option value="esq">À esquerda</option><option value="centro">Centralizado</option></select></div>
-                            <div><label class="rotulo">Cor</label>
-                                <div class="flex gap-1.5 flex-wrap pt-1">
-                                    <template x-for="c in paleta" :key="c">
-                                        <button type="button" class="w-5 h-5 rounded-full" :style="`background:${c};outline:${d.layout.cor === c ? '2px solid var(--tinta)' : 'none'};outline-offset:2px`"
-                                                :aria-label="'Cor ' + c" @click="d.layout.cor = c"></button>
-                                    </template>
-                                </div></div>
-                        </div>
-
-                        <div class="space-y-3">
-                            <template x-for="(s, i) in d.secoes" :key="s.id">
-                                <div class="wf-ref card p-3 space-y-2">
-                                    <div class="flex items-center gap-1">
-                                        <input class="wf-titulo flex-1" x-model="s.titulo" aria-label="Título da seção">
-                                        <button type="button" class="mini-btn" title="Subir" @click="moverSecao(d, i, -1)">↑</button>
-                                        <button type="button" class="mini-btn" title="Descer" @click="moverSecao(d, i, 1)">↓</button>
-                                        <button type="button" class="mini-btn perigo" title="Remover seção" @click="remSecao(d, i)">✕</button>
-                                    </div>
-                                    <textarea class="campo" rows="4" x-model="s.texto" placeholder="Conteúdo da seção"></textarea>
-                                </div>
-                            </template>
-                            <button type="button" class="link-prim text-sm" @click="addSecao(d)">+ Seção</button>
-                        </div>
-                    </div>
-                </template>
-            </x-carteira.item>
-
-            <x-carteira.item sec="'docs'" bid="'doc-previa'" titulo="Prévia" :minw="320" :minh="320">
-                <x-slot name="acoes">
-                    <button type="button" class="btn" x-show="docAtual()" @click="imprimir(docAtual())">Imprimir / PDF</button>
-                </x-slot>
-                <p x-show="!docAtual()" class="text-sm texto-2">A prévia aparece aqui.</p>
-                <div class="wf-previa" x-show="docAtual()" x-html="docHtml(docAtual())"></div>
-            </x-carteira.item>
+            {{-- Lista, editor (Conteúdo / Estilo / Página), prévia e tela cheia --}}
+            @include('areas.carteira.partials.documentos')
 
             @include('areas.carteira.partials.blocos', ['sec' => 'docs'])
         </section>

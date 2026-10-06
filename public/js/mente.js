@@ -68,7 +68,14 @@
     };
 
     /* ================= pdf.js (carregado só quando abre um PDF) ================= */
-    let pdfDoc = null, renderTask = null, pdfLib = null;
+    let pdfDoc = null, pdfLib = null;
+    let obs = null;               // observa quais páginas estão perto da tela
+    let geracao = 0;              // muda a cada novo layout/livro; cancela desenhos antigos
+    let pgDim = [];               // tamanho de cada página em escala 1: pgDim[n] = { w, h }
+    let travaScroll = 0;          // ignora o evento de rolagem logo após rolarmos por código
+    let rafRolar = 0;
+    const estPg = new Map();      // páginas desenhadas agora: n -> { task }
+
     function carregarPdfJs() {
         if (pdfLib) return Promise.resolve(pdfLib);
         return new Promise((ok, falha) => {
@@ -169,6 +176,10 @@
                 const guardada = sessionStorage.getItem('mente.aba');
                 this.aba = this.abas.some(a => a.id === guardada) ? guardada : 'tarefas';
                 this.$watch('aba', v => { sessionStorage.setItem('mente.aba', v); this.menuBloco = false; });
+                // ao voltar para Livros, o painel de leitura perde a rolagem: volta para a página atual
+                this.$watch('aba', v => {
+                    if (v === 'livros' && pdfDoc) this.$nextTick(() => requestAnimationFrame(() => this.rolarPara(this.leitor.pg)));
+                });
                 this.zTop = this.maiorZ();
                 this.notaSel = this.estado.notas[0]?.id || null;
                 if ('Notification' in window) this.permAviso = Notification.permission;
@@ -190,7 +201,7 @@
             hoje, uid, dataBR,
             fmt(n) { return String(r1(n)).replace('.', ','); },
             pct(v, m) { return m > 0 ? clamp(v / m * 100, 0, 100) : 0; },
-            /* O leitor de PDF precisa redesenhar a página quando o cartão muda de tamanho. */
+            /* Ao soltar o redimensionamento, o leitor confere de novo quais páginas estão visíveis. */
             redimensionar(e, sec, id, minw, minh) {
                 if (this.empilhado()) return;
                 motor.redimensionar.call(this, e, sec, id, minw, minh);
@@ -248,7 +259,7 @@
             excluirLivro(l) {
                 if (!confirm(`Excluir "${l.titulo}", o PDF e os destaques?`)) return;
                 if (l.pdf) enviar(`${this.cfg.pdf}/${l.id}`, null, 'DELETE').catch(() => {});
-                if (this.leitor.id === l.id) { this.leitor.id = null; pdfDoc = null; }
+                if (this.leitor.id === l.id) { this.leitor.id = null; this.leitor.total = 0; pdfDoc = null; this.limparPaginas(); }
                 const i = this.estado.livros.findIndex(x => x.id === l.id);
                 if (i >= 0) this.estado.livros.splice(i, 1);
             },
@@ -256,6 +267,7 @@
                 this.ir('livros');
                 const lt = this.leitor;
                 lt.id = l.id; lt.erro = ''; lt.total = 0; pdfDoc = null;
+                this.limparPaginas();
                 lt.pg = Math.max(1, l.atual || 1);
                 if (!l.pdf) return;
                 lt.carregando = true;
@@ -263,67 +275,203 @@
                     const lib = await carregarPdfJs();
                     const r = await fetch(`${this.cfg.pdf}/${l.id}`, { credentials: 'same-origin' });
                     if (!r.ok) throw new Error(String(r.status));
-                    pdfDoc = await lib.getDocument({ data: await r.arrayBuffer() }).promise;
-                    lt.total = pdfDoc.numPages;
+                    const doc = await lib.getDocument({ data: await r.arrayBuffer() }).promise;
+                    if (lt.id !== l.id) return;          // o usuário abriu outro livro enquanto carregava
+                    pdfDoc = doc;
+                    await this.medirPaginas();
+                    if (pdfDoc !== doc) return;
+                    lt.total = doc.numPages;
                     if (!l.paginas) l.paginas = lt.total;
                     lt.pg = clamp(lt.pg, 1, lt.total);
                     await this.$nextTick();
-                    await this.desenhar();
+                    await new Promise(ok => requestAnimationFrame(ok));
+                    this.layoutPaginas();
+                    this.rolarPara(lt.pg);
                 } catch { lt.erro = 'Não consegui abrir o PDF. Tente enviar de novo.'; }
                 finally { lt.carregando = false; }
             },
-            async desenhar() {
-                if (!pdfDoc) return;
-                const lt = this.leitor, tk = (this._tk = (this._tk || 0) + 1);
-                const page = await pdfDoc.getPage(lt.pg);
-                const vp = page.getViewport({ scale: lt.zoom });
-                const cv = this.$refs.pdfCanvas, caixa = this.$refs.pdfPagina, tl = this.$refs.pdfTexto;
-                if (!cv || !caixa || !tl) return;
-                const dpr = window.devicePixelRatio || 1;
-                cv.width = Math.round(vp.width * dpr); cv.height = Math.round(vp.height * dpr);
-                cv.style.width = vp.width + 'px'; cv.style.height = vp.height + 'px';
-                caixa.style.width = vp.width + 'px'; caixa.style.height = vp.height + 'px';
-                if (renderTask) { try { renderTask.cancel(); } catch { /* ok */ } }
-                renderTask = page.render({ canvasContext: cv.getContext('2d'), viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null });
-                try { await renderTask.promise; } catch { return; }
-                if (tk !== this._tk) return;
-                tl.innerHTML = '';
-                tl.style.setProperty('--scale-factor', vp.scale);
-                const conteudo = await page.getTextContent();
-                if (tk !== this._tk) return;
-                pdfLib.renderTextLayer({ textContentSource: conteudo, textContent: conteudo, container: tl, viewport: vp, textDivs: [] });
+
+            /* ---------- leitor em rolagem contínua ---------- */
+            elPagina(n) { return this.$refs.pdfLeitor?.querySelector(`.wf-pagina[data-pg="${n}"]`) || null; },
+            limparPaginas() {
+                geracao++;
+                estPg.forEach(st => { try { st.task?.cancel(); } catch { /* ok */ } });
+                estPg.clear();
+                if (obs) { obs.disconnect(); obs = null; }
+                pgDim = [];
             },
-            irPagina(n) {
+            // mede todas as páginas antes de mostrar, para a barra de rolagem já nascer com o tamanho certo
+            async medirPaginas() {
+                const doc = pdfDoc, total = doc.numPages;
+                pgDim = [];
+                for (let i = 1; i <= total; i += 40) {
+                    const ids = Array.from({ length: Math.min(40, total - i + 1) }, (_, k) => i + k);
+                    await Promise.all(ids.map(async n => {
+                        try { const v = (await doc.getPage(n)).getViewport({ scale: 1 }); pgDim[n] = { w: v.width, h: v.height }; } catch { /* usa a página 1 */ }
+                    }));
+                    if (doc !== pdfDoc) return;
+                }
+            },
+            // dá o tamanho a cada página (conforme o zoom) e passa a observar quais estão perto da tela
+            layoutPaginas() {
+                const c = this.$refs.pdfLeitor;
+                if (!c || !pdfDoc) return;
+                geracao++;
+                estPg.forEach(st => { try { st.task?.cancel(); } catch { /* ok */ } });
+                estPg.clear();
+                const z = this.leitor.zoom;
+                const els = c.querySelectorAll('.wf-pagina');
+                els.forEach(el => {
+                    const n = +el.dataset.pg, d = pgDim[n] || pgDim[1] || { w: 612, h: 792 };
+                    el.style.width = Math.round(d.w * z) + 'px';
+                    el.style.height = Math.round(d.h * z) + 'px';
+                    const cv = el.querySelector('canvas'), tl = el.querySelector('.textLayer');
+                    if (cv) { cv.width = 0; cv.height = 0; }
+                    if (tl) tl.innerHTML = '';
+                });
+                if (obs) obs.disconnect();
+                obs = new IntersectionObserver(entradas => {
+                    entradas.forEach(e => {
+                        const n = +e.target.dataset.pg;
+                        if (e.isIntersecting) this.renderPagina(n); else this.liberar(n);
+                    });
+                }, { root: c, rootMargin: '1500px 0px' });
+                els.forEach(el => obs.observe(el));
+            },
+            async renderPagina(n) {
+                const doc = pdfDoc, g = geracao;
+                if (!doc || estPg.has(n)) return;
+                const el = this.elPagina(n);
+                if (!el) return;
+                const st = {};
+                estPg.set(n, st);
+                try {
+                    const page = await doc.getPage(n);
+                    if (g !== geracao || estPg.get(n) !== st) return;
+                    const vp = page.getViewport({ scale: this.leitor.zoom });
+                    const cv = el.querySelector('canvas'), tl = el.querySelector('.textLayer');
+                    if (!cv || !tl) { estPg.delete(n); return; }
+                    const dpr = window.devicePixelRatio || 1;
+                    el.style.width = Math.round(vp.width) + 'px';
+                    el.style.height = Math.round(vp.height) + 'px';
+                    cv.width = Math.round(vp.width * dpr); cv.height = Math.round(vp.height * dpr);
+                    st.task = page.render({ canvasContext: cv.getContext('2d'), viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null });
+                    await st.task.promise;
+                    if (g !== geracao || estPg.get(n) !== st) return;
+                    tl.innerHTML = '';
+                    tl.style.setProperty('--scale-factor', vp.scale);
+                    const conteudo = await page.getTextContent();
+                    if (g !== geracao || estPg.get(n) !== st) return;
+                    pdfLib.renderTextLayer({ textContentSource: conteudo, textContent: conteudo, container: tl, viewport: vp, textDivs: [] });
+                } catch { if (estPg.get(n) === st) estPg.delete(n); }
+            },
+            // páginas que saíram da área próxima à tela são esvaziadas para poupar memória
+            liberar(n) {
+                const st = estPg.get(n);
+                if (!st) return;
+                try { st.task?.cancel(); } catch { /* ok */ }
+                estPg.delete(n);
+                const el = this.elPagina(n);
+                if (!el) return;
+                const cv = el.querySelector('canvas'), tl = el.querySelector('.textLayer');
+                if (cv) { cv.width = 0; cv.height = 0; }
+                if (tl) tl.innerHTML = '';
+            },
+            // reconfere o que está visível (usado depois de redimensionar o cartão)
+            desenhar() {
+                const c = this.$refs.pdfLeitor;
+                if (!pdfDoc || !obs || !c) return;
+                c.querySelectorAll('.wf-pagina').forEach(el => { obs.unobserve(el); obs.observe(el); });
+            },
+            // descobre a página que está na parte de cima do painel enquanto você rola
+            aoRolar() {
+                if (rafRolar) return;
+                rafRolar = requestAnimationFrame(() => {
+                    rafRolar = 0;
+                    const c = this.$refs.pdfLeitor;
+                    if (!pdfDoc || !c || !c.clientHeight || Date.now() < travaScroll) return;
+                    const els = c.querySelectorAll('.wf-pagina');
+                    if (!els.length) return;
+                    const ref = c.scrollTop + Math.min(120, c.clientHeight / 3);
+                    let lo = 0, hi = els.length - 1;
+                    while (lo < hi) {
+                        const mid = (lo + hi + 1) >> 1;
+                        if (els[mid].offsetTop <= ref) lo = mid; else hi = mid - 1;
+                    }
+                    const n = lo + 1, lt = this.leitor;
+                    if (n !== lt.pg) {
+                        lt.pg = n;
+                        const l = this.livroAtual();
+                        if (l) l.atual = n;
+                    }
+                });
+            },
+            // rola o painel até a página n (fy = altura em % dentro da página, opcional)
+            rolarPara(n, fy = 0) {
+                const c = this.$refs.pdfLeitor, el = this.elPagina(n);
+                if (!c || !el || !c.clientHeight) return;
+                travaScroll = Date.now() + 300;
+                c.scrollTop = Math.max(0, el.offsetTop + (fy ? el.offsetHeight * fy / 100 - 60 : -8));
+            },
+            // guarda e recoloca a posição de leitura (usado no zoom, para você não se perder)
+            ancora() {
+                const c = this.$refs.pdfLeitor, el = this.elPagina(this.leitor.pg);
+                if (!c || !el || !el.offsetHeight) return null;
+                return { n: this.leitor.pg, f: (c.scrollTop - el.offsetTop) / el.offsetHeight };
+            },
+            restaurar(a) {
+                if (!a) return;
+                const c = this.$refs.pdfLeitor, el = this.elPagina(a.n);
+                if (!c || !el) return;
+                travaScroll = Date.now() + 300;
+                c.scrollTop = el.offsetTop + a.f * el.offsetHeight;
+            },
+            irPagina(n, fy = 0) {
                 const lt = this.leitor;
                 if (!pdfDoc) return;
                 n = clamp(Math.round(num(n)) || 1, 1, lt.total);
                 lt.pg = n;
                 const l = this.livroAtual();
                 if (l) l.atual = n;
-                this.desenhar();
+                this.rolarPara(n, fy);
             },
-            zoom(d) { this.leitor.zoom = clamp(r1(this.leitor.zoom + d), 0.6, 3); this.desenhar(); },
+            zoom(d) {
+                const lt = this.leitor, a = this.ancora();
+                lt.zoom = clamp(r1(lt.zoom + d), 0.6, 3);
+                this.layoutPaginas();
+                this.restaurar(a);
+            },
 
             // destaques: o texto selecionado vira retângulos em % da página (valem em qualquer zoom)
             capturar() {
                 const sel = window.getSelection(), l = this.livroAtual();
                 if (!sel || sel.isCollapsed || !l || !sel.rangeCount) return;
-                const area = this.$refs.pdfPagina.getBoundingClientRect();
+                const range = sel.getRangeAt(0);
+                const no = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
+                const pagEl = no?.closest?.('.wf-pagina');       // a página onde a seleção começa
+                if (!pagEl) return;
+                const pg = +pagEl.dataset.pg;
+                const area = pagEl.getBoundingClientRect();
                 const texto = sel.toString().replace(/\s+/g, ' ').trim();
-                const rects = [...sel.getRangeAt(0).getClientRects()]
+                const rects = [...range.getClientRects()]
                     .filter(r => r.width > 2 && r.height > 2 && r.height < area.height / 3)
+                    .filter(r => {
+                        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+                        return cx >= area.left && cx <= area.right && cy >= area.top && cy <= area.bottom;
+                    })
                     .map(r => ({
                         x: r2((r.left - area.left) / area.width * 100), y: r2((r.top - area.top) / area.height * 100),
                         w: r2(r.width / area.width * 100), h: r2(r.height / area.height * 100),
                     }));
                 if (!texto || !rects.length) return;
-                l.destaques.push({ id: uid(), pg: this.leitor.pg, texto: texto.slice(0, 1500), nota: '', cor: this.leitor.cor, rects, fav: false });
+                l.destaques.push({ id: uid(), pg, texto: texto.slice(0, 1500), nota: '', cor: this.leitor.cor, rects, fav: false });
                 sel.removeAllRanges();
                 function r2(n) { return Math.round(n * 100) / 100; }
             },
-            destPg() { return (this.livroAtual()?.destaques || []).filter(d => d.pg === this.leitor.pg && d.rects?.length); },
+            destPg() { return this.destDe(this.leitor.pg); },
+            destDe(n) { return (this.livroAtual()?.destaques || []).filter(d => d.pg === n && d.rects?.length); },
             destaquesOrdenados(l) { return [...(l?.destaques || [])].sort((a, b) => a.pg - b.pg); },
-            irDestaque(d) { if (pdfDoc) this.irPagina(d.pg); },
+            irDestaque(d) { if (pdfDoc) this.irPagina(d.pg, d.rects?.[0]?.y || 0); },
             remDestaque(l, id) { const i = l.destaques.findIndex(x => x.id === id); if (i >= 0) l.destaques.splice(i, 1); },
             addTrecho() {
                 const l = this.livroAtual(), f = this.dm;

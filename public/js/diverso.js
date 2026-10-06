@@ -63,6 +63,28 @@
     const MAX_MODELOS = 60; // peças salvas em "Minhas peças"
     const limitar = (v, a, b) => Math.min(Math.max(v, a), b);
 
+    /** Texto seguro: null/undefined viram ''. O servidor converte "" em null ao salvar a biblioteca, e o null quebrava startsWith e afins. */
+    const txt = v => (v == null ? '' : String(v));
+
+    /** Conserta um tabletop que veio da biblioteca (ou de um estado antigo): listas existentes, peças com id e nome em texto.
+        Devolve true se mudou alguma coisa (para o estado ser salvo de novo). */
+    function normalizarTabletop(d) {
+        if (!d || typeof d !== 'object') return false;
+        let mudou = false;
+        if (!Array.isArray(d.pecas)) { d.pecas = []; mudou = true; }
+        if (!Array.isArray(d.desenho)) { d.desenho = []; mudou = true; }
+        const validas = d.pecas.filter(p => p && typeof p === 'object');
+        if (validas.length !== d.pecas.length) { d.pecas = validas; mudou = true; }
+        d.pecas.forEach(p => {
+            if (p.id == null || p.id === '') { p.id = uid(); mudou = true; }
+            const nome = txt(p.nome).slice(0, 24) || 'Peça';
+            if (p.nome !== nome) { p.nome = nome; mudou = true; }
+        });
+        const itens = d.desenho.filter(it => it && typeof it === 'object');
+        if (itens.length !== d.desenho.length) { d.desenho = itens; mudou = true; }
+        return mudou;
+    }
+
     /** Zoom entre 1× e 5× e deslocamento limitado ao ponto em que a imagem ainda cobre a peça toda. */
     function enqAjustar(z, x, y) {
         z = limitar(num(z) || 1, 1, 5);
@@ -396,6 +418,9 @@
             init() {
                 // cartões ativos que apontam para uma aba que não existe mais caem na aba principal
                 if (Q.EMBED && !this.abaExiste(Q.EMBED.sec)) Q.EMBED.sec = SEC;
+                // tabletops colados da biblioteca antes desta correção podem ter nomes null: conserta e salva de novo
+                let reparou = false;
+                this.estado.blocos.forEach(b => { if (b.tipo === 'tabletop' && normalizarTabletop(b.dados)) reparou = true; });
                 this.zTop = this.maiorZ();
                 this.$watch('estado', () => this.agendar());
                 this.initQuadro();
@@ -403,7 +428,7 @@
                 document.addEventListener('visibilitychange', () => { if (document.hidden) urgente(); });
                 window.addEventListener('pagehide', urgente);
                 migracao.orfaos.forEach(id => this.apagarImagens(id));
-                if (!this.cfg.dados.estado || migracao.mudou) this.agendar();
+                if (!this.cfg.dados.estado || migracao.mudou || reparou) this.agendar();
             },
 
             /* ---------- abas (nome e ícone escolhidos pelo usuário) ---------- */
@@ -567,7 +592,7 @@
                     Object.entries(d.imgs || {}).forEach(([id, src]) => salvar(`${nb.id}.i.${id}`, src, 'Não consegui salvar a imagem de uma peça.'));
                     if (d.mapaImg) salvar(`${nb.id}.mapa`, d.mapaImg, 'Não consegui salvar a imagem do mapa.');
                     delete d.imgs; delete d.mapaImg;
-                    d.pecas ??= []; d.desenho ??= [];
+                    normalizarTabletop(d); // o servidor troca "" por null: nomes de peças voltam como texto
                     nb.dados = d;
                 }
             },
@@ -697,9 +722,9 @@
                 const u = this.ttUI(b);
                 const d = def || { nome: u.nome, forma: u.forma, cor: u.cor, tam: u.tam };
                 const t = limitar(Math.round(num(d.tam)) || 1, 1, 4);
-                let nome = String(d.nome || '').trim().slice(0, 24) || 'Peça';
+                let nome = txt(d.nome).trim().slice(0, 24) || 'Peça';
                 if (def) { // peças prontas ganham número: Inimigo, Inimigo 2, Inimigo 3…
-                    const n = b.dados.pecas.filter(p => p.nome === def.nome || p.nome.startsWith(def.nome + ' ')).length;
+                    const n = b.dados.pecas.filter(p => txt(p.nome) === def.nome || txt(p.nome).startsWith(def.nome + ' ')).length;
                     if (n > 0) nome = `${def.nome} ${n + 1}`;
                 }
                 const [x, y] = this.ttLivre(b, t);
@@ -807,7 +832,7 @@
                 b.dados.pecas ??= [];
                 if (b.dados.pecas.length >= TT_MAX_PECAS) { this.aviso(`Limite de ${TT_MAX_PECAS} peças neste mapa.`); return; }
                 const t = this.ttTam(m);
-                const n = b.dados.pecas.filter(p => p.nome === m.nome || p.nome.startsWith(m.nome + ' ')).length;
+                const n = b.dados.pecas.filter(p => txt(p.nome) === m.nome || txt(p.nome).startsWith(m.nome + ' ')).length;
                 const nome = (n > 0 ? `${m.nome} ${n + 1}` : m.nome).slice(0, 24);
                 const [x, y] = this.ttLivre(b, t);
                 const peca = { id: uid(), nome, x, y, tam: t, forma: this.ttForma(m), cor: COR_OK.test(m.cor || '') ? m.cor : '#a78bfa' };
