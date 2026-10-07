@@ -515,22 +515,28 @@
             @include('areas.carteira.partials.blocos', ['sec' => 'negocios'])
         </section>
 
-        {{-- ================= TRABALHO ================= --}}
-        <section class="wf-quadro" x-show="aba === 'trabalho'" x-cloak :style="{ minHeight: alturaQuadro('trabalho') + 'px' }">
+        {{-- ================= TAREFAS (mesmo layout das outras áreas) ================= --}}
+        <section class="wf-quadro" x-show="aba === 'tarefas'" x-cloak :style="{ minHeight: alturaQuadro('tarefas') + 'px' }">
 
-            <x-carteira.item sec="'trabalho'" bid="'tarefa-form'" titulo="Nova tarefa de trabalho" :minw="260" :minh="200">
+            <x-carteira.item sec="'tarefas'" bid="'tarefa-form'" titulo="Nova tarefa" :minw="260" :minh="200">
                 @include('areas.partials.formulario', [
                     'slug'        => $slug,
-                    'placeholder' => 'Ex.: Enviar proposta, fechar o mês…',
+                    'placeholder' => 'Ex.: Pagar fatura, revisar investimentos…',
                 ])
             </x-carteira.item>
 
-            <x-carteira.item sec="'trabalho'" bid="'tarefa-lista'" titulo="Tarefas" :minw="320" :minh="200">
+            <x-carteira.item sec="'tarefas'" bid="'tarefa-lista'" titulo="Tarefas" :minw="320" :minh="200">
                 @include('areas.partials.lista', [
                     'tarefas' => $tarefas,
-                    'vazio'   => 'Nenhuma tarefa de trabalho ainda.',
+                    'vazio'   => 'Nenhuma tarefa ainda.',
                 ])
             </x-carteira.item>
+
+            @include('areas.carteira.partials.blocos', ['sec' => 'tarefas'])
+        </section>
+
+        {{-- ================= TRABALHO ================= --}}
+        <section class="wf-quadro" x-show="aba === 'trabalho'" x-cloak :style="{ minHeight: alturaQuadro('trabalho') + 'px' }">
 
             <x-carteira.item sec="'trabalho'" bid="'projetos'" titulo="Projetos" :minw="480" :minh="260">
                 <x-slot name="acoes">

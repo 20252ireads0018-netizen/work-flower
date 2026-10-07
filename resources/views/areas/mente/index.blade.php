@@ -107,8 +107,11 @@
     }
     .wf-pagina { position: relative; margin: 0 auto; background: #fff; box-shadow: 0 6px 24px rgba(0, 0, 0, .45); }
     .wf-pagina canvas { display: block; }
-    .wf-dest { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+    .wf-dest, .wf-busca { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
     .wf-dest i { position: absolute; border-radius: 2px; opacity: .38; mix-blend-mode: multiply; }
+    /* resultados da busca: amarelo para todos, laranja forte para o que está selecionado */
+    .wf-busca i { position: absolute; border-radius: 2px; background: #f2c230; opacity: .5; mix-blend-mode: multiply; }
+    .wf-busca i.atual { background: #fb923c; opacity: .8; box-shadow: 0 0 0 2px #ea580c; }
     .textLayer { position: absolute; inset: 0; overflow: hidden; line-height: 1; z-index: 2; }
     .textLayer span, .textLayer br { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0 0; }
     .textLayer ::selection { background: color-mix(in srgb, var(--prim) 45%, transparent); color: transparent; }
@@ -316,6 +319,22 @@
                                 <label class="chip cursor-pointer"><input type="checkbox" x-model="leitor.noite"> Modo noite</label>
                             </div>
 
+                            {{-- Busca de texto: Enter vai para a próxima ocorrência, Shift+Enter volta --}}
+                            <div class="flex flex-wrap items-center gap-2">
+                                <input type="search" class="campo !w-56 !py-1" x-model="bs.q" x-ref="buscaCampo"
+                                       placeholder="Buscar no PDF…" aria-label="Buscar texto no PDF"
+                                       @keydown.enter.prevent="aoEnter($event)"
+                                       @keydown.escape="limparBusca()"
+                                       @input.debounce.500ms="buscar()">
+                                <button type="button" class="mini-btn" title="Resultado anterior (Shift+Enter)" aria-label="Resultado anterior"
+                                        :disabled="!bs.res.length" @click="anterior()">‹</button>
+                                <span class="text-xs texto-2 min-w-[5.5rem] text-center" aria-live="polite" x-text="rotuloBusca()"></span>
+                                <button type="button" class="mini-btn" title="Próximo resultado (Enter)" aria-label="Próximo resultado"
+                                        :disabled="!bs.res.length" @click="proximo()">›</button>
+                                <button type="button" class="mini-btn" x-show="bs.q" title="Limpar busca (Esc)" aria-label="Limpar busca" @click="limparBusca()">✕</button>
+                                <span class="text-xs texto-2" x-show="bs.ocupado" x-text="'Procurando… página ' + bs.prog + ' de ' + leitor.total"></span>
+                            </div>
+
                             <div class="flex items-center gap-2 text-xs texto-2">
                                 <span>Destacar com</span>
                                 <div class="wf-pal">
@@ -342,6 +361,16 @@
                                                 <div>
                                                     <template x-for="(r, i) in d.rects" :key="i">
                                                         <i :style="`left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%;background:${d.cor}`"></i>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <div class="wf-busca">
+                                            <template x-for="m in buscaDe(n)" :key="m.i">
+                                                <div>
+                                                    <template x-for="(r, k) in m.rects" :key="k">
+                                                        <i :class="{ 'atual': bs.i === m.i }"
+                                                           :style="`left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%`"></i>
                                                     </template>
                                                 </div>
                                             </template>

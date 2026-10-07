@@ -1,5 +1,5 @@
 /* Work Flower · área Mente
-   Livros e PDFs (leitor com destaques), estudos com revisão em 7 dias, anotações,
+   Livros e PDFs (leitor com destaques e busca de texto), estudos com revisão em 7 dias, anotações,
    faculdade, quadro arrastável e blocos livres (texto, tabela, lista, imagem, mapa, documento).
    Sem build: a view carrega este arquivo e o Alpine já está na página.
    Depende de quadro.js (carregue antes). */
@@ -14,6 +14,7 @@
     const diasEntre = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 864e5);
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const r2 = n => Math.round(n * 100) / 100;
 
     const DIAS = [
         { id: 'seg', nome: 'Segunda', c: 'Seg' }, { id: 'ter', nome: 'Terça', c: 'Ter' },
@@ -26,6 +27,17 @@
     const FONTES = { sans: "'DM Sans', system-ui, sans-serif", serif: "Georgia, 'Times New Roman', serif", mono: "ui-monospace, Menlo, Consolas, monospace" };
     const TIPOS_AVAL = ['Prova', 'Trabalho', 'Seminário', 'Atividade', 'Outro'];
     const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+    const MAX_BUSCA = 1000;       // para de procurar depois de tantas ocorrências
+
+    /* Normaliza um caractere para a busca: sem acento, minúsculo, espaços viram ' '.
+       Sempre devolve exatamente 1 caractere, para os índices continuarem batendo com o texto original. */
+    function norm1(ch) {
+        if (/\s/.test(ch)) return ' ';
+        const s = ch.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        if (s.length === 1) return s;
+        return ch.toLowerCase().slice(0, 1) || ch;
+    }
+    const normTxt = t => String(t).split('').map(norm1).join('').replace(/ +/g, ' ').trim();
 
     /* Modelos de documento: [título da seção, texto inicial] */
     const MODELOS = {
@@ -74,6 +86,8 @@
     let pgDim = [];               // tamanho de cada página em escala 1: pgDim[n] = { w, h }
     let travaScroll = 0;          // ignora o evento de rolagem logo após rolarmos por código
     let rafRolar = 0;
+    let textoPg = [];             // texto de cada página (cache da busca): textoPg[n] = { texto, segs, vp }
+    let buscaGer = 0;             // muda a cada nova busca; cancela a busca anterior
     const estPg = new Map();      // páginas desenhadas agora: n -> { task }
 
     function carregarPdfJs() {
@@ -126,6 +140,7 @@
     const vazioLivro = () => ({ titulo: '', autor: '', paginas: '', status: 'lendo' });
     const vazioDisc = () => ({ id: null, nome: '', prof: '', sala: '', cor: PALETA[0], limite: '', hor: [{ k: uid(), dia: 'seg', ini: '08:00', fim: '10:00' }] });
     const vazioAval = () => ({ disc: '', tipo: 'Prova', titulo: '', data: hoje(), peso: 1, nota: '' });
+    const vazioBusca = () => ({ q: '', feitoQ: '', res: [], porPg: {}, i: -1, ocupado: false, prog: 0, cheio: false });
 
     /* ================= componente da página ================= */
     window.menteAbas = function () {
@@ -163,6 +178,7 @@
             // livros
             lv: vazioLivro(), lvErro: '',
             leitor: { id: null, pg: 1, total: 0, zoom: 1.3, carregando: false, erro: '', cor: HL[0], noite: false },
+            bs: vazioBusca(),
             dm: { pg: '', texto: '', nota: '' },
             // estudos
             ef: { titulo: '', curso: '', data: hoje(), nota: '' }, efErro: '',
@@ -299,6 +315,10 @@
                 estPg.clear();
                 if (obs) { obs.disconnect(); obs = null; }
                 pgDim = [];
+                // a busca é do PDF aberto: ao trocar de livro ela recomeça do zero
+                textoPg = [];
+                buscaGer++;
+                this.bs = vazioBusca();
             },
             // mede todas as páginas antes de mostrar, para a barra de rolagem já nascer com o tamanho certo
             async medirPaginas() {
@@ -442,6 +462,112 @@
                 this.restaurar(a);
             },
 
+            /* ---------- busca de texto no PDF ---------- */
+            // texto normalizado da página + de onde vem cada pedaço (para achar o lugar na tela)
+            async textoDaPagina(n) {
+                if (textoPg[n]) return textoPg[n];
+                const doc = pdfDoc;
+                const page = await doc.getPage(n);
+                const vp = page.getViewport({ scale: 1 });
+                const c = await page.getTextContent();
+                if (doc !== pdfDoc) return null;
+                let texto = '';
+                const segs = [];
+                c.items.forEach(it => {
+                    if (typeof it.str !== 'string' || !it.str) { if (it.hasEOL) texto += ' '; return; }
+                    const a = texto.length;
+                    for (let i = 0; i < it.str.length; i++) texto += norm1(it.str[i]);
+                    segs.push({ a, b: texto.length, it });
+                    if (it.hasEOL) texto += ' ';
+                });
+                return (textoPg[n] = { texto, segs, vp });
+            },
+            // converte um trecho [s, e) do texto da página em retângulos (em % da página)
+            rectsDe(t, s, e) {
+                const out = [], W = t.vp.width, H = t.vp.height;
+                t.segs.forEach(sg => {
+                    const oa = Math.max(s, sg.a), ob = Math.min(e, sg.b);
+                    if (oa >= ob) return;
+                    const tx = sg.it.transform, len = sg.b - sg.a;
+                    const larg = Math.abs(sg.it.width) || 0;
+                    const alt = Math.abs(sg.it.height) || Math.hypot(tx[2], tx[3]) || 10;
+                    const fa = (oa - sg.a) / len, fb = (ob - sg.a) / len;
+                    const [x1, y1] = t.vp.convertToViewportPoint(tx[4] + larg * fa, tx[5] - alt * 0.2);
+                    const [x2, y2] = t.vp.convertToViewportPoint(tx[4] + larg * fb, tx[5] + alt * 0.85);
+                    out.push({
+                        x: r2(Math.min(x1, x2) / W * 100), y: r2(Math.min(y1, y2) / H * 100),
+                        w: Math.max(0.3, r2(Math.abs(x2 - x1) / W * 100)), h: r2(Math.abs(y2 - y1) / H * 100),
+                    });
+                });
+                return out;
+            },
+            async buscar(forcar = false) {
+                const bs = this.bs, q = bs.q.trim();
+                if (!forcar && q === bs.feitoQ) return;
+                const ger = ++buscaGer;
+                bs.res = []; bs.porPg = {}; bs.i = -1; bs.cheio = false; bs.prog = 0;
+                bs.feitoQ = q; bs.ocupado = false;
+                const doc = pdfDoc;
+                if (!q || !doc) return;
+                const nq = normTxt(q);
+                if (!nq) return;
+                const total = doc.numPages;
+                bs.ocupado = true;
+                try {
+                    for (let ini = 1; ini <= total; ini += 8) {
+                        const ids = Array.from({ length: Math.min(8, total - ini + 1) }, (_, k) => ini + k);
+                        const textos = await Promise.all(ids.map(n => this.textoDaPagina(n).catch(() => null)));
+                        if (ger !== buscaGer || doc !== pdfDoc) return;
+                        for (let k = 0; k < ids.length; k++) {
+                            const n = ids[k], t = textos[k];
+                            if (!t) continue;
+                            let pos = 0;
+                            while ((pos = t.texto.indexOf(nq, pos)) !== -1) {
+                                if (this.bs.res.length >= MAX_BUSCA) { this.bs.cheio = true; break; }
+                                const rects = this.rectsDe(t, pos, pos + nq.length);
+                                const i = this.bs.res.length;
+                                this.bs.res.push({ i, pg: n, rects });
+                                if (!this.bs.porPg[n]) this.bs.porPg[n] = [];
+                                this.bs.porPg[n].push({ i, rects });
+                                pos += nq.length;
+                            }
+                            if (this.bs.cheio) break;
+                        }
+                        this.bs.prog = ids[ids.length - 1];
+                        if (this.bs.i < 0 && this.bs.res.length) this.irResultado(0);
+                        if (this.bs.cheio) break;
+                    }
+                } finally {
+                    if (ger === buscaGer) { this.bs.ocupado = false; this.bs.prog = total; }
+                }
+            },
+            // Enter: busca se o texto mudou; senão vai para a próxima ocorrência (Shift+Enter volta)
+            aoEnter(e) {
+                if (this.bs.q.trim() !== this.bs.feitoQ) { this.buscar(); return; }
+                if (e.shiftKey) this.anterior(); else this.proximo();
+            },
+            irResultado(i) {
+                const n = this.bs.res.length;
+                if (!n) return;
+                i = ((i % n) + n) % n;
+                this.bs.i = i;
+                const r = this.bs.res[i];
+                this.irPagina(r.pg, r.rects[0]?.y || 0);
+            },
+            proximo() { this.irResultado(this.bs.i + 1); },
+            anterior() { this.irResultado(this.bs.i < 0 ? -1 : this.bs.i - 1); },
+            limparBusca() {
+                buscaGer++;
+                this.bs = vazioBusca();
+            },
+            buscaDe(n) { return this.bs.porPg[n] || []; },
+            rotuloBusca() {
+                const bs = this.bs;
+                if (!bs.feitoQ) return '';
+                if (!bs.res.length) return bs.ocupado ? 'Buscando…' : 'Nenhum resultado';
+                return `${bs.i + 1} de ${bs.res.length}${bs.cheio ? '+' : ''}`;
+            },
+
             // destaques: o texto selecionado vira retângulos em % da página (valem em qualquer zoom)
             capturar() {
                 const sel = window.getSelection(), l = this.livroAtual();
@@ -466,7 +592,6 @@
                 if (!texto || !rects.length) return;
                 l.destaques.push({ id: uid(), pg, texto: texto.slice(0, 1500), nota: '', cor: this.leitor.cor, rects, fav: false });
                 sel.removeAllRanges();
-                function r2(n) { return Math.round(n * 100) / 100; }
             },
             destPg() { return this.destDe(this.leitor.pg); },
             destDe(n) { return (this.livroAtual()?.destaques || []).filter(d => d.pg === n && d.rects?.length); },

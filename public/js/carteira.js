@@ -1,5 +1,5 @@
 /* Work Flower · área Carteira
-   Carteira individual, investimentos, negócios, trabalho, documentos, quadro e blocos livres.
+   Carteira individual, investimentos, negócios, tarefas, trabalho, documentos, quadro e blocos livres.
    Depende de quadro.js e documentos.js (carregue antes). A lógica de documentos fica em documentos.js. */
 (function () {
     'use strict';
@@ -47,10 +47,12 @@
             'neg-dash': { x: 556, y: 436, w: 532, h: 520 },
             'neg-conexoes': { x: 0, y: 972, w: 1088, h: 380 },
         },
-        trabalho: {
+        tarefas: {
             'tarefa-form': { x: 0, y: 0, w: 340, h: 440 },
             'tarefa-lista': { x: 356, y: 0, w: 732, h: 520 },
-            'projetos': { x: 0, y: 536, w: 1088, h: 440 },
+        },
+        trabalho: {
+            'projetos': { x: 0, y: 0, w: 1088, h: 440 },
         },
         docs: {
             'doc-lista': { x: 0, y: 0, w: 232, h: 520 },
@@ -119,6 +121,7 @@
             colunas: [{ id: 'fazer', nome: 'A fazer' }, { id: 'andando', nome: 'Em andamento' }, { id: 'feito', nome: 'Concluído' }],
             aba: 'carteira',
             abas: [
+                { id: 'tarefas', nome: 'Tarefas', icone: '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>' },
                 { id: 'carteira', nome: 'Carteira', icone: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/>' },
                 { id: 'invest', nome: 'Investimentos', icone: '<path d="M3 17l5-5 4 4 8-9"/><path d="M15 7h5v5"/>' },
                 { id: 'negocios', nome: 'Negócios', icone: '<path d="M4 9l1-5h14l1 5M4 9h16v11H4zM9 20v-6h6v6"/>' },
@@ -460,7 +463,7 @@
             abrirLink(l) {
                 if (l.t === 'negocio') { this.estado.negAtivo = l.id; this.ir('negocios'); }
                 else if (l.t === 'doc') { this.estado.docAtivo = l.id; this.ir('docs'); }
-                else this.ir('trabalho');
+                else this.ir('tarefas');
             },
 
             /* Ajusta a altura do bloco à proporção da imagem (só quando a imagem muda). */
