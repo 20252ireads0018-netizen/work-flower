@@ -8,6 +8,7 @@
     // Tudo que o diverso.js precisa: onde salvar, o que já foi salvo e as tarefas da área.
     $cfg = [
         'url'     => url('/diverso/dados'),
+        'csrf'    => csrf_token(),
         'dados'   => (object) $diversoDados->all(),
         'tarefas' => $tarefasJs,
     ];
@@ -81,26 +82,9 @@
         .wf-mapa { height: 24rem; }
     }
 
-    /* ===== Diverso: documento, loja, mapa com desenho ===== */
-    .wf-cresce { flex: 1; min-height: 6rem; }
-    .wf-doc { background: #fbfbf8; color: #1b1f24; border-radius: .5rem; padding: 1.1rem; }
-    .wf-doc.l-duas { columns: 2; column-gap: 1.25rem; }
-    .wf-doc-sec { break-inside: avoid; margin-bottom: .9rem; }
-    .wf-doc-sec.cab { background: var(--dc); color: #fff; padding: .8rem; border-radius: .4rem; column-span: all; }
-    .wf-doc-t, .wf-doc-x { width: 100%; background: transparent; color: inherit; border: 0; font-family: inherit; border-radius: .25rem; }
-    .wf-doc-t { font-weight: 700; font-size: 1rem; padding: .1rem .2rem; border-bottom: 2px solid var(--dc); }
-    .wf-doc-sec.cab .wf-doc-t { font-size: 1.4rem; border-color: rgba(255, 255, 255, .35); }
-    .wf-doc-x { resize: vertical; padding: .3rem .2rem; font-size: .88rem; line-height: 1.45; }
-    .wf-doc-t:focus, .wf-doc-x:focus { outline: none; background: rgba(0, 0, 0, .06); }
-    .wf-doc ::placeholder { color: inherit; opacity: .4; }
+    /* ===== Diverso: mapa com desenho ===== */
     .wf-mapa-col { flex: 1; min-height: 0; overflow: auto; }
     .wf-no { z-index: 2; }
-    .wf-vitrine { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: .75rem; }
-    .wf-prod { border: 1px solid var(--linha); border-radius: .75rem; background: var(--superficie-2); padding: .6rem; display: flex; flex-direction: column; gap: .45rem; transition: border-color .2s, transform .2s; }
-    .wf-prod:hover { border-color: var(--prim-linha); transform: translateY(-2px); }
-    .wf-prod-img { aspect-ratio: 4 / 3; border-radius: .5rem; border: 1px dashed var(--linha); display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; color: var(--tinta-2); font-size: .8rem; background: var(--superficie); }
-    .wf-prod-img:hover { border-color: var(--prim); color: var(--prim-forte); }
-    .wf-prod-img img { width: 100%; height: 100%; object-fit: cover; }
     /* abas */
     .wf-grupo { display: contents; }
     .circ-nova .circ-bola { border-style: dashed; font-size: 1.5rem; }
@@ -173,13 +157,97 @@
     /* aviso de quadro vazio: logo abaixo do último cartão */
     .wf-vazio { position: absolute; left: var(--ox); top: var(--oy); }
     @media (max-width: 899px) { .wf-vazio { position: static; } }
+
+    /* ===== Diagramas (mapa mental, BPMN, fluxograma, ER/UML) — usado com diagrama.js ===== */
+    .wf-dd { display: flex; flex-direction: column; gap: .5rem; min-height: 0; }
+    .wf-dd .wf-mapa-col { min-height: 16rem; border: 1px solid var(--linha); border-radius: .5rem; background: var(--superficie); }
+    .wf-dd-barra { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+    .wf-dd-barra .btn-sec, .wf-dd-painel .btn-sec { padding: .2rem .55rem; font-size: .75rem; cursor: pointer; }
+    .wf-dd-barra .btn-sec:disabled { opacity: .45; cursor: default; }
+    .wf-dd-barra .campo, .wf-dd-painel .campo { width: auto; padding: .2rem 1.6rem .2rem .5rem; font-size: .75rem; }
+    .wf-dd-painel input.campo { padding-right: .5rem; }
+    .wf-dd-sep { width: 1px; align-self: stretch; min-height: 1.2rem; background: var(--linha); margin: 0 .1rem; }
+    .wf-dd-chk { display: inline-flex; align-items: center; gap: .25rem; font-size: .75rem; color: var(--tinta-2); cursor: pointer; }
+    .wf-dd-menu { position: absolute; top: 100%; left: 0; z-index: 40; margin-top: .35rem; min-width: 15rem; max-height: 22rem; overflow: auto; padding: .35rem; background: var(--superficie); border: 1px solid var(--linha); border-radius: .6rem; box-shadow: 0 12px 30px rgba(0, 0, 0, .45); }
+    .wf-dd-menu-grupo { padding: .3rem .5rem .15rem; font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--tinta-2); }
+    .wf-dd-painel { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; padding: .5rem .6rem; border: 1px solid var(--linha); border-left: 3px solid var(--prim); border-radius: .5rem; background: var(--superficie-2); }
+    .wf-dd-campo { display: inline-flex; align-items: center; gap: .35rem; font-size: .72rem; color: var(--tinta-2); }
+    .wf-dd-dica { font-size: .68rem; color: var(--tinta-2); }
+
+    .wf-dd-lona { position: relative; outline: none; background-color: var(--superficie); user-select: none; -webkit-user-select: none; }
+    .wf-dd-lona.grade { background-image: radial-gradient(circle, var(--linha) 1px, transparent 1.3px); background-size: 20px 20px; }
+    .wf-dd-lona:focus-visible { box-shadow: inset 0 0 0 2px var(--prim-linha); }
+    .wf-dd-camada { position: absolute; left: 0; top: 0; pointer-events: none; }
+
+    .wf-dd-no { position: absolute; cursor: move; touch-action: none; }
+    .wf-dd-forma { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+    .wf-dd-txt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: .25rem .5rem; text-align: center; font-size: .8rem; line-height: 1.25; color: var(--tinta); overflow: hidden; word-break: break-word; white-space: pre-wrap; pointer-events: none; }
+    .wf-dd-txt.fora { inset: auto; left: 50%; top: 100%; width: 9rem; margin: 2px 0 0 -4.5rem; padding: 0; overflow: visible; justify-content: center; align-items: flex-start; }
+    .wf-dd-txt.raia { inset: 0 auto 0 0; width: 30px; padding: 0; writing-mode: vertical-rl; transform: rotate(180deg); }
+    .wf-dd-no.f-texto .wf-dd-txt { justify-content: flex-start; text-align: left; }
+    .wf-dd-ent { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 6px; color: var(--tinta); }
+    .wf-dd-ent-t { height: 34px; display: flex; align-items: center; justify-content: center; padding: 0 .5rem; font-size: .8rem; font-weight: 700; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .wf-dd-ent-corpo { padding: 4px 10px; }
+    .wf-dd-ent-c { height: 20px; display: flex; align-items: center; gap: .3rem; font-size: .75rem; white-space: nowrap; overflow: hidden; }
+    .wf-dd-ent-c b { font-size: .62rem; font-weight: 700; color: var(--tinta-2); }
+    .wf-dd-edit { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 7; padding: .3rem; resize: none; text-align: center; font-size: .8rem; line-height: 1.25; color: var(--tinta); background: var(--superficie); border: 1.5px solid var(--prim); border-radius: 6px; outline: none; cursor: text; }
+    .wf-dd-edit.fora { inset: auto; left: 50%; top: 100%; width: 9rem; height: 2.4rem; margin: 2px 0 0 -4.5rem; }
+    .wf-dd-edit.ent { height: 34px; bottom: auto; }
+
+    .wf-dd-no.sel::after { content: ""; position: absolute; inset: -4px; border: 1.5px dashed var(--prim); border-radius: 6px; pointer-events: none; }
+    .wf-dd-no.alvo::after { content: ""; position: absolute; inset: -5px; border: 2px solid #4ade80; border-radius: 8px; pointer-events: none; }
+    .wf-dd-no.edit { cursor: text; }
+
+    .wf-dd-h { position: absolute; z-index: 6; display: none; width: 14px; height: 14px; padding: 0; border-radius: 9999px; border: 2px solid var(--superficie); background: var(--prim); cursor: crosshair; touch-action: none; }
+    .wf-dd-no.unico:not(.edit) .wf-dd-h { display: block; }
+    .wf-dd-h.t { left: 50%; top: -10px; margin-left: -7px; }
+    .wf-dd-h.b { left: 50%; bottom: -10px; margin-left: -7px; }
+    .wf-dd-h.e { left: -10px; top: 50%; margin-top: -7px; }
+    .wf-dd-h.d { right: -10px; top: 50%; margin-top: -7px; }
+    .wf-dd-redim { position: absolute; z-index: 6; right: -6px; bottom: -6px; width: 12px; height: 12px; border-radius: 3px; background: var(--prim); border: 2px solid var(--superficie); cursor: nwse-resize; touch-action: none; }
+    .wf-dd-caixa { position: absolute; z-index: 7; pointer-events: none; border: 1px solid var(--prim); background: rgba(255, 255, 255, .08); }
+
+    @media (max-width: 899px) { .wf-dd .wf-mapa-col { max-height: 70vh; } }
+        /* ===== Tabela estilo planilha ===== */
+    .wf-xl { display: flex; flex-direction: column; gap: .4rem; height: 100%; min-height: 0; }
+    .wf-xl-barra { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+    .wf-xl-barra .btn-sec { padding: .15rem .5rem; font-size: .75rem; cursor: pointer; }
+    .wf-xl-barra .btn-sec:disabled { opacity: .45; cursor: default; }
+    .wf-xl-barra .campo { width: auto; padding: .15rem 1.5rem .15rem .45rem; font-size: .75rem; }
+    .wf-xl-barra input.campo { padding-right: .45rem; }
+    .wf-xl-sep { width: 1px; align-self: stretch; min-height: 1.1rem; background: var(--linha); margin: 0 .1rem; }
+    .wf-xl-fx { display: flex; align-items: center; gap: .4rem; }
+    .wf-xl-ref { min-width: 3.2rem; text-align: center; font-size: .75rem; font-weight: 600; padding: .2rem .4rem; border: 1px solid var(--linha); border-radius: .375rem; background: var(--superficie-2); color: var(--tinta); white-space: nowrap; }
+    .wf-xl-fx .campo { flex: 1; min-width: 0; padding: .2rem .5rem; font-size: .8rem; font-family: ui-monospace, Menlo, Consolas, monospace; }
+    .wf-xl-rolagem { flex: 1; min-height: 6rem; overflow: auto; border: 1px solid var(--linha); border-radius: .4rem; }
+    .wf-xl-tab { table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+    .wf-xl-tab th, .wf-xl-tab td { border: 0; border-right: 1px solid var(--linha); border-bottom: 1px solid var(--linha); padding: 0; }
+    .wf-xl-tab .wf-cel { min-width: 0; border-radius: 0; }
+    .wf-xl-tab thead th { position: sticky; z-index: 3; background: var(--superficie-2); }
+    .wf-xl-tab thead tr.letras th { top: 0; height: 20px; }
+    .wf-xl-tab thead tr.nomes th { top: 20px; }
+    .wf-xl-tab th.letra { font-size: .68rem; font-weight: 600; color: var(--tinta-2); text-align: center; cursor: pointer; user-select: none; line-height: 20px; }
+    .wf-xl-tab th.letra.sel, .wf-xl-tab th.num.sel { background: var(--prim-linha); color: var(--tinta); }
+    .wf-xl-tab th.num { position: sticky; left: 0; z-index: 2; font-size: .68rem; font-weight: 500; color: var(--tinta-2); text-align: center; cursor: pointer; background: var(--superficie-2); user-select: none; }
+    .wf-xl-tab thead th.canto { left: 0; z-index: 4; cursor: pointer; }
+    .wf-xl-tab td.sel { box-shadow: inset 0 0 0 9999px rgba(99, 140, 255, .14); }
+    .wf-xl-tab td.ativa { outline: 2px solid var(--prim); outline-offset: -2px; }
+    .wf-xl-tab tfoot th, .wf-xl-tab tfoot td { position: sticky; bottom: 0; z-index: 2; background: var(--superficie-2); font-weight: 600; font-size: .8rem; padding: .3rem .5rem; text-align: right; }
+    .wf-xl-tab tfoot th.num { left: 0; z-index: 3; text-align: center; }
+    .wf-xl-grip { position: absolute; right: -3px; top: 0; bottom: 0; width: 7px; cursor: col-resize; touch-action: none; z-index: 5; }
+    .wf-xl-status { display: flex; flex-wrap: wrap; gap: .2rem 1rem; font-size: .7rem; color: var(--tinta-2); }
+    @media (max-width: 899px) { .wf-xl { height: auto; } .wf-xl-rolagem { max-height: 70vh; } }
+
 </style>
 
 <script type="application/json" id="diverso-cfg">{!! json_encode($cfg, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) !!}</script>
 {{-- Precisam vir antes do Alpine iniciar (o Alpine do layout usa defer) --}}
 <script src="{{ asset('js/quadro.js') }}?v={{ @filemtime(public_path('js/quadro.js')) }}"></script>
 <script src="{{ asset('js/diverso.js') }}?v={{ @filemtime(public_path('js/diverso.js')) }}"></script>
-
+{{-- Estende o diverso.js (editor de diagramas); precisa vir depois dele --}}
+<script src="{{ asset('js/diagrama.js') }}?v={{ @filemtime(public_path('js/diagrama.js')) }}"></script>
+<script src="{{ asset('js/diagrama.js') }}?v={{ @filemtime(public_path('js/diagrama.js')) }}"></script>
+<script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
 <script>
     // Ícones minimalistas (traço de 1,6px). O valor salvo na aba é só a chave (ex.: "casa").
     window.WF_ICONES = {
@@ -217,12 +285,8 @@
     };
 </script>
 
-<div x-data="diversoAbas()" class="space-y-6">
-
-    <datalist id="wf-redes">
-        <option value="Instagram"></option><option value="TikTok"></option><option value="YouTube"></option>
-        <option value="X"></option><option value="LinkedIn"></option><option value="Facebook"></option>
-    </datalist>
+{{-- diversoAbasDiagrama() = diversoAbas() + editor de diagramas (diagrama.js) --}}
+<div x-data="diversoAbasDiagrama()" class="space-y-6">
 
     {{-- Abas: só as que você criar (cada uma com nome e ícone) + o botão de nova aba --}}
     <nav class="flex flex-wrap items-start gap-x-5 gap-y-4" aria-label="Abas do Diverso">
@@ -325,7 +389,7 @@
             {{-- O estilo fica num contêiner à parte: um :style no mesmo elemento do x-show apagaria o "display: none". --}}
             <div class="wf-vazio" :style="`--ox:${ox}px;--oy:${alturaConteudo(aba) + 16}px`">
                 <p x-show="!blocosDe(aba).length" x-cloak class="text-sm texto-2">
-                    Nenhum bloco nesta aba ainda. Use “+ Bloco” para criar textos, tabelas, imagens, documentos, mapas mentais, listas de compras, escrita, redes sociais, loja e mais.
+                    Nenhum bloco nesta aba ainda. Use “+ Bloco” para criar textos, tabelas, imagens, mapas mentais e diagramas, código, tabletop e mais.
                 </p>
             </div>
 

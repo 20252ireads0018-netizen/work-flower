@@ -1,6 +1,6 @@
 /* Work Flower · área Diverso
    Abas criadas pelo usuário (a principal tem as tarefas); cada aba é um quadro livre, com os mesmos cartões das outras áreas (tarefas, textos, tabelas, imagens,
-   documentos, mapas mentais com desenho livre, compras, escrita, redes sociais, loja e código).
+   mapas mentais com desenho livre, código e tabletop).
    Depende de quadro.js (carregue antes). */
 (function () {
     'use strict';
@@ -9,13 +9,13 @@
     const { PALETA, MM } = Q;
     const brl = n => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const fmt = n => Math.round(n).toLocaleString('pt-BR');
-    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const FONTES = { sans: "'DM Sans', system-ui, sans-serif", serif: "Georgia, 'Times New Roman', serif", mono: "ui-monospace, Menlo, Consolas, monospace" };
     const COR_OK = /^#[0-9a-fA-F]{6}$/;
     const MAX_TRACOS = 600;
     const SEC = 'quadro'; // primeira aba criada: é nela que ficam os cartões de tarefas
     const MAX_ABAS = 12;  // máximo de abas criadas pelo usuário
     const ICONE_PADRAO = 'pasta';
+    // Tipos de bloco que não existem mais: blocos antigos desses tipos são apagados ao abrir a página
+    const REMOVIDOS = ['documento', 'compras', 'escrita', 'social', 'loja'];
     // As chaves vêm do WF_ICONES (definido na página). Lê na hora de usar, porque este arquivo carrega antes dele.
     const listaIcones = () => Object.keys(window.WF_ICONES || {});
     // Emojis de abas antigas viram o ícone equivalente
@@ -32,15 +32,6 @@
         return EMOJI_PARA_ICONE[t] || EMOJI_PARA_ICONE[t.replace(/\uFE0F/g, '')] || ICONE_PADRAO;
     }
     const VERSAO = 2;     // estado.v = 2: as abas criadas pelo usuário ficam em estado.abas
-
-    /* Modelos de documento: [título da seção, texto inicial] */
-    const MODELOS = {
-        branco: { nome: 'Em branco', secoes: [['', '']] },
-        curriculo: { nome: 'Currículo', secoes: [['Seu nome', 'Cargo · cidade · e-mail · telefone'], ['Objetivo', ''], ['Experiência', ''], ['Formação', ''], ['Habilidades', '']] },
-        contrato: { nome: 'Contrato', secoes: [['Partes', ''], ['Objeto', ''], ['Prazo e valor', ''], ['Cláusulas', ''], ['Assinaturas', '']] },
-        resumo: { nome: 'Resumo de estudo', secoes: [['Tema', ''], ['Ideias principais', ''], ['Dúvidas', ''], ['Para revisar', '']] },
-        lista: { nome: 'Lista', secoes: [['Lista', '']] },
-    };
 
     /* Posição inicial dos cartões fixos de tarefas, no topo do quadro */
     const PADRAO = {
@@ -133,18 +124,13 @@
     }
 
     /* [largura, altura, título, dados iniciais] de cada tipo de bloco */
-    function defBloco(tipo, self) {
+    function defBloco(tipo) {
         return {
             texto: [340, 240, 'Texto', { texto: '', tam: 'm' }],
             tabela: [480, 280, 'Tabela', { cab: ['Item', 'Valor'], linhas: [['', ''], ['', '']] }],
             lista: [320, 300, 'Lista', { itens: [] }],
-            imagem: [360, 300, 'Imagem', { ajuste: 'cover' }],
-            documento: [520, 520, 'Documento', { modelo: 'branco', layout: 'coluna', fonte: 'sans', cor: PALETA[0], secoes: self.secoesModelo('branco') }],
+            imagem: [360, 300, 'Imagem', {}],
             mapa: [720, 480, 'Mapa mental', { nos: [{ id: uid(), t: 'Tema central', x: 40, y: 180, pai: null, cor: PALETA[0] }], tracos: [] }],
-            compras: [420, 360, 'Lista de compras', { itens: [] }],
-            escrita: [560, 420, 'Escrita', { texto: '', lado: 'left', larg: 35, fonte: 'serif' }],
-            social: [720, 400, 'Redes sociais', { posts: [] }],
-            loja: [640, 440, 'Minha loja', { pagamento: '', produtos: [] }],
             codigo: [640, 260, 'Código', { repos: [{ id: uid(), nome: '', pasta: '' }] }],
             tabletop: [720, 560, 'Tabletop', { cols: 16, rows: 12, cel: 40, grade: true, nomes: true, pecas: [], desenho: [] }],
         }[tipo];
@@ -162,6 +148,7 @@
        - todos os blocos das abas antigas vão para o mesmo quadro (cada aba antiga fica abaixo da anterior);
        - os cartões de tarefas mantêm a posição que o usuário já tinha dado;
        - o bloco "Campos do dia" foi retirado da página;
+       - os blocos "Documento", "Lista de compras", "Escrita com imagem", "Redes sociais" e "Loja" foram retirados da página: os que existiam são apagados (com as imagens);
        - a lixeira foi retirada da página: o que estava nela é descartado de vez. */
     function migrar(e) {
         const orfaos = [];
@@ -177,6 +164,17 @@
                 if (e.layout[b.secao]) delete e.layout[b.secao][b.id];
             });
             e.blocos = e.blocos.filter(b => b?.tipo !== 'campos');
+            mudou = true;
+        }
+
+        // tipos removidos (Documento, Lista de compras, Escrita, Redes sociais, Loja): some o bloco, a posição e as imagens (img.<bloco>.c.<item>, img.<bloco>.<produto>)
+        const mortos = e.blocos.filter(b => REMOVIDOS.includes(b?.tipo));
+        if (mortos.length) {
+            mortos.forEach(b => {
+                orfaos.push(b.id);
+                if (e.layout[b.secao]) delete e.layout[b.secao][b.id];
+            });
+            e.blocos = e.blocos.filter(b => !REMOVIDOS.includes(b?.tipo));
             mudou = true;
         }
 
@@ -400,15 +398,12 @@
             cfg, estado, imagens, tarefas: cfg.tarefas || [], aba: estado.abas[0]?.id ?? null,
             icones: listaIcones(), formAba: null,
             ui: {}, ultimo: null,
-            modelos: Object.entries(MODELOS).map(([id, m]) => ({ id, nome: m.nome })),
-            fontes: FONTES, paleta: PALETA,
+            paleta: PALETA,
             tiposBloco: [
                 { id: 'texto', nome: 'Campo de texto' }, { id: 'tabela', nome: 'Tabela' },
                 { id: 'lista', nome: 'Lista de itens' }, { id: 'imagem', nome: 'Imagem' },
-                { id: 'documento', nome: 'Documento' }, { id: 'mapa', nome: 'Mapa mental (com desenho)' },
-                { id: 'compras', nome: 'Lista de compras' },
-                { id: 'escrita', nome: 'Escrita com imagem' }, { id: 'social', nome: 'Redes sociais' },
-                { id: 'loja', nome: 'Loja' }, { id: 'codigo', nome: 'GitHub / VS Code' },
+                { id: 'mapa', nome: 'Mapa mental (com desenho)' },
+                { id: 'codigo', nome: 'GitHub / VS Code' },
                 { id: 'tabletop', nome: 'Tabletop (mapa com grade)' },
             ],
             ttPecas: TT_PECAS, ttFormas: TT_FORMAS, ttFerramentas: TT_FERRAMENTAS,
@@ -489,7 +484,7 @@
 
             /* ---------- blocos ---------- */
             criarBloco(sec, tipo, pos, over = {}) {
-                const d = defBloco(tipo, this);
+                const d = defBloco(tipo);
                 if (!d) return null;
                 const id = 'b' + uid(), W = this.col || 1088, w = Math.min(d[0], W);
                 const dados = over.dados ? { ...d[3], ...over.dados } : d[3];
@@ -507,6 +502,19 @@
             },
             desfazerVisivel() { return !!this.ultimo && this.msg === 'Bloco excluído.'; },
             tipoNome(t) { return t === 'vivo' ? 'Cartão ativo' : (this.tiposBloco.find(x => x.id === t)?.nome || t); },
+
+            /* Imagem do bloco: o cartão se ajusta à proporção da imagem (só quando a imagem muda,
+               para não desfazer um redimensionamento manual feito depois). */
+            ajustarImagem(b, img) {
+                if (!img.naturalWidth) return;
+                const ratio = img.naturalHeight / img.naturalWidth;
+                if (b.dados.ratio === ratio) return;
+                b.dados.ratio = ratio;
+                const L = this.estado.layout?.[b.secao]?.[b.id];
+                if (!L) return;
+                const cabecalho = 46, padding = 32;           // topo do cartão + padding do corpo
+                L.h = Math.max(Math.round((L.w - padding) * ratio) + cabecalho + padding, 80);
+            },
 
             /* ---------- excluir (com "Desfazer" por alguns segundos; sem lixeira) ---------- */
             removerBloco(b) {
@@ -547,28 +555,24 @@
                 });
             },
 
-            /* ---------- biblioteca: a loja e o tabletop levam as imagens junto ----------
+            /* ---------- biblioteca: o tabletop leva as imagens junto ----------
                As imagens ficam fora de `dados` (img.<bloco>.<...>); ao guardar, vão embutidas no item da
                biblioteca e, ao colar, voltam para o servidor com o id do novo bloco.
                O mapa de fundo do tabletop é reduzido ao guardar (é a imagem mais pesada e pode estourar o limite do servidor). */
             async guardarBloco(b) {
-                if (b.tipo !== 'loja' && b.tipo !== 'tabletop') return motor.guardarBloco.call(this, b);
+                if (b.tipo !== 'tabletop') return motor.guardarBloco.call(this, b);
                 const dados = copia(b.dados);
-                if (b.tipo === 'loja') {
-                    dados.produtos.forEach(p => { const im = this.imagens[`${b.id}.${p.id}`]; if (im) p.img = im; });
-                } else {
-                    const imgs = {};
-                    (dados.pecas || []).forEach(p => {
-                        if (!p.img || imgs[p.img]) return;
-                        const im = this.imagens[`${b.id}.i.${p.img}`];
-                        if (im) imgs[p.img] = im;
-                    });
-                    if (Object.keys(imgs).length) dados.imgs = imgs;
-                    // a biblioteca inteira vai num único PUT: o mapa de fundo e as imagens das peças entram compactados
-                    for (const id of Object.keys(imgs)) imgs[id] = await reduzirSrc(imgs[id], 256, 0.75, 40000);
-                    const mapa = this.imagens[`${b.id}.mapa`];
-                    if (mapa) dados.mapaImg = await reduzirSrc(mapa, 900, 0.65, 180000);
-                }
+                const imgs = {};
+                (dados.pecas || []).forEach(p => {
+                    if (!p.img || imgs[p.img]) return;
+                    const im = this.imagens[`${b.id}.i.${p.img}`];
+                    if (im) imgs[p.img] = im;
+                });
+                if (Object.keys(imgs).length) dados.imgs = imgs;
+                // a biblioteca inteira vai num único PUT: o mapa de fundo e as imagens das peças entram compactados
+                for (const id of Object.keys(imgs)) imgs[id] = await reduzirSrc(imgs[id], 256, 0.75, 40000);
+                const mapa = this.imagens[`${b.id}.mapa`];
+                if (mapa) dados.mapaImg = await reduzirSrc(mapa, 900, 0.65, 180000);
                 return motor.guardarBloco.call(this, { ...b, dados });
             },
             colarBloco(item) {
@@ -577,17 +581,18 @@
                 motor.colarBloco.call(this, item);
                 const nb = this.estado.blocos[this.estado.blocos.length - 1];
                 if (this.estado.blocos.length === antes || !nb) return;
+                // itens antigos da biblioteca de tipos que não existem mais (Documento, Lista de compras, Escrita, Redes sociais, Loja) não são colados
+                if (REMOVIDOS.includes(nb.tipo)) {
+                    this.estado.blocos.pop();
+                    if (this.estado.layout[nb.secao]) delete this.estado.layout[nb.secao][nb.id];
+                    this.aviso('Esse tipo de bloco não existe mais e não pode ser colado.');
+                    return;
+                }
                 const salvar = (k, v, msg) => {
                     this.imagens[k] = v;
                     Q.enviar(`${this.cfg.url}/img.${k}`, JSON.stringify(v)).catch(() => this.aviso(msg));
                 };
-                if (nb.tipo === 'loja') {
-                    nb.dados.produtos.forEach(p => {
-                        if (!p.img) return;
-                        salvar(`${nb.id}.${p.id}`, p.img, 'Não consegui salvar uma foto de produto.');
-                        delete p.img;
-                    });
-                } else if (nb.tipo === 'tabletop') {
+                if (nb.tipo === 'tabletop') {
                     const d = copia(nb.dados);
                     Object.entries(d.imgs || {}).forEach(([id, src]) => salvar(`${nb.id}.i.${id}`, src, 'Não consegui salvar a imagem de uma peça.'));
                     if (d.mapaImg) salvar(`${nb.id}.mapa`, d.mapaImg, 'Não consegui salvar a imagem do mapa.');
@@ -597,69 +602,7 @@
                 }
             },
 
-            /* ---------- redes sociais ---------- */
-            addPost(b) { b.dados.posts.push({ id: uid(), nome: '', rede: '', likes: 0, views: 0, coment: 0, comp: 0 }); },
-            somaSocial(b, k) { return fmt(b.dados.posts.reduce((s, p) => s + num(p[k]), 0)); },
-            engSocial(b) {
-                const P = b.dados.posts, eng = P.reduce((s, p) => s + num(p.likes) + num(p.coment) + num(p.comp), 0);
-                const v = P.reduce((s, p) => s + num(p.views), 0);
-                return fmt(eng) + (v > 0 ? ` (${String(r1(eng / v * 100)).replace('.', ',')}%)` : '');
-            },
-
-            /* ---------- loja ---------- */
-            addProduto(b) { b.dados.produtos.push({ id: uid(), nome: 'Novo produto', preco: 0, estoque: 0, vendidos: 0 }); },
-            remProduto(b, p) { this.apagarImagens(`${b.id}.${p.id}`); b.dados.produtos.splice(b.dados.produtos.indexOf(p), 1); },
-            imgProduto(b, p) { return this.imagens[`${b.id}.${p.id}`] || ''; },
-            async lerImgProduto(b, p, arq) {
-                if (!arq || !arq.type.startsWith('image/')) return;
-                const k = `${b.id}.${p.id}`;
-                try {
-                    this.imagens[k] = await Q.reduzir(arq, 320, 0.72);
-                    await Q.enviar(`${this.cfg.url}/img.${k}`, JSON.stringify(this.imagens[k]));
-                } catch { this.aviso('Não consegui salvar a foto do produto.'); }
-            },
-            vender(p) { p.vendidos = num(p.vendidos) + 1; if (num(p.estoque) > 0) p.estoque = num(p.estoque) - 1; },
-            faturaLoja(b) { return b.dados.produtos.reduce((s, p) => s + num(p.preco) * num(p.vendidos), 0); },
-            somaLoja(b, k) { return fmt(b.dados.produtos.reduce((s, p) => s + num(p[k]), 0)); },
             linkSeguro(u) { return /^https:\/\/[^\s]+$/i.test(String(u || '').trim()) ? String(u).trim() : '#'; },
-
-            /* ---------- lista de compras ---------- */
-            addCompra(b, el) {
-                const t = el.value.trim();
-                if (!t) return;
-                b.dados.itens.push({ id: uid(), t, q: 1, p: 0, f: false });
-                el.value = '';
-            },
-            totCompra(b, comprados) { return b.dados.itens.filter(i => !!i.f === comprados).reduce((s, i) => s + num(i.q) * num(i.p), 0); },
-            qtdCompra(b, comprados) { return b.dados.itens.filter(i => !!i.f === comprados).length; },
-            limparComprados(b) { b.dados.itens = b.dados.itens.filter(i => !i.f); },
-
-            /* ---------- documento (currículo, contrato, resumo…) ---------- */
-            secoesModelo(m) { return (MODELOS[m] || MODELOS.branco).secoes.map(([t, texto]) => ({ id: uid(), t, texto })); },
-            trocarModelo(b, m) {
-                if (!m || !MODELOS[m]) return;
-                const preenchido = b.dados.secoes.some(s => s.texto.trim());
-                if (preenchido && !confirm('Trocar o modelo substitui as seções atuais. Continuar?')) return;
-                b.dados.modelo = m;
-                b.dados.secoes = this.secoesModelo(m);
-                if (m === 'curriculo') { b.dados.layout = 'faixa'; b.dados.fonte = 'sans'; }
-                if (m === 'contrato') { b.dados.layout = 'coluna'; b.dados.fonte = 'serif'; }
-                if (b.titulo === 'Documento' || Object.values(MODELOS).some(x => x.nome === b.titulo)) b.titulo = MODELOS[m].nome;
-            },
-            imprimirDoc(b) {
-                const d = b.dados, w = window.open('', '_blank');
-                if (!w) { this.aviso('Permita pop-ups para imprimir.'); return; }
-                const cor = COR_OK.test(d.cor) ? d.cor : PALETA[0];
-                const secs = d.secoes.map((s, i) => `<section class="${i === 0 && d.layout === 'faixa' ? 'cab' : ''}"><h2>${esc(s.t)}</h2><p>${esc(s.texto).replace(/\n/g, '<br>')}</p></section>`).join('');
-                w.document.write(`<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>${esc(b.titulo)}</title><style>
-                    body{font-family:${FONTES[d.fonte] || FONTES.sans};color:#1b1f24;margin:2cm;line-height:1.5}
-                    h2{font-size:1rem;margin:0 0 .25rem;border-bottom:2px solid ${cor};padding-bottom:.15rem}
-                    section{break-inside:avoid;margin-bottom:1rem}p{margin:0}
-                    .cab{background:${cor};color:#fff;padding:1rem;border-radius:6px}.cab h2{border-color:#fff3;font-size:1.5rem}
-                    main{${d.layout === 'duas' ? 'columns:2;column-gap:1.5cm' : ''}}
-                    </style><main>${secs}</main><script>onload=()=>print()<\/script></html>`);
-                w.document.close();
-            },
 
             /* ---------- tabletop: mapa com grade e peças arrastáveis ---------- */
             ttUI(b) {
