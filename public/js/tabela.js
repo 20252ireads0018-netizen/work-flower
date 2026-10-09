@@ -1,6 +1,6 @@
-/* Work Flower · Diverso — tabelas estilo planilha.
-   Estende diversoAbasDiagrama() (ou diversoAbas()) com métodos tb*.
-   Carregue DEPOIS de diverso.js e diagrama.js. Não altera o formato antigo (dados.cab / dados.linhas);
+/* Work Flower · Diverso, Corpo, Mente e Carteira — tabelas estilo planilha.
+   Estende diversoAbasDiagrama() / diversoAbas() / corpoAbas() / menteAbas() / carteiraAbas() com métodos tb*.
+   Carregue DEPOIS de diverso.js e diagrama.js (Diverso), corpo.js (Corpo), mente.js (Mente) ou carteira.js (Carteira). Não altera o formato antigo (dados.cab / dados.linhas);
    guarda extras opcionais em dados.cols, dados.rodape e dados.estl. */
 (function () {
     'use strict';
@@ -504,6 +504,8 @@
             tbCol(b, j) { return colDe(b, j); },
 
             tbUI(b) {
+                // `ui` guarda só o estado de tela (seleção, histórico); algumas páginas (ex.: Mente) podem não ter esse objeto
+                if (!this.ui) this.ui = {};
                 const k = 'tb.' + b.id;
                 if (!this.ui[k]) this.ui[k] = { r: 0, c: 0, r2: 0, c2: 0, edit: null, filtro: '', hist: [], refaz: [], sujo: false };
                 return this.ui[k];
@@ -938,6 +940,6 @@
         };
         return true;
     }
-    const ok1 = envolver('diversoAbasDiagrama'), ok2 = envolver('diversoAbas');
-    if (!ok1 && !ok2) console.warn('tabela.js: carregue depois de diverso.js e diagrama.js.');
+    const ok = ['diversoAbasDiagrama', 'diversoAbas', 'menteAbas', 'corpoAbas', 'carteiraAbas'].map(envolver);
+    if (!ok.some(Boolean)) console.warn('tabela.js: carregue depois de diverso.js e diagrama.js (Diverso), corpo.js (Corpo), mente.js (Mente) ou carteira.js (Carteira).');
 })();

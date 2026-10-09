@@ -113,12 +113,59 @@
         .wf-redim { display: none; }
         .wf-ex-linha { grid-template-columns: minmax(0, 1fr) 3.2rem 3.2rem 3.6rem auto; }
     }
+
+        /* ===== Tabela estilo planilha (tabela.js) ===== */
+    .wf-xl { display: flex; flex-direction: column; gap: .4rem; height: 100%; min-height: 0; }
+    .wf-xl-barra { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+    .wf-xl-barra .btn-sec { padding: .15rem .5rem; font-size: .75rem; cursor: pointer; }
+    .wf-xl-barra .btn-sec:disabled { opacity: .45; cursor: default; }
+    .wf-xl-barra .campo { width: auto; padding: .15rem 1.5rem .15rem .45rem; font-size: .75rem; }
+    .wf-xl-barra input.campo { padding-right: .45rem; }
+    .wf-xl-sep { width: 1px; align-self: stretch; min-height: 1.1rem; background: var(--linha); margin: 0 .1rem; }
+    .wf-xl-fx { display: flex; align-items: center; gap: .4rem; }
+    .wf-xl-ref { min-width: 3.2rem; text-align: center; font-size: .75rem; font-weight: 600; padding: .2rem .4rem; border: 1px solid var(--linha); border-radius: .375rem; background: var(--superficie-2); color: var(--tinta); white-space: nowrap; }
+    .wf-xl-fx .campo { flex: 1; min-width: 0; padding: .2rem .5rem; font-size: .8rem; font-family: ui-monospace, Menlo, Consolas, monospace; }
+    .wf-xl-rolagem { flex: 1; min-height: 6rem; overflow: auto; border: 1px solid var(--linha); border-radius: .4rem; }
+    .wf-xl-tab { table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+    .wf-xl-tab th, .wf-xl-tab td { border: 0; border-right: 1px solid var(--linha); border-bottom: 1px solid var(--linha); padding: 0; }
+    .wf-xl-tab .wf-cel { min-width: 0; border-radius: 0; }
+    .wf-xl-tab thead th { position: sticky; z-index: 3; background: var(--superficie-2); }
+    .wf-xl-tab thead tr.letras th { top: 0; height: 20px; }
+    .wf-xl-tab thead tr.nomes th { top: 20px; }
+    .wf-xl-tab th.letra { font-size: .68rem; font-weight: 600; color: var(--tinta-2); text-align: center; cursor: pointer; user-select: none; line-height: 20px; }
+    .wf-xl-tab th.letra.sel, .wf-xl-tab th.num.sel { background: var(--prim-linha); color: var(--tinta); }
+    .wf-xl-tab th.num { position: sticky; left: 0; z-index: 2; font-size: .68rem; font-weight: 500; color: var(--tinta-2); text-align: center; cursor: pointer; background: var(--superficie-2); user-select: none; }
+    .wf-xl-tab thead th.canto { left: 0; z-index: 4; cursor: pointer; }
+    .wf-xl-tab td.sel { box-shadow: inset 0 0 0 9999px rgba(99, 140, 255, .14); }
+    .wf-xl-tab td.ativa { outline: 2px solid var(--prim); outline-offset: -2px; }
+    .wf-xl-tab tfoot th, .wf-xl-tab tfoot td { position: sticky; bottom: 0; z-index: 2; background: var(--superficie-2); font-weight: 600; font-size: .8rem; padding: .3rem .5rem; text-align: right; }
+    .wf-xl-tab tfoot th.num { left: 0; z-index: 3; text-align: center; }
+    .wf-xl-grip { position: absolute; right: -3px; top: 0; bottom: 0; width: 7px; cursor: col-resize; touch-action: none; z-index: 5; }
+    .wf-xl-status { display: flex; flex-wrap: wrap; gap: .2rem 1rem; font-size: .7rem; color: var(--tinta-2); }
+    @media (max-width: 899px) { .wf-xl { height: auto; } .wf-xl-rolagem { max-height: 70vh; } }
+
+    /* ===== Tela cheia dos cartões (tela-cheia.js) ===== */
+    .wf-fs-btn svg { width: .9rem; height: .9rem; display: block; }
+    .wf-item.wf-fs {
+        position: fixed !important; left: 0 !important; top: 0 !important; right: 0 !important; bottom: 0 !important;
+        width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important;
+        z-index: 2147483000 !important; transform: none !important; margin: 0 !important;
+        border-radius: 0; border-width: 0; border-top: 3px solid var(--wc); background: var(--superficie);
+    }
+    .wf-item.wf-fs .wf-topo { cursor: default; touch-action: auto; }
+    .wf-item.wf-fs .wf-redim { display: none !important; }
+    .wf-item.wf-fs .wf-corpo { overflow: auto; padding: 1rem 1.25rem; }
+    .wf-quadro.wf-fs-ativo { isolation: auto; }
+    html.wf-fs-pagina { overflow: hidden; }
 </style>
 
 <script type="application/json" id="corpo-cfg">{!! json_encode($cfg, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) !!}</script>
 {{-- Precisa vir antes do Alpine iniciar (o Alpine do layout usa defer) --}}
 <script src="{{ asset('js/quadro.js') }}?v={{ @filemtime(public_path('js/quadro.js')) }}"></script>
 <script src="{{ asset('js/corpo.js') }}?v={{ @filemtime(public_path('js/corpo.js')) }}"></script>
+<script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
+<script src="{{ asset('js/tela-cheia.js') }}?v={{ @filemtime(public_path('js/tela-cheia.js')) }}"></script>
+<script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
 
 <div x-data="corpoAbas()"
      @add-alimento="aoAdicionar($event.detail)"

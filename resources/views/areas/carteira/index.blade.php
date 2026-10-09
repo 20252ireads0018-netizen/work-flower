@@ -75,6 +75,47 @@
     .wf-proj { background: var(--superficie); border: 1px solid var(--linha); border-radius: .5rem; padding: .5rem .6rem; }
     .wf-previa { background: #fff; border-radius: .5rem; overflow: auto; height: calc(100% - 2.5rem); }
 
+    /* tabela estilo planilha (js/tabela.js) */
+    .tb-wrap { display: flex; flex-direction: column; gap: .4rem; height: 100%; min-height: 0; }
+    .tb-barra { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+    .tb-btn { display: inline-flex; align-items: center; justify-content: center; padding: .2rem .5rem; font-size: .75rem; line-height: 1.2; border: 1px solid var(--linha); border-radius: .375rem; background: var(--superficie-2); color: var(--tinta-2); transition: border-color .15s, color .15s; }
+    .tb-btn:hover:not(:disabled) { border-color: var(--prim-linha); color: var(--prim-forte); }
+    .tb-btn:disabled { opacity: .4; cursor: default; }
+    .tb-btn.perigo:hover:not(:disabled) { border-color: #f87171; color: #f87171; }
+    .tb-sep { width: 1px; align-self: stretch; background: var(--linha); margin: 0 .15rem; }
+    .tb-formula { display: flex; align-items: center; gap: .4rem; }
+    .tb-ref { min-width: 3.5rem; text-align: center; font-size: .75rem; padding: .3rem .4rem; border: 1px solid var(--linha); border-radius: .375rem; background: var(--superficie-2); color: var(--tinta); }
+    .tb-scroll { flex: 1; min-height: 8rem; overflow: auto; border: 1px solid var(--linha); border-radius: .5rem; }
+    .tb { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: .85rem; }
+    .tb th, .tb td { border-right: 1px solid var(--linha); border-bottom: 1px solid var(--linha); padding: 0; }
+    .tb thead th { position: sticky; top: 0; z-index: 2; background: var(--superficie-2); text-align: left; }
+    .tb thead th.sel, .tb .tb-num.sel { background: var(--prim-linha); }
+    .tb .tb-num { position: sticky; left: 0; z-index: 1; width: 44px; text-align: center; background: var(--superficie-2); color: var(--tinta-2); font-size: .7rem; font-weight: 400; cursor: pointer; user-select: none; }
+    .tb thead .tb-canto { z-index: 3; }
+    .tb-cab { position: relative; display: flex; align-items: center; }
+    .tb-letra { padding: 0 .4rem; font-size: .7rem; color: var(--tinta-2); cursor: pointer; user-select: none; }
+    .tb-cab-in { flex: 1; min-width: 0; background: transparent; border: 0; color: var(--tinta); font-weight: 600; font-size: .8rem; padding: .35rem .3rem; }
+    .tb-cab-in:focus { outline: none; background: var(--superficie); }
+    .tb-res { position: absolute; right: -3px; top: 0; bottom: 0; width: 7px; cursor: col-resize; touch-action: none; }
+    .tb-res:hover { background: var(--prim); opacity: .5; }
+    .tb-cel { width: 100%; background: transparent; border: 0; color: var(--tinta); padding: .35rem .45rem; font-size: .85rem; }
+    .tb-cel:focus { outline: 2px solid var(--prim); outline-offset: -2px; }
+    .tb td.sel { background: var(--prim-linha); }
+    .tb-rod { padding: .35rem .45rem !important; font-weight: 600; text-align: right; background: var(--superficie-2); }
+
+    /* tela cheia (js/tela-cheia.js) */
+    html.wf-fs-pagina { overflow: hidden; }
+    .wf-quadro.wf-fs-ativo { isolation: auto; }
+    .wf-item.wf-fs {
+        position: fixed !important; left: 0 !important; top: 0 !important; right: 0 !important; bottom: 0 !important;
+        width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important;
+        z-index: 1000; border-radius: 0; background: var(--superficie);
+    }
+    .wf-item.wf-fs .wf-topo { cursor: default; touch-action: auto; }
+    .wf-item.wf-fs .wf-redim { display: none; }
+    .wf-item.wf-fs .wf-corpo { overflow: auto; }
+    .wf-item.wf-fs .tb-scroll { max-height: none; }
+
     @media (max-width: 899px) {
         .wf-quadro { display: flex; flex-direction: column; gap: 1rem; min-height: 0 !important; height: auto !important; }
         .wf-item { position: static; width: auto; height: auto; }
@@ -83,14 +124,22 @@
         .wf-redim { display: none; }
         .wf-kanban { grid-template-columns: 1fr; }
         .wf-mapa { height: 24rem; }
+        .tb-scroll { max-height: 70vh; }
+        /* em tela cheia o cartão volta a cobrir a janela, mesmo no celular */
+        .wf-item.wf-fs { position: fixed !important; width: 100% !important; height: 100% !important; }
+        .wf-item.wf-fs .wf-corpo { overflow: auto; }
     }
 </style>
 
 <script type="application/json" id="carteira-cfg">{!! json_encode($cfg, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) !!}</script>
-{{-- Precisam vir antes do Alpine iniciar (o Alpine do layout usa defer). Ordem: quadro → documentos → carteira --}}
+{{-- Precisam vir antes do Alpine iniciar (o Alpine do layout usa defer).
+     Ordem: quadro → documentos → carteira → tabela (envolve carteiraAbas) → tela cheia → arquivos --}}
 <script src="{{ asset('js/quadro.js') }}?v={{ @filemtime(public_path('js/quadro.js')) }}"></script>
 <script src="{{ asset('js/documentos.js') }}?v={{ @filemtime(public_path('js/documentos.js')) }}"></script>
 <script src="{{ asset('js/carteira.js') }}?v={{ @filemtime(public_path('js/carteira.js')) }}"></script>
+<script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
+<script src="{{ asset('js/tela-cheia.js') }}?v={{ @filemtime(public_path('js/tela-cheia.js')) }}"></script>
+<script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
 
 <div x-data="carteiraAbas()" class="space-y-6">
 
@@ -606,7 +655,7 @@
         {{-- ================= QUADRO LIVRE (só blocos) ================= --}}
         <section class="wf-quadro" x-show="aba === 'livre'" x-cloak :style="{ minHeight: alturaQuadro('livre') + 'px' }">
             <p x-show="!blocosDe('livre').length" class="text-sm texto-2">
-                Quadro vazio. Use “+ Bloco” para adicionar texto, tabela, lista, imagem ou mapa mental.
+                Quadro vazio. Use “+ Bloco” para adicionar texto, tabela, lista, imagem ou mapa mental — ou arraste arquivos (.md, .txt, .csv, imagens, .wf.json) para cá.
             </p>
             @include('areas.carteira.partials.blocos', ['sec' => 'livre'])
         </section>

@@ -238,6 +238,19 @@
     .wf-xl-status { display: flex; flex-wrap: wrap; gap: .2rem 1rem; font-size: .7rem; color: var(--tinta-2); }
     @media (max-width: 899px) { .wf-xl { height: auto; } .wf-xl-rolagem { max-height: 70vh; } }
 
+    /* ===== Tela cheia dos cartões (tela-cheia.js) ===== */
+    .wf-fs-btn svg { width: .9rem; height: .9rem; display: block; }
+    .wf-item.wf-fs {
+        position: fixed !important; left: 0 !important; top: 0 !important; right: 0 !important; bottom: 0 !important;
+        width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important;
+        z-index: 2147483000 !important; transform: none !important; margin: 0 !important;
+        border-radius: 0; border-width: 0; border-top: 3px solid var(--wc); background: var(--superficie);
+    }
+    .wf-item.wf-fs .wf-topo { cursor: default; touch-action: auto; }
+    .wf-item.wf-fs .wf-redim { display: none !important; }
+    .wf-item.wf-fs .wf-corpo { overflow: auto; padding: 1rem 1.25rem; }
+    .wf-quadro.wf-fs-ativo { isolation: auto; }
+    html.wf-fs-pagina { overflow: hidden; }
 </style>
 
 <script type="application/json" id="diverso-cfg">{!! json_encode($cfg, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) !!}</script>
@@ -248,6 +261,9 @@
 <script src="{{ asset('js/diagrama.js') }}?v={{ @filemtime(public_path('js/diagrama.js')) }}"></script>
 <script src="{{ asset('js/diagrama.js') }}?v={{ @filemtime(public_path('js/diagrama.js')) }}"></script>
 <script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
+{{-- Botão de tela cheia em cada cartão --}}
+<script src="{{ asset('js/tela-cheia.js') }}?v={{ @filemtime(public_path('js/tela-cheia.js')) }}"></script>
+<script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
 <script>
     // Ícones minimalistas (traço de 1,6px). O valor salvo na aba é só a chave (ex.: "casa").
     window.WF_ICONES = {

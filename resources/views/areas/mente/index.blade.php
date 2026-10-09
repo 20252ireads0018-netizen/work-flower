@@ -152,6 +152,19 @@
     .wf-aula { border-left: 3px solid var(--lc); padding: .15rem .45rem; font-size: .75rem; line-height: 1.25; background: color-mix(in srgb, var(--lc) 12%, transparent); border-radius: .25rem; }
     .wf-prova { font-size: .7rem; color: #f87171; }
 
+    /* ----- Tela cheia por cartão (telacheia.js) ----- */
+    html.wf-fs-pagina { overflow: hidden; }
+    .wf-quadro.wf-fs-ativo { isolation: auto; }
+    .wf-item.wf-fs {
+        position: fixed !important; inset: 0 !important; left: 0 !important; top: 0 !important;
+        width: 100vw !important; height: 100vh !important; height: 100dvh !important;
+        z-index: 1000; border-radius: 0; box-shadow: none; transition: none;
+    }
+    .wf-item.wf-fs .wf-corpo { padding: 1.25rem; overflow: auto; }
+    .wf-item.wf-fs .wf-redim { display: none; }
+    .wf-item.wf-fs .wf-topo { cursor: default; }
+    .wf-item.wf-fs .wf-leitor { max-height: none; }
+
     /* Celular: os cartões empilham e o arrastar fica desligado */
     @media (max-width: 899px) {
         .wf-quadro { display: flex; flex-direction: column; gap: 1rem; min-height: 0 !important; height: auto !important; }
@@ -168,6 +181,11 @@
 {{-- Precisa vir antes do Alpine iniciar (o Alpine do layout usa defer) --}}
 <script src="{{ asset('js/quadro.js') }}?v={{ @filemtime(public_path('js/quadro.js')) }}"></script>
 <script src="{{ asset('js/mente.js') }}?v={{ @filemtime(public_path('js/mente.js')) }}"></script>
+{{-- tabela.js estende menteAbas(): precisa vir DEPOIS de mente.js (importar/exportar CSV) --}}
+<script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
+{{-- Baixar cartões / soltar arquivos para criar blocos / tela cheia por cartão --}}
+<script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
+<script src="{{ asset('js/tela-cheia.js') }}?v={{ @filemtime(public_path('js/tela-cheia.js')) }}"></script>
 
 <div x-data="menteAbas()" class="space-y-6">
 
@@ -791,6 +809,7 @@
         <section class="wf-quadro" x-show="aba === 'livre'" x-cloak :style="{ minHeight: alturaQuadro('livre') + 'px' }">
             <p x-show="!blocosDe('livre').length" class="text-sm texto-2">
                 Quadro vazio. Use “+ Bloco” para adicionar texto, tabela, lista, imagem, documento ou mapa mental.
+                Você também pode arrastar arquivos (imagem, .md, .txt, .csv ou um bloco baixado .wf.json) para cá e eles viram blocos.
             </p>
             @include('areas.mente.partials.blocos', ['sec' => 'livre'])
         </section>

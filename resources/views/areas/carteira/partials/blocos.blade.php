@@ -26,33 +26,122 @@
                     </div>
                 </template>
 
-                {{-- Tabela --}}
+                {{-- Tabela (estilo planilha: métodos tb* de js/tabela.js) --}}
                 <template x-if="b.tipo === 'tabela'">
-                    <div class="space-y-2">
-                        <div class="overflow-auto">
-                            <table class="wf-tab">
-                                <thead><tr>
-                                    <template x-for="(c, j) in b.dados.cab" :key="j">
-                                        <th><div class="flex items-center">
-                                            <input class="wf-cel font-semibold" x-model="b.dados.cab[j]">
-                                            <button type="button" class="mini-btn perigo" x-show="b.dados.cab.length > 1" title="Remover coluna" @click="tabColRem(b, j)">✕</button>
-                                        </div></th>
-                                    </template>
-                                    <th style="border:0;background:none"></th>
-                                </tr></thead>
+                    <div class="tb-wrap" data-xl x-init="tbGarantir(b)"
+                         @keydown="tbTeclaRaiz($event, b)"
+                         @copy="tbCopiar($event, b, false)"
+                         @cut="tbCopiar($event, b, true)"
+                         @paste="tbColar($event, b)">
+
+                        {{-- Ferramentas --}}
+                        <div class="tb-barra">
+                            <button type="button" class="tb-btn" title="Desfazer (Ctrl+Z)" aria-label="Desfazer" @click="tbDesfazer(b)" :disabled="!tbUI(b).hist.length">↶</button>
+                            <button type="button" class="tb-btn" title="Refazer (Ctrl+Y)" aria-label="Refazer" @click="tbRefazer(b)" :disabled="!tbUI(b).refaz.length">↷</button>
+                            <span class="tb-sep"></span>
+                            <button type="button" class="tb-btn font-bold" title="Negrito (Ctrl+B)" aria-label="Negrito" @click="tbNegrito(b)">N</button>
+                            <label class="tb-btn" style="position:relative;cursor:pointer" title="Cor de fundo">Fundo
+                                <input type="color" value="#fde68a" style="position:absolute;opacity:0;width:0;height:0;left:0;bottom:0" aria-label="Cor de fundo" @change="tbFundo(b, $event.target.value)">
+                            </label>
+                            <button type="button" class="tb-btn" title="Sem cor de fundo" aria-label="Sem cor de fundo" @click="tbFundo(b, '')">∅</button>
+                            <span class="tb-sep"></span>
+                            <button type="button" class="tb-btn" title="Alinhar à esquerda" aria-label="Alinhar à esquerda" @click="tbAlinhar(b, 'e')">⇤</button>
+                            <button type="button" class="tb-btn" title="Centralizar" aria-label="Centralizar" @click="tbAlinhar(b, 'c')">↔</button>
+                            <button type="button" class="tb-btn" title="Alinhar à direita" aria-label="Alinhar à direita" @click="tbAlinhar(b, 'd')">⇥</button>
+                            <button type="button" class="tb-btn" title="Alinhamento automático" aria-label="Alinhamento automático" @click="tbAlinhar(b, '')">A</button>
+                            <span class="tb-sep"></span>
+                            <select class="campo wf-link-sel" aria-label="Formato da coluna" @change="tbFmt(b, $event.target.value)">
+                                <template x-for="f in tbFormatos" :key="f.id"><option :value="f.id" :selected="tbCol(b, tbUI(b).c).fmt === f.id" x-text="f.nome"></option></template>
+                            </select>
+                            <select class="campo wf-link-sel" aria-label="Rodapé da coluna" @change="tbRodapeSet(b, $event.target.value)">
+                                <template x-for="a in tbAgregados" :key="a.id"><option :value="a.id" :selected="(b.dados.rodape || [])[tbUI(b).c] === a.id" x-text="a.nome"></option></template>
+                            </select>
+                            <span class="tb-sep"></span>
+                            <button type="button" class="tb-btn" title="Ordenar A→Z pela coluna ativa" aria-label="Ordenar crescente" @click="tbOrdenar(b, 1)">A↓</button>
+                            <button type="button" class="tb-btn" title="Ordenar Z→A pela coluna ativa" aria-label="Ordenar decrescente" @click="tbOrdenar(b, -1)">Z↓</button>
+                            <button type="button" class="tb-btn" title="Soma automática" aria-label="Soma automática" @click="tbAutoSoma(b)">Σ</button>
+                            <button type="button" class="tb-btn" title="Preencher para baixo (Ctrl+D)" aria-label="Preencher para baixo" @click="tbPreencher(b, 'baixo')">⤓</button>
+                            <button type="button" class="tb-btn" title="Preencher para a direita (Ctrl+R)" aria-label="Preencher para a direita" @click="tbPreencher(b, 'direita')">⇥</button>
+                        </div>
+                        <div class="tb-barra">
+                            <button type="button" class="tb-btn" title="Inserir linha acima" @click="tbLinhaIns(b, tbUI(b).r)">Linha ↑</button>
+                            <button type="button" class="tb-btn" title="Inserir linha abaixo" @click="tbLinhaIns(b, tbUI(b).r + 1)">Linha ↓</button>
+                            <button type="button" class="tb-btn perigo" title="Excluir linha ativa" @click="tbLinhaRem(b, tbUI(b).r)" :disabled="b.dados.linhas.length <= 1">Linha ✕</button>
+                            <button type="button" class="tb-btn" title="Inserir coluna à esquerda" @click="tbColIns(b, tbUI(b).c)">Col ←</button>
+                            <button type="button" class="tb-btn" title="Inserir coluna à direita" @click="tbColIns(b, tbUI(b).c + 1)">Col →</button>
+                            <button type="button" class="tb-btn perigo" title="Excluir coluna ativa" @click="tbColRem(b, tbUI(b).c)" :disabled="b.dados.cab.length <= 1">Col ✕</button>
+                            <span class="tb-sep"></span>
+                            <label class="tb-btn" style="cursor:pointer" title="Importar CSV">Importar CSV
+                                <input type="file" accept=".csv,.tsv,text/csv,text/plain" class="hidden"
+                                       @change="tbImportar(b, $event.target.files[0]); $event.target.value = ''">
+                            </label>
+                            <button type="button" class="tb-btn" title="Exportar CSV" @click="tbExportar(b)">Exportar CSV</button>
+                            <input class="campo wf-link-sel" style="width:9rem" x-model="tbUI(b).filtro" placeholder="Filtrar linhas…" aria-label="Filtrar linhas">
+                        </div>
+
+                        {{-- Barra de fórmula --}}
+                        <div class="tb-formula">
+                            <span class="tb-ref" x-text="tbRef(b)"></span>
+                            <span class="texto-2 text-xs">fx</span>
+                            <input class="campo flex-1" data-barra :value="tbRaw(b)" placeholder="Valor ou fórmula (ex.: =SOMA(B1:B5))"
+                                   aria-label="Barra de fórmula"
+                                   @input="tbBarra(b, $event.target.value)"
+                                   @keydown.enter.prevent="tbFocarAtivo($event, b)">
+                        </div>
+
+                        {{-- Grade --}}
+                        <div class="tb-scroll">
+                            <table class="tb" :style="tbLarg(b)">
+                                <thead>
+                                    <tr>
+                                        <th class="tb-num tb-canto" style="width:44px" title="Selecionar tudo" @click="tbSelTudo(b)"></th>
+                                        <template x-for="(c, j) in b.dados.cab" :key="j">
+                                            <th :class="{ 'sel': tbColAtiva(b, j) }" :style="`width:${tbColW(b, j)}px`">
+                                                <div class="tb-cab">
+                                                    <span class="tb-letra" title="Selecionar coluna" @click="tbSelCol(b, j, $event)" x-text="tbLetra(j)"></span>
+                                                    <input class="tb-cab-in" x-model="b.dados.cab[j]" aria-label="Nome da coluna">
+                                                    <span class="tb-res" title="Arraste para redimensionar (duplo clique: padrão)"
+                                                          @pointerdown.stop.prevent="tbRedim($event, b, j)" @dblclick="tbAutoLarg(b, j)"></span>
+                                                </div>
+                                            </th>
+                                        </template>
+                                    </tr>
+                                </thead>
                                 <tbody>
-                                    <template x-for="(l, i) in b.dados.linhas" :key="i">
+                                    <template x-for="i in tbVisiveis(b)" :key="i">
                                         <tr>
-                                            <template x-for="(c, j) in l" :key="j"><td><input class="wf-cel" x-model="l[j]"></td></template>
-                                            <td style="border:0"><button type="button" class="mini-btn perigo" title="Remover linha" @click="b.dados.linhas.splice(i, 1)">✕</button></td>
+                                            <th class="tb-num" :class="{ 'sel': tbLinhaAtiva(b, i) }" title="Selecionar linha" @click="tbSelLinha(b, i, $event)" x-text="i + 1"></th>
+                                            <template x-for="(c, j) in b.dados.cab" :key="j">
+                                                <td :class="{ 'sel': tbSelecionada(b, i, j), 'ativa': tbAtiva(b, i, j) }" :style="tbTdEstilo(b, i, j)">
+                                                    <input class="tb-cel" :data-r="i" :data-c="j"
+                                                           :value="tbValor(b, i, j)" :style="tbInEstilo(b, i, j)"
+                                                           :aria-label="tbLetra(j) + (i + 1)"
+                                                           @focus="tbFoco(b, i, j)" @blur="tbBlur(b, i, j)"
+                                                           @mousedown="tbDown($event, b, i, j)"
+                                                           @input="tbInput(b, i, j, $event)"
+                                                           @keydown="tbTecla($event, b, i, j)">
+                                                </td>
+                                            </template>
                                         </tr>
                                     </template>
                                 </tbody>
+                                <tfoot x-show="tbTemRodape(b)">
+                                    <tr>
+                                        <th class="tb-num"></th>
+                                        <template x-for="(c, j) in b.dados.cab" :key="j">
+                                            <td class="tb-rod" x-text="tbRodape(b, j)"></td>
+                                        </template>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
-                        <div class="flex gap-3">
-                            <button type="button" class="link-prim text-sm" @click="tabLinha(b)">+ Linha</button>
-                            <button type="button" class="link-prim text-sm" @click="tabCol(b)">+ Coluna</button>
+
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex gap-3">
+                                <button type="button" class="link-prim text-sm" @click="tbLinhaAdd(b)">+ Linha</button>
+                                <button type="button" class="link-prim text-sm" @click="tbColAdd(b)">+ Coluna</button>
+                            </div>
+                            <p class="text-xs texto-2" x-text="tbStats(b)" aria-live="polite"></p>
                         </div>
                     </div>
                 </template>
@@ -90,10 +179,10 @@
                     </div>
                 </template>
 
-{{-- Cartão ativo (de outra página) --}}
-            @include('areas.partials.bloco-vivo')
+                {{-- Cartão ativo (de outra página) --}}
+                @include('areas.partials.bloco-vivo')
 
-            {{-- Mapa mental --}}
+                {{-- Mapa mental --}}
                 <template x-if="b.tipo === 'mapa'">
                     <div class="wf-mapa">
                         <div class="relative" :style="{ width: mmTam(b).w + 'px', height: mmTam(b).h + 'px' }">
