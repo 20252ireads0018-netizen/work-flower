@@ -217,6 +217,114 @@
         return texto ? { tipo: 'texto', dados: { texto, tam: 'm' } } : null;
     }
 
+    /* ---------- encaixe dos cartões (organização automática) ---------- */
+    const ORG_VERSAO = 2;            // sobe quando o algoritmo muda: layouts automáticos antigos são refeitos uma vez
+    const ORG_CHAVE = 'wf-organizar-auto';
+    const ORG_FOLGA = 16, ORG_INF = 1e7;
+
+    /** Organização automática ligada neste navegador? (padrão: ligada) */
+    function autoLigado() {
+        try { return localStorage.getItem(ORG_CHAVE) !== '0'; } catch { return true; }
+    }
+    function definirAuto(ligado) {
+        try { localStorage.setItem(ORG_CHAVE, ligado ? '1' : '0'); } catch { /* navegador sem armazenamento */ }
+        window.dispatchEvent(new CustomEvent('wf-organizar-auto', { detail: { ligado: !!ligado } }));
+    }
+
+    /** Recorta o retângulo ocupado `p` de cada espaço livre que ele toca e descarta os espaços contidos em outros. */
+    function recortarLivres(livres, p) {
+        const out = [];
+        for (const f of livres) {
+            if (p.x >= f.x + f.w || p.x + p.w <= f.x || p.y >= f.y + f.h || p.y + p.h <= f.y) { out.push(f); continue; }
+            if (p.x > f.x) out.push({ x: f.x, y: f.y, w: p.x - f.x, h: f.h });
+            if (p.x + p.w < f.x + f.w) out.push({ x: p.x + p.w, y: f.y, w: f.x + f.w - p.x - p.w, h: f.h });
+            if (p.y > f.y) out.push({ x: f.x, y: f.y, w: f.w, h: p.y - f.y });
+            if (p.y + p.h < f.y + f.h) out.push({ x: f.x, y: p.y + p.h, w: f.w, h: f.y + f.h - p.y - p.h });
+        }
+        const uteis = out.filter(a => a.w >= 136 && a.h >= 96); // menor cartão possível + folga
+        return uteis.filter((a, i) => !uteis.some((b, j) => j !== i
+            && b.x <= a.x && b.y <= a.y && b.x + b.w >= a.x + a.w && b.y + b.h >= a.y + a.h
+            && (j < i || b.w * b.h > a.w * a.h)));
+    }
+
+    /**
+     * Encaixa os cartões na ordem dada ("retângulos livres"): cada um vai para o espaço livre mais alto,
+     * inclusive buracos entre cartões já colocados. Se o cartão for um pouco mais largo que o buraco,
+     * ele pode estreitar até a largura mínima dele para caber ali, em vez de cair para baixo de tudo.
+     */
+    function encaixar(lista, W) {
+        const G = ORG_FOLGA;
+        let livres = [{ x: 0, y: 0, w: W + G, h: ORG_INF }];
+        const pos = [];
+        let H = 0, cortes = 0;
+        for (const it of lista) {
+            let m = null;
+            for (const f of livres) {
+                let w = it.w;
+                if (f.w < w + G) {
+                    w = Math.floor((f.w - G) / 8) * 8;
+                    if (w < it.minW) continue;
+                }
+                const h = it.alturaPara ? it.alturaPara(w) : it.h;
+                if (f.h < h + G) continue;
+                // subir vale muito mais que estreitar: estreitar 1 px "custa" 1,5 px de altura
+                const custo = f.y + (it.w - w) * 1.5 + f.x * 0.001;
+                if (!m || custo < m.custo) m = { x: f.x, y: f.y, w, h, custo };
+            }
+            if (!m) m = { x: 0, y: H ? H + G : 0, w: it.w, h: it.h };
+            if (m.w < it.w) cortes++;
+            livres = recortarLivres(livres, { x: m.x, y: m.y, w: m.w + G, h: m.h + G });
+            pos.push({ it, x: m.x, y: m.y, w: m.w, h: m.h });
+            H = Math.max(H, m.y + m.h);
+        }
+        return { pos, H, cortes };
+    }
+
+    /** Fecha as sobras: alarga cartões até o vizinho (ou a borda) e estica as colunas até o fim do quadro. */
+    function esticar(pos, W, H) {
+        const G = ORG_FOLGA;
+        pos.slice().sort((a, b) => (b.x + b.w) - (a.x + a.w)).forEach(p => {
+            if (p.it.fixo) return;
+            let lim = W;
+            pos.forEach(o => { if (o !== p && o.x >= p.x + p.w && o.y < p.y + p.h + G && p.y < o.y + o.h + G) lim = Math.min(lim, o.x - G); });
+            const ext = lim - (p.x + p.w);
+            if (ext > 0 && ext <= p.w * 0.5) p.w += ext;
+        });
+        pos.slice().sort((a, b) => (b.y + b.h) - (a.y + a.h)).forEach(p => {
+            if (p.it.fixo) return;
+            let lim = H;
+            pos.forEach(o => { if (o !== p && o.y >= p.y + p.h && o.x < p.x + p.w + G && p.x < o.x + o.w + G) lim = Math.min(lim, o.y - G); });
+            const ext = lim - (p.y + p.h);
+            if (ext > 0 && ext <= p.h) p.h += ext;
+        });
+    }
+
+    /**
+     * Testa várias ordens (mais altos, maior área, mais largos, maior lado e a ordem atual da tela)
+     * e fica com o quadro mais baixo; em empate, o que estreita menos cartões e o que mantém a ordem atual.
+     */
+    function planejar(itens, W) {
+        const ordens = [
+            (a, b) => (b.h - a.h) || (b.w - a.w),
+            (a, b) => (b.w * b.h - a.w * a.h) || (b.h - a.h),
+            (a, b) => (b.w - a.w) || (b.h - a.h),
+            (a, b) => (Math.max(b.w, b.h) - Math.max(a.w, a.h)) || (b.h - a.h),
+            (a, b) => a.ordem - b.ordem,
+        ];
+        let melhor = null;
+        ordens.forEach((cmp, k) => {
+            const lista = itens.slice().sort((a, b) => cmp(a, b) || String(a.id).localeCompare(String(b.id)));
+            const r = encaixar(lista, W);
+            r.estavel = k === ordens.length - 1;
+            const ganha = !melhor
+                || r.H < melhor.H - 24
+                || (Math.abs(r.H - melhor.H) <= 24 && (r.cortes < melhor.cortes || (r.cortes === melhor.cortes && r.estavel && r.H <= melhor.H + 8)));
+            if (ganha) melhor = r;
+        });
+        esticar(melhor.pos, W, melhor.H);
+        return melhor;
+    }
+
     /** Propriedades de interface que o motor precisa no componente Alpine. */
     function estadoUI() {
         return { larg: 1088, col: 1088, ox: 0, salvo: 'ok', msg: '', zTop: 10, arrastando: null, menuBloco: false, destaque: null, _v: 0, embutido: !!EMBED };
@@ -265,6 +373,12 @@
                     });
                 }
                 if (EMBED) this.prepararEmbed();
+                if (!this._orgOuvindo && !EMBED) {
+                    this._orgOuvindo = true;
+                    // aba "Atalhos" das configurações: liga/desliga a organização automática e "Reorganizar agora" (Alt+R)
+                    window.addEventListener('wf-organizar-auto', e => { if (e.detail && e.detail.ligado && !this.arrastando) this.autoOrganizar(); });
+                    window.addEventListener('wf-reorganizar', () => { if (!this.arrastando) this.reorganizar(); });
+                }
                 this.$nextTick(() => {
                     const area = this.$refs.area, pai = area.parentElement;
                     const medir = () => {
@@ -296,7 +410,7 @@
                     // ao entrar na página: cartões organizados por tamanho, sem sobreposição, no tamanho desta tela.
                     // Imagens antigas mudam a altura do cartão ao carregar; depois disso a aba é conferida de novo,
                     // para uma imagem que cresceu não ficar por cima do cartão de baixo.
-                    const conferirAba = sec => { if (!this.arrastando && this.temConflito(sec) && this.organizar(sec)) this.aviso('Cartões reorganizados para caber a imagem.'); };
+                    const conferirAba = sec => { if (autoLigado() && !this.arrastando && this.temConflito(sec) && this.organizar(sec)) this.aviso('Cartões reorganizados para caber a imagem.'); };
                     this.autoOrganizar();
                     this.corrigirImagens(this.aba).then(n => { if (n) conferirAba(this.aba); });
                     this.$watch('aba', v => this.$nextTick(() => this.corrigirImagens(v).then(n => { if (n) conferirAba(v); })));
@@ -404,6 +518,8 @@
                 };
                 const fim = () => {
                     this.arrastando = null;
+                    // tamanho escolhido à mão passa a ser o tamanho do cartão (a organização volta a ele)
+                    if (l.w !== w0 || l.h !== h0) { delete l.bw; delete l.bh; }
                     window.removeEventListener('pointermove', mover);
                     window.removeEventListener('pointerup', fim);
                     window.removeEventListener('pointercancel', fim);
@@ -417,9 +533,10 @@
                     || getComputedStyle(document.documentElement).getPropertyValue('--prim').trim() || '#2f6fc7';
             },
             setCor(sec, id, cor) { this.entrada(sec, id).cor = cor; },
-            /* ---------- organização automática (por tamanho, sem sobreposição, no tamanho da tela) ---------- */
-            /** Botão "Reorganizar": arruma a aba atual. */
+            /* ---------- organização automática (por tamanho, sem buracos, sem sobreposição, no tamanho da tela) ---------- */
+            /** Botão "Reorganizar" (e Alt+R): arruma a aba atual, mesmo com a organização automática desligada. */
             reorganizar() {
+                if (EMBED || this.empilhado()) return;
                 if (!this.organizar(this.aba)) { this.aviso('Nada para reorganizar nesta aba.'); return; }
                 this.marcarTela();
                 this.aviso('Layout reorganizado para o tamanho da sua tela.');
@@ -456,65 +573,96 @@
                 }
                 return false;
             },
-            /**
-             * Arruma todos os cartões de uma aba sem sobreposição, dentro da largura da tela.
-             * Ordena por tamanho (mais altos e largos primeiro) e encaixa cada um no ponto mais alto
-             * e mais à esquerda que couber ("skyline"), com 16 px de folga. Tamanho, cor e ordem (z) são mantidos.
-             * Devolve false se a aba não tem cartões.
-             */
-            organizar(sec) {
+            /** Largura e altura mínimas do cartão, lidas do puxador de redimensionar (cada cartão declara as suas). */
+            minimosDe(sec, id) {
+                const q = window.CSS && CSS.escape ? CSS.escape : s => s;
+                const el = document.querySelector(`.wf-item[data-sec="${q(sec)}"][data-bid="${q(id)}"]`);
+                const pux = el && el.querySelector('.wf-redim');
+                if (pux) {
+                    for (const a of pux.attributes) {
+                        const m = /redimensionar\(.*,\s*(\d+)\s*,\s*(\d+)\s*\)\s*;?\s*$/.exec(a.value);
+                        if (m) return { w: +m[1], h: +m[2] };
+                    }
+                }
+                return { w: 260, h: 160 };
+            },
+            /** Calcula (sem aplicar) a melhor arrumação da aba. null se a aba não tem cartões. */
+            planoDe(sec) {
                 const ids = this.cartoesDe(sec);
-                if (!ids.length) return false;
-                const { W, x0 } = this.areaUtil();
-                const folga = 16, grade = 8;
+                if (!ids.length) return null;
+                const { W } = this.areaUtil();
                 const itens = ids.map(id => {
                     const l = this.rect(sec, id);
-                    return { id, w: Math.min(Math.max(Number(l.w) || 360, 120), W), h: Math.max(Number(l.h) || 260, 80), cor: l.cor, z: l.z };
-                });
-                // maiores primeiro: linhas ficam parelhas e o quadro fica mais baixo
-                itens.sort((a, b) => (b.h - a.h) || (b.w - a.w) || (b.w * b.h - a.w * a.h) || String(a.id).localeCompare(String(b.id)));
-
-                // "skyline": lista de faixas horizontais [x, largura, altura ocupada]
-                let linha = [{ x: 0, w: W, y: 0 }];
-                const colocar = it => {
-                    const wt = it.w + folga;
-                    let melhor = null;
-                    for (let i = 0; i < linha.length; i++) {
-                        const x = linha[i].x;
-                        if (x + it.w > W + 0.5) continue;
-                        let y = 0, fim = x + wt;
-                        for (let j = i; j < linha.length && linha[j].x < fim; j++) y = Math.max(y, linha[j].y);
-                        if (!melhor || y < melhor.y || (y === melhor.y && x < melhor.x)) melhor = { x, y };
+                    // tamanho que o usuário escolheu (antes de a organização estreitar ou esticar o cartão)
+                    const w = Math.min(Math.max(Number(l.bw || l.w) || 360, 120), W);
+                    const h = Math.max(Number(l.bh || l.h) || 260, 80);
+                    const min = this.minimosDe(sec, id);
+                    const bl = this.estado.blocos.find(x => x.id === id);
+                    const img = !!bl && bl.tipo === 'imagem';
+                    const prop = img && this.imagens[id] ? Number(bl.dados.prop) || 0 : 0;
+                    const it = { id, w, h, cor: l.cor, z: l.z, ordem: (Number(l.y) || 0) * 10000 + (Number(l.x) || 0), fixo: img };
+                    if (prop) {
+                        // imagem: a proporção fica travada, então a altura acompanha a largura
+                        const topo = this.alturaTopo(id);
+                        it.alturaPara = ww => Math.ceil((ww - 2) * prop) + topo + 3;
+                        it.h = it.alturaPara(w);
+                        it.minW = Math.min(w, Math.max(220, Math.round(w * 0.6)));
+                    } else if (img) {
+                        it.minW = w;
+                    } else {
+                        it.minW = Math.min(w, Math.max(min.w, Math.round(w * 0.7)));
                     }
-                    if (!melhor) melhor = { x: 0, y: Math.max(...linha.map(f => f.y)) };
-                    const y = Math.ceil(melhor.y / grade) * grade;
-                    const topo = y + it.h + folga, ini = melhor.x, fim = Math.min(W, ini + wt);
-                    // recorta as faixas cobertas e insere a nova
-                    const nova = [];
-                    linha.forEach(f => {
-                        const fx2 = f.x + f.w;
-                        if (fx2 <= ini || f.x >= fim) { nova.push(f); return; }
-                        if (f.x < ini) nova.push({ x: f.x, w: ini - f.x, y: f.y });
-                        if (fx2 > fim) nova.push({ x: fim, w: fx2 - fim, y: f.y });
-                    });
-                    nova.push({ x: ini, w: fim - ini, y: topo });
-                    nova.sort((a, b) => a.x - b.x);
-                    // junta faixas vizinhas na mesma altura
-                    linha = nova.reduce((acc, f) => {
-                        const u = acc[acc.length - 1];
-                        if (u && u.y === f.y && Math.abs(u.x + u.w - f.x) < 0.5) u.w += f.w; else acc.push({ ...f });
-                        return acc;
-                    }, []);
-                    return { x: snap(x0 + ini), y };
-                };
-
+                    return it;
+                });
+                return planejar(itens, W);
+            },
+            /**
+             * Arruma todos os cartões de uma aba sem sobreposição e sem buracos, dentro da largura da tela.
+             * Cor e ordem (z) são mantidas. O tamanho escolhido pelo usuário fica guardado (bw/bh), para o cartão
+             * voltar ao tamanho dele numa tela maior. Devolve false se a aba não tem cartões.
+             */
+            organizar(sec) {
+                const plano = this.planoDe(sec);
+                if (!plano) return false;
+                const { x0 } = this.areaUtil();
                 const novo = {};
-                itens.forEach(it => {
-                    const p = colocar(it);
-                    novo[it.id] = { x: p.x, y: p.y, w: it.w, h: it.h, z: it.z || 1, ...(it.cor ? { cor: it.cor } : {}) };
+                plano.pos.forEach(p => {
+                    const it = p.it;
+                    const e = { x: snap(x0 + p.x), y: Math.ceil(p.y / 8) * 8, w: Math.round(p.w), h: Math.round(p.h), z: it.z || 1 };
+                    if (it.cor) e.cor = it.cor;
+                    if (!it.alturaPara && (e.w !== it.w || e.h !== it.h)) { e.bw = it.w; e.bh = it.h; }
+                    else if (it.alturaPara && e.w !== it.w) { e.bw = it.w; }
+                    novo[it.id] = e;
                 });
                 this.estado.layout[sec] = novo;
+                const org = (this.estado.org && this.estado.org.v === ORG_VERSAO) ? this.estado.org : { v: ORG_VERSAO, sig: {} };
+                org.sig = org.sig || {};
+                org.sig[sec] = this.assinatura(sec);
+                this.estado.org = org;
                 return true;
+            },
+            /** Posição e tamanho de cada cartão da aba, para saber depois se o usuário mexeu na arrumação automática. */
+            assinatura(sec) {
+                const s = {};
+                Object.entries(this.estado.layout[sec] || {}).forEach(([id, l]) => { s[id] = [l.x, l.y, l.w, l.h].map(v => Math.round(v)).join(','); });
+                return s;
+            },
+            /** true se a aba ainda está como a organização automática deixou (cartões novos não contam). */
+            intocado(sec) {
+                const sig = this.estado.org?.sig?.[sec];
+                if (!sig) return false;
+                const atual = this.assinatura(sec);
+                return Object.keys(sig).every(id => !(id in atual) || atual[id] === sig[id]);
+            },
+            /** true se arrumar de novo deixa o quadro bem mais baixo (sinal de buraco ou de espaço desperdiçado). */
+            vaiMelhorar(sec) {
+                const ids = this.cartoesDe(sec);
+                if (!ids.length) return false;
+                const plano = this.planoDe(sec);
+                let alt = 0, topo = Infinity;
+                ids.forEach(id => { const l = this.rect(sec, id); alt = Math.max(alt, l.y + l.h); topo = Math.min(topo, l.y); });
+                const atual = alt - topo;
+                return !!plano && plano.H < atual - Math.max(96, atual * 0.08);
             },
             /** Guarda para que largura de tela o layout foi arrumado (decide se precisa arrumar de novo). */
             marcarTela() {
@@ -543,17 +691,19 @@
                 this.estado.layout = novo;
             },
             /**
-             * Ao entrar na página e quando a largura da janela muda:
-             * - mesma faixa de tela: o layout é respeitado; só as abas com cartão fora da tela ou cobrindo outro são arrumadas;
+             * Ao entrar na página e quando a largura da janela muda (só com a organização automática ligada):
              * - outra faixa de tela: o layout da faixa anterior é guardado e o desta faixa volta (se já existir);
-             *   sem layout guardado para esta faixa, todas as abas são arrumadas para ela.
-             * Assim quem usa notebook e monitor não perde a arrumação feita à mão em cada um.
+             *   sem layout guardado para esta faixa, todas as abas são arrumadas para ela;
+             * - mesma faixa: abas com cartão fora da tela ou cobrindo outro são arrumadas; abas que a organização
+             *   automática arrumou (e o usuário não mexeu) são refeitas se isso fechar buracos.
+             *   Arrumação feita à mão só é tocada se houver sobreposição.
              */
             autoOrganizar() {
-                if (EMBED || this.empilhado() || !this.larg) return;
+                if (EMBED || this.empilhado() || !this.larg || !autoLigado()) return;
                 const larg = this.larg, ref = this.estado.tela;
                 const fNova = this.faixaTela(larg), fVelha = ref ? this.faixaTela(ref.larg) : null;
                 const copia = o => JSON.parse(JSON.stringify(o || {}));
+                const antigo = !this.estado.org || this.estado.org.v !== ORG_VERSAO;
                 let n = 0, msg = '';
 
                 if (fVelha && fVelha !== fNova) {
@@ -571,8 +721,11 @@
                     }
                 }
 
-                // só as abas com problema (cartão fora da tela ou sobreposto) são arrumadas
-                this.secoesQuadro().forEach(sec => { if (this.temConflito(sec) && this.organizar(sec)) n++; });
+                this.secoesQuadro().forEach(sec => {
+                    if (this.temConflito(sec)) { if (this.organizar(sec)) n++; return; }
+                    if ((antigo || this.intocado(sec)) && this.vaiMelhorar(sec) && this.organizar(sec)) n++;
+                });
+                if (antigo && !(this.estado.org && this.estado.org.v === ORG_VERSAO)) this.estado.org = { v: ORG_VERSAO, sig: {} };
                 if (!ref || fVelha !== fNova || n) this.marcarTela();
                 if (n) msg = 'Cartões organizados automaticamente para o tamanho da sua tela.';
                 if (msg) this.aviso(msg);
@@ -847,5 +1000,6 @@
     window.WFQuadro = {
         util: { pad, iso, hoje, agora, uid, r1, num, clamp, snap, norm, dataBR },
         PALETA, MM, EMBED, enviar, reduzir, estadoUI, metodos, normalizarDados, dadosPerdidos,
+        autoLigado, definirAuto, planejar,
     };
 })();

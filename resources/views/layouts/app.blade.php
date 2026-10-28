@@ -467,6 +467,19 @@
             border-color: color-mix(in srgb, #f87171 40%, var(--superficie));
         }
 
+        /* Aba Atalhos: interruptor e teclas */
+        .wf-opcao { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+        .wf-chave { position: relative; flex: none; width: 2.75rem; height: 1.5rem; border-radius: 999px; margin-top: .125rem;
+                    background: color-mix(in srgb, var(--texto, #e5e7eb) 18%, transparent); border: 1px solid var(--linha); transition: background .15s; }
+        .wf-chave::after { content: ''; position: absolute; top: .1875rem; left: .1875rem; width: 1rem; height: 1rem; border-radius: 999px;
+                           background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.35); }
+        .wf-chave[aria-checked="true"] { background: var(--prim); border-color: var(--prim); }
+        .wf-chave[aria-checked="true"]::after { transform: translateX(1.25rem); }
+        .wf-chave:focus-visible { outline: 2px solid var(--prim); outline-offset: 2px; }
+        .wf-teclas li { display: flex; justify-content: space-between; gap: .75rem; padding: .375rem 0; }
+        .wf-teclas li + li { border-top: 1px dashed var(--linha); }
+        .wf-teclas kbd { display: inline-block; min-width: 1.5rem; padding: .05rem .4rem; border-radius: .3rem; text-align: center;
+                         font: 600 .75rem/1.4 ui-monospace, monospace; border: 1px solid var(--linha); border-bottom-width: 2px; }
         /* Menu de configurações (engrenagem) */
         .menu-pop {
             background: var(--superficie); color: var(--tinta);
@@ -606,6 +619,11 @@
                             Biblioteca
                         </button>
 
+                        <button type="button" class="menu-item" role="menuitem" @click="aberto = false; $dispatch('abrir-atalhos')">
+                            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg>
+                            Atalhos
+                        </button>
+
                         <button type="button" class="menu-item" role="menuitem" @click="aberto = false; $dispatch('abrir-workflows')">
                             <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
                             Importar / exportar
@@ -664,7 +682,7 @@
 
     {{-- Painel de cores e fundo: fica ao lado, sem escurecer a tela, para ver o resultado enquanto ajusta --}}
     <div x-data="temaForm(@js($prim), @js($cab), @js($fundoIni), @js($fundoUrl), @js($fundoSalvar))" x-show="aberto" x-cloak
-         @abrir-tema.window="aberto = true; aba = 'cores'" @abrir-biblioteca.window="aberto = true; aba = 'biblioteca'" @abrir-lixeira.window="aberto = true; aba = 'lixeira'" @abrir-workflows.window="aberto = true; aba = 'workflows'"
+         @abrir-tema.window="aberto = true; aba = 'cores'" @abrir-biblioteca.window="aberto = true; aba = 'biblioteca'" @abrir-lixeira.window="aberto = true; aba = 'lixeira'" @abrir-workflows.window="aberto = true; aba = 'workflows'" @abrir-atalhos.window="aberto = true; aba = 'atalhos'"
          @keydown.escape.window="if (aberto) cancelar()"
          class="fixed inset-0 z-50"
          role="dialog" aria-modal="true" aria-labelledby="tema-titulo">
@@ -672,11 +690,12 @@
 
         <div class="painel-config card shadow-xl absolute top-20 right-4 left-4 sm:left-auto sm:w-[26rem] max-h-[calc(100vh-6rem)] max-h-[calc(100dvh-6rem)] overflow-auto p-6 space-y-5">
 
-        <div class="flex gap-1.5" role="tablist" aria-label="Configurações">
+        <div class="flex flex-wrap gap-1.5" role="tablist" aria-label="Configurações">
             <button type="button" role="tab" class="btn-sec flex-1" :class="{ '!bg-[var(--prim)] !text-[var(--on-prim)]': aba === 'cores' }" :aria-selected="aba === 'cores'" @click="aba = 'cores'">Cores e fundo</button>
             <button type="button" role="tab" class="btn-sec flex-1" :class="{ '!bg-[var(--prim)] !text-[var(--on-prim)]': aba === 'biblioteca' }" :aria-selected="aba === 'biblioteca'" @click="aba = 'biblioteca'; $dispatch('abrir-biblioteca')">Biblioteca</button>
             <button type="button" role="tab" class="btn-sec flex-1" :class="{ '!bg-[var(--prim)] !text-[var(--on-prim)]': aba === 'lixeira' }" :aria-selected="aba === 'lixeira'" @click="aba = 'lixeira'; $dispatch('abrir-lixeira')">Histórico</button>
             <button type="button" role="tab" class="btn-sec flex-1" :class="{ '!bg-[var(--prim)] !text-[var(--on-prim)]': aba === 'workflows' }" :aria-selected="aba === 'workflows'" @click="aba = 'workflows'">Workflows</button>
+            <button type="button" role="tab" class="btn-sec flex-1" :class="{ '!bg-[var(--prim)] !text-[var(--on-prim)]': aba === 'atalhos' }" :aria-selected="aba === 'atalhos'" @click="aba = 'atalhos'">Atalhos</button>
         </div>
 
         <form method="POST" action="{{ route('tema.update') }}" @submit.prevent="salvar($event)" x-show="aba === 'cores'" class="space-y-5">
@@ -921,6 +940,41 @@
                     </div>
                 </div>
             </template>
+        </section>
+        {{-- Atalhos: organização automática dos cartões (opcional) e atalhos de teclado --}}
+        <section x-show="aba === 'atalhos'" x-cloak x-data="atalhosPainel()" class="space-y-5"
+                 x-init="$watch('aba', v => { if (v === 'atalhos') atualizar() })">
+            <div>
+                <h2 class="titulo text-2xl">Atalhos</h2>
+                <p class="text-sm texto-2 mt-1">Ajustes rápidos dos quadros e as teclas que fazem as ações mais comuns.</p>
+            </div>
+
+            <div class="wf-opcao">
+                <div class="min-w-0">
+                    <p class="font-semibold text-sm" id="org-auto-rotulo">Organizar cartões automaticamente</p>
+                    <p class="text-xs texto-2 mt-1">Ao abrir a página ou mudar o tamanho da janela, os cartões são encaixados por tamanho, sem buracos e sem ficar um por cima do outro. Desligado, cada cartão fica exatamente onde você deixou.</p>
+                </div>
+                <button type="button" role="switch" class="wf-chave" :aria-checked="ligado ? 'true' : 'false'"
+                        aria-labelledby="org-auto-rotulo" @click="alternar()">
+                    <span class="sr-only" x-text="ligado ? 'Ligado' : 'Desligado'"></span>
+                </button>
+            </div>
+            <p class="text-xs texto-2 -mt-3" x-text="ligado ? 'Ligado neste navegador.' : 'Desligado neste navegador. O botão Reorganizar continua funcionando quando você quiser.'"></p>
+
+            <div class="space-y-2">
+                <button type="button" class="btn w-full disabled:opacity-50 disabled:cursor-not-allowed" :disabled="!temQuadro" @click="reorganizarAgora()">Reorganizar a aba atual agora</button>
+                <p class="text-xs texto-2" x-show="!temQuadro">Disponível nas páginas com quadro: Corpo, Mente, Carteira e Diverso.</p>
+            </div>
+
+            <div class="space-y-2" style="border-top: 1px solid var(--linha); padding-top: 1rem">
+                <p class="font-semibold text-sm">Teclas de atalho</p>
+                <ul class="wf-teclas text-sm">
+                    <li><span><kbd>Alt</kbd> + <kbd>R</kbd></span><span class="texto-2">Reorganizar a aba atual</span></li>
+                    <li><span><kbd>Alt</kbd> + <kbd>O</kbd></span><span class="texto-2">Ligar ou desligar a organização automática</span></li>
+                    <li><span><kbd>Alt</kbd> + <kbd>K</kbd></span><span class="texto-2">Abrir esta aba de atalhos</span></li>
+                    <li><span><kbd>Esc</kbd></span><span class="texto-2">Fechar este painel</span></li>
+                </ul>
+            </div>
         </section>
 
         </div>
@@ -1198,6 +1252,62 @@
         if (e.submitter) e.submitter.disabled = false;
     }
 });
+
+        /* ---------- Atalhos: organização automática (liga/desliga) e teclas ---------- */
+        const WF_ORG_CHAVE = 'wf-organizar-auto';
+        function wfOrgLigada() {
+            try { return localStorage.getItem(WF_ORG_CHAVE) !== '0'; } catch (e) { return true; }
+        }
+        function wfOrgDefinir(ligado) {
+            try { localStorage.setItem(WF_ORG_CHAVE, ligado ? '1' : '0'); } catch (e) { /* sem armazenamento */ }
+            window.dispatchEvent(new CustomEvent('wf-organizar-auto', { detail: { ligado: !!ligado } }));
+        }
+        function wfTemQuadro() { return !!(window.WFQuadro && window.WFQuadro.ativo && !window.WFQuadro.EMBED); }
+        function atalhosPainel() {
+            return {
+                ligado: wfOrgLigada(),
+                temQuadro: wfTemQuadro(),
+                init() {
+                    window.addEventListener('wf-organizar-auto', e => { this.ligado = !!(e.detail && e.detail.ligado); });
+                },
+                atualizar() { this.ligado = wfOrgLigada(); this.temQuadro = wfTemQuadro(); },
+                alternar() { wfOrgDefinir(!this.ligado); },
+                reorganizarAgora() { window.dispatchEvent(new CustomEvent('wf-reorganizar')); },
+            };
+        }
+        /** Teclas: Alt+R reorganiza, Alt+O liga/desliga, Alt+K abre a aba Atalhos (AltGr e Ctrl ficam de fora). */
+        window.addEventListener('keydown', e => {
+            if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat) return;
+            const k = (e.key || '').toLowerCase();
+            if (k === 'r' && wfTemQuadro()) {
+                e.preventDefault();
+                window.dispatchEvent(new CustomEvent('wf-reorganizar'));
+            } else if (k === 'o') {
+                e.preventDefault();
+                const novo = !wfOrgLigada();
+                wfOrgDefinir(novo);
+                wfAvisoRapido(novo ? 'Organização automática ligada.' : 'Organização automática desligada.');
+            } else if (k === 'k') {
+                e.preventDefault();
+                window.dispatchEvent(new CustomEvent('abrir-atalhos'));
+            }
+        });
+        /** Aviso curto no canto da tela (vale em qualquer página, com ou sem quadro). */
+        function wfAvisoRapido(txt) {
+            let el = document.getElementById('wf-aviso-rapido');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'wf-aviso-rapido';
+                el.setAttribute('role', 'status');
+                el.className = 'aviso-ok';
+                el.style.cssText = 'position:fixed;left:50%;bottom:1.25rem;transform:translateX(-50%);z-index:60;max-width:calc(100vw - 2rem);transition:opacity .2s';
+                document.body.appendChild(el);
+            }
+            el.textContent = txt;
+            el.style.opacity = '1';
+            clearTimeout(el._t);
+            el._t = setTimeout(() => { el.style.opacity = '0'; }, 2200);
+        }
     </script>
 @endauth
 
