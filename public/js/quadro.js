@@ -60,6 +60,24 @@
     })();
 
     /* ---------- cartão ativo: ?embed=secao/id mostra só aquele cartão da página ---------- */
+    // pasta dos scripts (o editor de imagem é carregado só quando alguém abre)
+    const BASE_JS = (() => { const s = document.currentScript && document.currentScript.src; return s ? s.replace(/quadro\.js(\?.*)?$/, '') : '/js/'; })();
+    const VERSAO_JS = (() => { const s = document.currentScript && document.currentScript.src; const m = s && /\?v=([^&]+)/.exec(s); return m ? m[1] : ''; })();
+    let editorCarregando = null;
+    function carregarEditor() {
+        if (window.WFEditorImagem) return Promise.resolve();
+        if (!editorCarregando) {
+            editorCarregando = new Promise((ok, falha) => {
+                const s = document.createElement('script');
+                const v = document.querySelector('meta[name="wf-editor-imagem-v"]')?.content || VERSAO_JS;
+                s.src = BASE_JS + 'editor-imagem.js' + (v ? '?v=' + v : '');
+                s.onload = () => ok(); s.onerror = () => { editorCarregando = null; falha(new Error('editor')); };
+                document.head.appendChild(s);
+            });
+        }
+        return editorCarregando;
+    }
+
     const SEG = /^[A-Za-z0-9._-]{1,60}$/;
     const EMBED = (() => {
         const v = new URLSearchParams(location.search).get('embed') || '';
@@ -825,8 +843,12 @@
                 this._pastasProntas = true;
                 if (Array.isArray(this.tiposBloco) && !this.tiposBloco.some(t => t.id === 'pasta')) {
                     this.tiposBloco.push({ id: 'pasta', nome: 'Pasta (guarda outros cartões)' });
-                    window.WFQuadro.tipos = [...this.tiposBloco.map(t => t.id), 'vivo'];
                 }
+                // editor de imagem com camadas (separado do bloco "Imagem" comum)
+                if (Array.isArray(this.tiposBloco) && !this.tiposBloco.some(t => t.id === 'editorimg')) {
+                    this.tiposBloco.push({ id: 'editorimg', nome: 'Editor de imagem (camadas, estilo Photoshop)' });
+                }
+                if (Array.isArray(this.tiposBloco)) window.WFQuadro.tipos = [...this.tiposBloco.map(t => t.id), 'vivo'];
                 // cada página cria e cola blocos do seu jeito; aqui só se ajusta o resultado
                 const dentroDaPasta = fn => (...args) => {
                     const antes = new Set(this.estado.blocos.map(b => b.id));
@@ -849,14 +871,26 @@
                         : guardar.call(this, b, ...resto));
                 }
                 if (typeof novo === 'function') {
-                    this.novoBloco = dentroDaPasta((sec, tipo, ...resto) => (tipo === 'pasta' ? this.novaPasta(sec) : novo.call(this, sec, tipo, ...resto)));
+                    this.novoBloco = dentroDaPasta((sec, tipo, ...resto) => (tipo === 'pasta' ? this.novaPasta(sec)
+                        : tipo === 'editorimg' ? this.novoEditorImagem(sec)
+                        : novo.call(this, sec, tipo, ...resto)));
                 }
                 if (typeof colar === 'function') {
                     this.colarBloco = item => dentroDaPasta(() => colar.call(this, item))(this.aba);
                 }
                 if (typeof remover === 'function') {
                     this._removerBase = remover;
-                    this.removerBloco = (b, ...resto) => (b && b.tipo === 'pasta' ? this.removerPasta(b) : remover.call(this, b, ...resto));
+                    this.removerBloco = (b, ...resto) => {
+                        if (b && b.tipo === 'pasta') return this.removerPasta(b);
+                        const r = remover.call(this, b, ...resto);
+                        // editor de imagem: as camadas ficam numa chave à parte (img.<id>.camadas)
+                        const k = b && b.id + '.camadas';
+                        if (b && !this.blocoPorId(b.id) && this.imagens[k] !== undefined) {
+                            delete this.imagens[k];
+                            enviar(`${this.cfg.url}/img.${k}`, null, 'DELETE').catch(() => {});
+                        }
+                        return r;
+                    };
                 }
                 this._cssPastas = document.createElement('style');
                 document.head.appendChild(this._cssPastas);
@@ -1159,6 +1193,57 @@
                 if (ok !== false) this.aviso('Cartão duplicado no fim da aba.');
             },
 
+            /* ---------- editor de imagem (camadas, estilo Photoshop; js/editor-imagem.js) ---------- */
+            /** Cria o cartão e já abre o editor. */
+            novoEditorImagem(sec) {
+                sec = sec || this.aba;
+                if (!sec) return null;
+                const id = 'b' + uid();
+                const aberta = this.pastaAberta(sec);
+                const { x0 } = this.areaUtil();
+                const bloco = { id, secao: sec, tipo: 'editorimg', titulo: 'Imagem editável', links: [], dados: {} };
+                if (aberta) bloco.pasta = aberta;
+                this.estado.blocos.push(bloco);
+                if (!this.estado.layout[sec]) this.estado.layout[sec] = {};
+                this.estado.layout[sec][id] = { x: snap(x0), y: this.fimDaVista(sec, aberta), w: 420, h: 340, z: ++this.zTop };
+                this.menuBloco = false;
+                this.aviso('Editor de imagem adicionado. Abra uma foto em Arquivo → Abrir imagem, ou desenhe na tela branca.');
+                this.$nextTick(() => this.abrirEditorImagem(this.blocoPorId(id)));
+                return id;
+            },
+            /** Texto do rodapé do cartão: tamanho e camadas. */
+            infoEditorImagem(b) {
+                const d = (b && b.dados) || {};
+                if (!this.imagens[b.id]) return 'Vazio. Clique em “Editar” para começar.';
+                return `${d.w || '?'}×${d.h || '?'} px · ${d.camadas || 1} ${d.camadas === 1 ? 'camada' : 'camadas'}`;
+            },
+            async abrirEditorImagem(b) {
+                if (!b || EMBED) return;
+                try { await carregarEditor(); } catch { this.aviso('Não consegui carregar o editor de imagem. Verifique a conexão e tente de novo.'); return; }
+                const id = b.id;
+                window.WFEditorImagem.abrir({
+                    titulo: b.titulo || 'Imagem',
+                    projeto: this.imagens[id + '.camadas'] || null,
+                    imagem: this.imagens[id] || null,
+                    aoSalvar: async ({ imagem, projeto, w, h }) => {
+                        const bl = this.blocoPorId(id);
+                        if (!bl) throw new Error('bloco');
+                        await enviar(`${this.cfg.url}/img.${id}`, JSON.stringify(imagem));
+                        if (projeto) await enviar(`${this.cfg.url}/img.${id}.camadas`, JSON.stringify(projeto));
+                        else if (this.imagens[id + '.camadas']) await enviar(`${this.cfg.url}/img.${id}.camadas`, null, 'DELETE').catch(() => {});
+                        this.imagens[id] = imagem;
+                        if (projeto) this.imagens[id + '.camadas'] = projeto; else delete this.imagens[id + '.camadas'];
+                        bl.dados = { ...(bl.dados || {}), w, h, camadas: projeto ? projeto.camadas.length : 1, editado: hoje() };
+                        // o cartão acompanha a proporção da imagem (até 900 px de altura)
+                        const l = this.entrada(bl.secao, id);
+                        l.h = clamp(Math.round((l.w - 2) * h / w) + this.alturaTopo(id) + 44, 160, 900);
+                        delete l.bh;
+                        if (autoLigado() && !this.empilhado()) this.$nextTick(() => { if (this.temConflito(bl.secao)) this.organizar(bl.secao); });
+                        this.aviso('Imagem salva no cartão.');
+                    },
+                });
+            },
+
             /* ---------- teclas de atalho (as teclas são definidas na aba Atalhos das configurações) ---------- */
             /** Cartão em que os atalhos agem: o último clicado, se ainda estiver na tela. */
             cartaoAtual() {
@@ -1192,7 +1277,12 @@
                         break;
                     }
                     case 'pastaSelecao': this.pastaComSelecionados(sec); break;
-                    case 'abrirPasta': if (precisa()) { if (b.tipo === 'pasta') this.abrirPasta(b); else this.aviso('O cartão clicado não é uma pasta.'); } break;
+                    case 'abrirPasta':
+                        if (!precisa()) break;
+                        if (b.tipo === 'pasta') this.abrirPasta(b);
+                        else if (b.tipo === 'editorimg') this.abrirEditorImagem(b);
+                        else this.aviso('O cartão clicado não é uma pasta nem um editor de imagem.');
+                        break;
                     case 'fecharPasta': if (!this.fecharPasta(sec)) this.aviso('Nenhuma pasta aberta nesta aba.'); break;
                     case 'tirarDaPasta':
                         if (!this.pastaAberta(sec)) { this.aviso('Abra uma pasta para tirar cartões dela.'); break; }

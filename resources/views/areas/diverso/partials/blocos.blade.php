@@ -1539,6 +1539,10 @@ console.info('— fim da execução —');
                 <template x-if="b.tipo === 'pasta'">
                     @include('partials.pasta-cartao')
                 </template>
+                {{-- Editor de imagem com camadas (partials/editor-imagem-cartao; editor em js/editor-imagem.js) --}}
+                <template x-if="b.tipo === 'editorimg'">
+                    @include('partials.editor-imagem-cartao')
+                </template>
 
                 <template x-if="b.tipo === 'texto'">
                     <div class="wf-es" x-data="WFEscrita(b)" x-init="iniciar()"

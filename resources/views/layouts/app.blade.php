@@ -57,6 +57,8 @@
     {{-- viewport-fit=cover: usa a tela toda em celulares com notch (as áreas seguras são tratadas no CSS) --}}
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- versão do editor de imagem (carregado só quando alguém abre um cartão "Editor de imagem") --}}
+    <meta name="wf-editor-imagem-v" content="{{ @filemtime(public_path('js/editor-imagem.js')) }}">
     <script>
         /* Preferências da conta: ler() devolve o que está valendo; salvar({...}) junta e envia ao servidor (sem conta, fica só na página). */
         window.WFPrefs = (function () {
@@ -1365,8 +1367,9 @@
             { id: 'novo.codigo',     grupo: 'Criar',  nome: 'Novo GitHub / VS Code (Diverso)',           padrao: 'Alt+G',        quadro: true },
             { id: 'novo.tabletop',   grupo: 'Criar',  nome: 'Novo tabletop (Diverso)',                  padrao: 'Alt+Y',        quadro: true },
             { id: 'novo.documento',  grupo: 'Criar',  nome: 'Novo documento (Mente)',                   padrao: 'Alt+N',        quadro: true },
+            { id: 'novo.editorimg',  grupo: 'Criar',  nome: 'Novo editor de imagem (camadas)',           padrao: 'Alt+Q',        quadro: true },
             { id: 'novo.pasta',      grupo: 'Pastas', nome: 'Nova pasta (com os selecionados, se houver)', padrao: 'Alt+P',     quadro: true },
-            { id: 'abrirPasta',      grupo: 'Pastas', nome: 'Abrir a pasta clicada',                    padrao: 'Alt+U',        quadro: true },
+            { id: 'abrirPasta',      grupo: 'Pastas', nome: 'Abrir a pasta (ou o editor de imagem) clicado', padrao: 'Alt+U',   quadro: true },
             { id: 'fecharPasta',     grupo: 'Pastas', nome: 'Voltar (fechar a pasta aberta)',           padrao: 'Alt+V',        quadro: true },
             { id: 'tirarDaPasta',    grupo: 'Pastas', nome: 'Tirar da pasta o cartão clicado (ou os selecionados)', padrao: 'Alt+W', quadro: true },
         ];
