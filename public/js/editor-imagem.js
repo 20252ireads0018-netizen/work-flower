@@ -49,6 +49,7 @@
     const CSS = `
     .wfe{position:fixed;inset:0;z-index:90;display:grid;grid-template-rows:auto auto 1fr;grid-template-columns:auto 1fr auto;
          background:#14171c;color:#e5e7eb;font:13px/1.35 system-ui,sans-serif;user-select:none}
+    .wfe[hidden]{display:none!important}  /* sem isto o display:grid acima venceria o atributo hidden e o editor não fecharia */
     .wfe *{box-sizing:border-box}
     .wfe button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
     .wfe input,.wfe select{font:inherit;color:#e5e7eb;background:#0d0f13;border:1px solid #2c323c;border-radius:6px;padding:3px 6px}
