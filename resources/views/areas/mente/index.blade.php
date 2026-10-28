@@ -303,8 +303,10 @@
 
                     <div x-show="livroAtual()" class="flex flex-col gap-3 wf-cresce">
 
-                        {{-- Livro sem PDF: só controle de página --}}
-                        <div x-show="livroAtual() && !livroAtual().pdf" class="space-y-3">
+                        {{-- Livro sem PDF: só controle de página.
+                             x-if (e não x-show): sem livro aberto, os x-model abaixo liam livroAtual().atual de undefined e davam erro no console. --}}
+                        <template x-if="livroAtual() && !livroAtual().pdf">
+                        <div class="space-y-3">
                             <div class="flex flex-wrap items-center gap-2 text-sm">
                                 <span class="texto-2">Página atual</span>
                                 <input type="number" min="0" class="campo !w-24" x-model.number="livroAtual().atual" aria-label="Página atual">
@@ -318,6 +320,7 @@
                             </label>
                             <p class="text-xs texto-2">Sem PDF, você ainda pode registrar trechos e anotações ao lado.</p>
                         </div>
+                        </template>
 
                         {{-- Leitor --}}
                         <div x-show="livroAtual()?.pdf" class="flex flex-col gap-3 wf-cresce">

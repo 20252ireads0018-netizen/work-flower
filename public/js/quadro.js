@@ -293,12 +293,13 @@
                     ro.observe(pai);
                     ro.observe(document.documentElement);
 
-                    // imagens que já existiam: ajusta o card ao tamanho delas (uma única vez, por aba)
-                    this.corrigirImagens(this.aba);
-                    this.$watch('aba', v => this.$nextTick(() => this.corrigirImagens(v)));
-
-                    // ao entrar na página: cartões organizados por tamanho, sem sobreposição, no tamanho desta tela
+                    // ao entrar na página: cartões organizados por tamanho, sem sobreposição, no tamanho desta tela.
+                    // Imagens antigas mudam a altura do cartão ao carregar; depois disso a aba é conferida de novo,
+                    // para uma imagem que cresceu não ficar por cima do cartão de baixo.
+                    const conferirAba = sec => { if (!this.arrastando && this.temConflito(sec) && this.organizar(sec)) this.aviso('Cartões reorganizados para caber a imagem.'); };
                     this.autoOrganizar();
+                    this.corrigirImagens(this.aba).then(n => { if (n) conferirAba(this.aba); });
+                    this.$watch('aba', v => this.$nextTick(() => this.corrigirImagens(v).then(n => { if (n) conferirAba(v); })));
                 });
             },
             /** Modo cartão ativo (dentro de um iframe): abre a aba certa e mostra só o cartão pedido. */
@@ -519,23 +520,62 @@
             marcarTela() {
                 this.estado.tela = { larg: this.larg || this.col || 1088, em: hoje() };
             },
+            /** Faixa de largura de tela: cada faixa tem o seu próprio layout guardado (notebook, monitor, monitor grande...). */
+            faixaTela(larg) {
+                const w = Number(larg) || 0;
+                return w < 1100 ? 'p' : w < 1450 ? 'm' : w < 1900 ? 'g' : 'gg';
+            },
             /**
-             * Ao entrar na página (e quando a janela muda muito de tamanho): se os cartões não cabem na tela,
-             * se algum cobre outro ou se o layout foi feito para uma tela bem diferente, arruma todas as abas.
-             * Um layout que já cabe e não tem sobreposição é respeitado (o usuário pode ter arrumado à mão).
+             * Volta o layout guardado de uma faixa de tela. Cartões criados depois (que não estão no layout guardado)
+             * mantêm a posição atual; entradas de cartões já apagados são descartadas.
+             */
+            restaurarLayout(guardado) {
+                const atual = this.estado.layout || {};
+                const novo = {};
+                this.secoesQuadro().forEach(sec => {
+                    const g = guardado[sec] || {}, a = atual[sec] || {}, L = {};
+                    this.cartoesDe(sec).forEach(id => {
+                        if (g[id]) L[id] = { ...g[id], ...(a[id]?.cor ? { cor: a[id].cor } : {}) };
+                        else if (a[id]) L[id] = a[id];
+                    });
+                    if (Object.keys(L).length) novo[sec] = L;
+                });
+                this.estado.layout = novo;
+            },
+            /**
+             * Ao entrar na página e quando a largura da janela muda:
+             * - mesma faixa de tela: o layout é respeitado; só as abas com cartão fora da tela ou cobrindo outro são arrumadas;
+             * - outra faixa de tela: o layout da faixa anterior é guardado e o desta faixa volta (se já existir);
+             *   sem layout guardado para esta faixa, todas as abas são arrumadas para ela.
+             * Assim quem usa notebook e monitor não perde a arrumação feita à mão em cada um.
              */
             autoOrganizar() {
                 if (EMBED || this.empilhado() || !this.larg) return;
                 const larg = this.larg, ref = this.estado.tela;
-                const mudouTela = !ref || Math.abs((Number(ref.larg) || 0) - larg) > Math.max(96, larg * 0.12);
-                const secs = this.secoesQuadro();
-                const conflito = secs.some(sec => this.temConflito(sec));
-                if (!mudouTela && !conflito) return;
-                if (!ref && !conflito) { this.marcarTela(); return; } // primeira visita e já cabe: só registra a tela
-                let n = 0;
-                secs.forEach(sec => { if (this.organizar(sec)) n++; });
-                this.marcarTela();
-                if (n) this.aviso('Cartões organizados automaticamente para o tamanho da sua tela.');
+                const fNova = this.faixaTela(larg), fVelha = ref ? this.faixaTela(ref.larg) : null;
+                const copia = o => JSON.parse(JSON.stringify(o || {}));
+                let n = 0, msg = '';
+
+                if (fVelha && fVelha !== fNova) {
+                    const telas = (this.estado.telas && typeof this.estado.telas === 'object') ? this.estado.telas : {};
+                    telas[fVelha] = copia(this.estado.layout);
+                    this.estado.telas = telas;
+                    if (telas[fNova]) {
+                        this.restaurarLayout(copia(telas[fNova]));
+                        msg = 'Layout desta tela restaurado.';
+                    } else {
+                        this.secoesQuadro().forEach(sec => { if (this.organizar(sec)) n++; });
+                        this.marcarTela();
+                        if (n) this.aviso('Cartões organizados automaticamente para o tamanho da sua tela.');
+                        return;
+                    }
+                }
+
+                // só as abas com problema (cartão fora da tela ou sobreposto) são arrumadas
+                this.secoesQuadro().forEach(sec => { if (this.temConflito(sec) && this.organizar(sec)) n++; });
+                if (!ref || fVelha !== fNova || n) this.marcarTela();
+                if (n) msg = 'Cartões organizados automaticamente para o tamanho da sua tela.';
+                if (msg) this.aviso(msg);
             },
 
             /* ---------- blocos livres ---------- */
@@ -736,10 +776,10 @@
                 });
             },
             /** Blocos de imagem antigos (sem proporção guardada) são ajustados uma vez. */
+            /** Devolve uma Promise com quantos cartões foram ajustados (0 = nada mudou). */
             corrigirImagens(sec) {
-                this.blocosDe(sec)
-                    .filter(b => b.tipo === 'imagem' && this.imagens[b.id] && !b.dados.prop)
-                    .forEach(b => this.ajustarImagem(b, this.imagens[b.id]));
+                const lista = this.blocosDe(sec).filter(b => b.tipo === 'imagem' && this.imagens[b.id] && !b.dados.prop);
+                return Promise.all(lista.map(b => this.ajustarImagem(b, this.imagens[b.id]))).then(() => lista.length);
             },
             async lerImagem(b, arquivo) {
                 if (!arquivo || !arquivo.type.startsWith('image/')) return;

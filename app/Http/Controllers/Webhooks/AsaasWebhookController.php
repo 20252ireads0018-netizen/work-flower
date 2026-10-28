@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Webhooks;
 
 use App\Http\Controllers\Controller;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /** Recebe os eventos do Asaas e libera ou retira o plano do usuário. */
 class AsaasWebhookController extends Controller
@@ -61,12 +63,30 @@ class AsaasWebhookController extends Controller
             return;
         }
 
+        // Só a assinatura ATUAL do usuário mexe no plano. Eventos de assinaturas antigas
+        // (substituídas, duplicadas ou canceladas pelo sistema ao trocar de plano) são ignorados;
+        // antes, cancelar uma duplicada antiga derrubava o plano pago do usuário.
+        $atual = (string) ($usuario->asaas_subscription_id ?? '');
+        if ($subId && $atual !== '' && $subId !== $atual) {
+            Log::info('Asaas webhook: evento de assinatura que não é a atual do usuário, ignorado.', [
+                'evento' => $evento, 'assinatura' => $subId, 'atual' => $atual, 'user' => $usuario->id,
+            ]);
+
+            return;
+        }
+
         switch ($evento) {
             case 'PAYMENT_CONFIRMED':
             case 'PAYMENT_RECEIVED':
-                // paga um mês: libera até o próximo vencimento (a tolerância é aplicada em Planos::slugDe)
-                $ate = ! empty($pag['dueDate']) ? \Carbon\Carbon::parse($pag['dueDate']) : now();
+                // paga um mês: libera até o próximo vencimento (a tolerância é aplicada em Planos::slugPago)
+                $ate = ! empty($pag['dueDate']) ? Carbon::parse($pag['dueDate']) : now();
                 $ate = $ate->max(now())->addMonth()->endOfDay();
+
+                // mesmo plano já pago até mais tarde (ex.: eventos fora de ordem): não encurta o acesso
+                if (($usuario->plano_slug ?? null) === $slug && ! empty($usuario->plano_expira_em)) {
+                    $ate = $ate->max(Carbon::parse($usuario->plano_expira_em));
+                }
+
                 DB::table('users')->where('id', $usuario->id)->update([
                     'plano_slug'            => $slug,
                     'plano_expira_em'       => $ate,
@@ -76,13 +96,23 @@ class AsaasWebhookController extends Controller
 
             case 'PAYMENT_REFUNDED':
             case 'PAYMENT_CHARGEBACK_REQUESTED':
-            case 'SUBSCRIPTION_DELETED':
-            case 'SUBSCRIPTION_INACTIVATED':
-                // cancelou/estornou: volta para o gratuito
+                // dinheiro devolvido: o acesso pago acaba na hora
                 DB::table('users')->where('id', $usuario->id)->update([
                     'plano_slug'      => 'gratuito',
                     'plano_expira_em' => null,
                 ]);
+                break;
+
+            case 'SUBSCRIPTION_DELETED':
+            case 'SUBSCRIPTION_INACTIVATED':
+                // cancelou a assinatura atual: não cobra mais, mas o período já pago continua valendo
+                // (plano_expira_em segue como está e o acesso cai sozinho quando ele passar)
+                if (empty($usuario->plano_expira_em) || Carbon::parse($usuario->plano_expira_em)->isPast()) {
+                    DB::table('users')->where('id', $usuario->id)->update([
+                        'plano_slug'      => 'gratuito',
+                        'plano_expira_em' => null,
+                    ]);
+                }
                 break;
 
             // PAYMENT_OVERDUE: nada a fazer; o acesso cai sozinho quando plano_expira_em + tolerância passar
