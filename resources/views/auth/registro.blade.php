@@ -46,12 +46,25 @@
                 <input id="password_confirmation" type="password" name="password_confirmation" class="campo" autocomplete="new-password" required>
             </div>
 
+            @php
+                $urlTermos = \Illuminate\Support\Facades\Route::has('termos') ? route('termos') : url('/termos');
+                $urlPriv   = \Illuminate\Support\Facades\Route::has('privacidade') ? route('privacidade') : url('/privacidade');
+            @endphp
+            <p class="text-xs texto-2 text-center">
+                Ao criar a conta, você concorda com os
+                <a href="{{ $urlTermos }}" target="_blank" rel="noopener" class="link-prim">Termos de Uso</a>
+                e a
+                <a href="{{ $urlPriv }}" target="_blank" rel="noopener" class="link-prim">Política de Privacidade</a>.
+            </p>
+
             <button type="submit" class="btn w-full">Criar conta</button>
 
             <p class="text-sm texto-2 text-center">
                 Já tem conta?
                 <a href="{{ route('login') }}" data-troca class="link-prim">Entrar</a>
             </p>
+
+            @include('auth._links-legais', ['novaAba' => true])
         </form>
     </section>
 </div>

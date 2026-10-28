@@ -1,6 +1,10 @@
 /* Work Flower · baixar cartões e criar blocos arrastando arquivos para o quadro
    Funciona nas páginas Diverso, Corpo e Mente. Todo cartão (.wf-item) ganha um botão de baixar no cabeçalho.
-   Arrastar um .zip (baixado de um bloco de código) cria um bloco de código com o projeto (só onde existir esse bloco). */
+   Arrastar um .zip (baixado de um bloco de código) cria um bloco de código com o projeto (só onde existir esse bloco).
+   Limites do plano: cada download é contado no servidor (POST /downloads/registrar), SEMPRE, sem depender do planos.js.
+   Passou do limite do plano gratuito, o servidor responde { plano_limite: true } e o script do layout leva para a tela de planos.
+   O botão "Baixar ZIP" do editor de código também passa pela contagem.
+   Arquivos .json soltos no quadro passam pela conferência de importação. */
 (function () {
     'use strict';
     if (window.WFArquivos) return;
@@ -8,6 +12,7 @@
     const TIPOS = ['texto', 'tabela', 'lista', 'imagem', 'mapa', 'documento', 'codigo', 'tabletop'];
     const MAX_ARQ = 12 * 1024 * 1024;
     const MAX_TXT = 2 * 1024 * 1024;
+    const URL_REGISTRAR = document.querySelector('meta[name="downloads-registrar-url"]')?.content || '/downloads/registrar';
     const EXT_IMG = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/svg+xml': 'svg' };
     // Cartões fixos: quais partes do estado cada aba guarda (Corpo e Mente)
     const CARTAO_FIXO = {
@@ -52,6 +57,42 @@
     function permitido(c, tipo) {
         return !Array.isArray(c.tiposBloco) || c.tiposBloco.some(t => t.id === tipo);
     }
+
+    /* ---------- limite de downloads do plano ---------- */
+    /** Conta este download no servidor. Devolve true se pode baixar.
+        O servidor é quem decide: planos sem limite recebem { ok: true, limite: null }.
+        Acima do limite o servidor responde 403 { plano_limite: true }: o script do layout mostra o aviso, leva para a tela de planos
+        e deixa esta chamada pendente (por isso o download nunca acontece).
+        Qualquer falha (rota ausente, erro 500, rede) BLOQUEIA o download, para o limite nunca ser contornado por erro. */
+    async function registrarDownload(c) {
+        try {
+            const r = await fetch(URL_REGISTRAR, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+            });
+            if (r.status === 401 || r.status === 419) { location.reload(); return false; }
+            if (!r.ok) {
+                console.error('[Downloads] o servidor respondeu ' + r.status + ' em ' + URL_REGISTRAR);
+                avisar(c, r.status === 404
+                    ? 'A rota de downloads não existe no servidor (limpe o cache de rotas e confira o web.php).'
+                    : 'Não consegui conferir o limite de downloads. Tente de novo.');
+                return false;
+            }
+            const j = await r.json();
+            if (j && j.limite) avisar(c, `Download ${j.feitos} de ${j.limite} do plano gratuito.`);
+            return true;
+        } catch (e) {
+            console.error('[Downloads] falha ao registrar', e);
+            avisar(c, 'Não consegui conferir o limite de downloads. Tente de novo.');
+            return false;
+        }
+    }
+
     /** Cria um bloco: usa criarBloco (Diverso) ou, se não existir, novoBloco (Corpo e Mente) e depois ajusta título, dados e posição. */
     function criar(c, sec, tipo, pos, over) {
         over = over || {};
@@ -113,6 +154,10 @@
         return { wf: 'bloco', v: 1, tipo: b.tipo, titulo: b.titulo, dados: JSON.parse(JSON.stringify(b.dados || {})), imgs };
     }
 
+    function botaoZip(item) {
+        return Array.from(item.querySelectorAll('button')).find(x => /baixar zip/i.test(x.textContent || ''));
+    }
+
     function baixarBloco(c, b, item) {
         const nome = limpo(b.titulo) || b.tipo;
         if (b.tipo === 'texto') {
@@ -125,8 +170,8 @@
         } else if (b.tipo === 'tabela' && typeof c.tbExportar === 'function') {
             c.tbExportar(b);
         } else if (b.tipo === 'codigo' && b.dados.modo === 'ide') {
-            // o editor já sabe montar o ZIP do projeto
-            const zip = Array.from(item.querySelectorAll('button')).find(x => /baixar zip/i.test(x.textContent || ''));
+            // o editor já sabe montar o ZIP do projeto (clique feito por script, não é recontado)
+            const zip = botaoZip(item);
             if (zip) zip.click(); else avisar(c, 'Abra o editor para baixar o projeto em ZIP.');
         } else {
             // lista, mapa, documento etc.: pacote .wf.json (dá para soltar de volta em qualquer quadro)
@@ -154,15 +199,23 @@
         return false;
     }
 
-    function baixar(item) {
+    let baixando = false; // evita contar dois cliques seguidos como dois downloads enquanto o servidor responde
+    async function baixar(item) {
         const c = comp();
-        if (!c || !item) return;
+        if (!c || !item || baixando) return;
+        baixando = true;
         try {
-            const b = blocoDe(item);
-            if (b) { baixarBloco(c, b, item); return; }
-            if (baixarCartaoFixo(c, item)) return;
-            avisar(c, 'Este cartão não tem um arquivo para baixar.');
-        } catch (_) { avisar(c, 'Não consegui gerar o arquivo.'); }
+            // conta o download no servidor; no limite do plano gratuito, vai para a tela de planos
+            if (!(await registrarDownload(c))) return;
+            try {
+                const b = blocoDe(item);
+                if (b) { baixarBloco(c, b, item); return; }
+                if (baixarCartaoFixo(c, item)) return;
+                avisar(c, 'Este cartão não tem um arquivo para baixar.');
+            } catch (_) { avisar(c, 'Não consegui gerar o arquivo.'); }
+        } finally {
+            baixando = false;
+        }
     }
 
     /* ---------- ZIP: leitura no navegador ---------- */
@@ -311,6 +364,8 @@
         if (ext === 'json' || f.type === 'application/json') {
             let o;
             try { o = JSON.parse(await lerTexto(f)); } catch (_) { o = null; }
+            // plano gratuito: confere workflows e elementos do arquivo antes de importar
+            if (o && window.WFPlanos && !window.WFPlanos.exigirArquivo('importar', o)) return false;
             if (!o || o.wf !== 'bloco' || !TIPOS.includes(o.tipo) || !o.dados || typeof o.dados !== 'object') {
                 avisar(c, `"${nome}" não é um bloco do Work Flower.`);
                 return false;
@@ -407,6 +462,18 @@
         if (!btn) return;
         e.preventDefault(); e.stopPropagation();
         baixar(btn.closest('.wf-item'));
+    }, true);
+
+    // "Baixar ZIP" do editor de código: um clique real do usuário passa pela contagem;
+    // o clique feito por este script (baixarBloco) não é "trusted", então não entra em loop.
+    document.addEventListener('click', e => {
+        if (!e.isTrusted) return;
+        const bt = e.target.closest && e.target.closest('button');
+        if (!bt || bt.classList.contains('wf-dl-btn') || !/baixar zip/i.test(bt.textContent || '')) return;
+        const item = bt.closest('.wf-item');
+        if (!item) return;
+        e.preventDefault(); e.stopPropagation();
+        baixar(item);
     }, true);
 
     const st = document.createElement('style');

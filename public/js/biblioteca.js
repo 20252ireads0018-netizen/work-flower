@@ -54,6 +54,7 @@
             body: JSON.stringify({ itens: estado.itens }),
         });
         if (r.status === 401 || r.status === 419) { location.reload(); throw new Error('sessão'); }
+        if (r.status === 402 || r.status === 403) throw new Error('plano'); // limite do plano (o planos.js já tenta redirecionar sozinho)
         if (r.status === 413) throw new Error('cheia');
         if (r.status === 422) { await motivo422(r); throw new Error('422'); }
         if (!r.ok) throw new Error(String(r.status));
@@ -101,6 +102,30 @@
     };
     const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
+    /** Descrição curta de um bloco (usada pela Biblioteca e pelo Histórico). */
+    function resumo(i) {
+            const d = i.dados || {};
+            if (i.tipo === 'texto') return (d.texto || '').trim().slice(0, 90) || 'Texto vazio';
+            if (i.tipo === 'tabela') return `${(d.cab || []).length} colunas · ${(d.linhas || []).length} linhas`;
+            if (i.tipo === 'lista') return `${(d.itens || []).length} itens`;
+            if (i.tipo === 'mapa') return `${(d.nos || []).length} nós` + ((d.tracos || []).length ? ` · ${d.tracos.length} traços` : '');
+            if (i.tipo === 'compras') return `${(d.itens || []).length} itens`;
+            if (i.tipo === 'campos') return (d.campos || []).map(c => c.nome).join(', ').slice(0, 90);
+            if (i.tipo === 'escrita') return (d.texto || '').trim().slice(0, 90) || 'Texto vazio';
+            if (i.tipo === 'social') return `${(d.posts || []).length} posts`;
+            if (i.tipo === 'loja') return `${(d.produtos || []).length} produtos`;
+            if (i.tipo === 'codigo') return `${(d.repos || []).length} repositórios`;
+            if (i.tipo === 'tabletop') {
+                const partes = [`${d.cols || 16}×${d.rows || 12} casas`, `${(d.pecas || []).length} peças`];
+                if ((d.desenho || []).length) partes.push(`${d.desenho.length} desenhos`);
+                if (d.mapaImg) partes.push('com mapa de fundo');
+                return partes.join(' · ');
+            }
+            if (i.tipo === 'vivo') return `Abre o original em ${(d.pagina || '').replace('/areas/', '')}`;
+            if (i.tipo === 'documento') return `${(d.secoes || []).length} seções`;
+            return d.legenda || '';
+    }
+
     window.bibliotecaPainel = function () {
         return {
             itens: [], carregando: false, erro: '', busca: '', tipo: '', pode: false, tipos: TIPOS,
@@ -132,28 +157,7 @@
                 return !tipos || tipos.includes(i.tipo);
             },
 
-            resumo(i) {
-                const d = i.dados || {};
-                if (i.tipo === 'texto') return (d.texto || '').trim().slice(0, 90) || 'Texto vazio';
-                if (i.tipo === 'tabela') return `${(d.cab || []).length} colunas · ${(d.linhas || []).length} linhas`;
-                if (i.tipo === 'lista') return `${(d.itens || []).length} itens`;
-                if (i.tipo === 'mapa') return `${(d.nos || []).length} nós` + ((d.tracos || []).length ? ` · ${d.tracos.length} traços` : '');
-                if (i.tipo === 'compras') return `${(d.itens || []).length} itens`;
-                if (i.tipo === 'campos') return (d.campos || []).map(c => c.nome).join(', ').slice(0, 90);
-                if (i.tipo === 'escrita') return (d.texto || '').trim().slice(0, 90) || 'Texto vazio';
-                if (i.tipo === 'social') return `${(d.posts || []).length} posts`;
-                if (i.tipo === 'loja') return `${(d.produtos || []).length} produtos`;
-                if (i.tipo === 'codigo') return `${(d.repos || []).length} repositórios`;
-                if (i.tipo === 'tabletop') {
-                    const partes = [`${d.cols || 16}×${d.rows || 12} casas`, `${(d.pecas || []).length} peças`];
-                    if ((d.desenho || []).length) partes.push(`${d.desenho.length} desenhos`);
-                    if (d.mapaImg) partes.push('com mapa de fundo');
-                    return partes.join(' · ');
-                }
-                if (i.tipo === 'vivo') return `Abre o original em ${(d.pagina || '').replace('/areas/', '')}`;
-                if (i.tipo === 'documento') return `${(d.secoes || []).length} seções`;
-                return d.legenda || '';
-            },
+            resumo,
 
             colar(i) {
                 if (!this.pode || !this.colavel(i)) return;
@@ -175,4 +179,6 @@
             },
         };
     };
+
+    /* O histórico de blocos excluídos fica em js/lixeira.js (arquivo próprio). */
 })();

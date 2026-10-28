@@ -155,7 +155,7 @@
         const f = (caminho, texto) => ({ id: uid(), caminho, texto });
         return [
             f('README.md', '# Meu projeto\n\nEdite os arquivos ao lado.\n\n- Ctrl+S: salvar\n- Ctrl+Enter: executar (.js) ou abrir a prévia (.html)\n- Ctrl+F: buscar e substituir\n'),
-            f('index.html', '<!doctype html>\n<html lang="pt-BR">\n<head>\n  <meta charset="utf-8">\n  <title>Meu projeto</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>Olá, Work Flower!</h1>\n  <button id="b">Clique aqui</button>\n  <script src="script.js"></' + 'script>\n</body>\n</html>\n'),
+            f('index.html', '<!doctype html>\n<html lang="pt-BR">\n<head><meta charset="utf-8">\n  \n  <title>Meu projeto</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>Olá, Work Flower!</h1>\n  <button id="b">Clique aqui</button>\n  <script src="script.js"></' + 'script>\n</body>\n</html>\n'),
             f('style.css', 'body {\n  font-family: system-ui, sans-serif;\n  padding: 2rem;\n}\n\nbutton {\n  padding: .5rem 1rem;\n  border-radius: .5rem;\n}\n'),
             f('script.js', "const botao = document.getElementById('b');\nlet n = 0;\n\nbotao.addEventListener('click', () => {\n  n++;\n  botao.textContent = 'Cliques: ' + n;\n  console.log('clique', n);\n});\n\nconsole.log('Olá do script.js!');\n"),
         ];
@@ -636,7 +636,7 @@
                 const n = ++token;
                 htmlId = null;
                 this.saida = [];
-                this.srcdoc = '<!doctype html><meta charset="utf-8">' + shim(n) + '<script>' + f.texto.replace(/<\/script/gi, '<\\/script') + '</script>';
+                this.srcdoc = '<!doctype html>' + shim(n) + '<script>' + f.texto.replace(/<\/script/gi, '<\\/script') + '</script>';
                 this.painel = 'saida';
             },
             /** Monta a página com os .css e .js do projeto embutidos e mostra na prévia. */

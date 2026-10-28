@@ -35,7 +35,61 @@
         .wf-tt-grade > .wf-tt-caixa { z-index: 30 !important; }
         /* Com uma ferramenta de desenho ligada, as peças não interceptam o mouse: o traço passa por cima delas */
         .wf-tt-grade.desenhando > .wf-tt-peca { pointer-events: none !important; }
+
+        /* Código da sala (entrar na sala de outra pessoa) */
+        .wf-tt-codigo { width: 7.5rem; text-transform: uppercase; letter-spacing: .15em; }
+        .wf-tt-codigo::placeholder { text-transform: none; letter-spacing: normal; }
     </style>
+
+    <div class="wf-tt-linha" role="group" aria-label="Transmissão ao vivo">
+
+        {{-- Sem sala: transmitir ou entrar na sala de outra pessoa pelo código --}}
+        <template x-if="!b.vivo">
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" class="btn-sec !py-1.5 !px-3 text-xs" title="Abre uma sala com código para outras pessoas jogarem junto" @click="vivoTransmitir(b)">
+                    Transmitir ao vivo
+                </button>
+
+                <span class="text-xs texto-2" aria-hidden="true">ou</span>
+
+                <input type="text" class="campo wf-tt-codigo" maxlength="8" placeholder="Código da sala"
+                       autocomplete="off" autocapitalize="characters" spellcheck="false"
+                       aria-label="Código da sala de outra pessoa"
+                       x-model="ttUI(b).codigo"
+                       @keydown.enter.prevent="vivoEntrar(ttUI(b).codigo, aba); ttUI(b).codigo = ''">
+                <button type="button" class="btn-sec !py-1.5 !px-3 text-xs"
+                        title="Entra na sala de outra pessoa. O mapa dela aparece num bloco novo, no fim desta aba."
+                        :disabled="!(ttUI(b).codigo || '').trim()"
+                        @click="vivoEntrar(ttUI(b).codigo, aba); ttUI(b).codigo = ''">
+                    Entrar na sala
+                </button>
+            </div>
+        </template>
+
+        {{-- Em sala: código, quem está dentro, copiar, sair --}}
+        <template x-if="b.vivo">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs">
+                    <span class="texto-2" x-text="b.vivo.dono ? 'Sua sala' : 'Sala'"></span>
+                    <strong class="tracking-widest" x-text="b.vivo.codigo"></strong>
+                </span>
+
+                <span class="text-xs texto-2" x-text="(ui['vv.' + b.id]?.online || 1) + ' online'" aria-live="polite"></span>
+
+                {{-- Bolinhas dos outros jogadores (mesma cor do cursor de cada um no mapa) --}}
+                <span class="inline-flex items-center gap-1" aria-label="Jogadores na sala">
+                    <span class="wf-tt-bolinha" :style="'background:' + vivoMinhaCor()" title="Você"></span>
+                    <template x-for="p in vivoPresentes(b)" :key="p.c">
+                        <span class="wf-tt-bolinha" :style="'background:' + p.cor" :title="p.n"></span>
+                    </template>
+                </span>
+
+                <button type="button" class="btn-sec !py-1 !px-2 text-xs" @click="vivoMenu(b)">Copiar código</button>
+                <button type="button" class="btn-sec !py-1 !px-2 text-xs perigo" @click="vivoSair(b)" x-text="b.vivo.dono ? 'Encerrar sala' : 'Sair da sala'"></button>
+                <span class="text-xs texto-2">Duplo clique no mapa chama a atenção de todos.</span>
+            </div>
+        </template>
+    </div>
 
     {{-- Peças prontas --}}
     <div class="wf-tt-linha">

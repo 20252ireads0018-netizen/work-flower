@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CorpoDado;
+use App\Support\Planos;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -41,6 +42,9 @@ class BibliotecaController extends Controller
             'itens.*.imagem'  => ['nullable', 'string', 'starts_with:data:image/', 'max:1500000'],
             'itens.*.criado'  => ['nullable', 'string', 'max:40'],
         ]);
+
+        // Limite do plano: o gratuito guarda até 5 blocos (403 + redirect para a tela de planos)
+        Planos::exigir(Planos::slugDe($request->user()), 'biblioteca', count($dados['itens']), 'guardar');
 
         // Todo item passa a ter 'dados' (os que ficaram sem conteúdo viram vazios e podem ser excluídos normalmente)
         $dados['itens'] = array_map(function ($item) {

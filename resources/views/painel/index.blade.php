@@ -266,4 +266,6 @@
     reajustar();
 })();
 </script>
+{{-- Tutorial do painel (botão flutuante) --}}
+@include('partials.tutorial')
 @endsection

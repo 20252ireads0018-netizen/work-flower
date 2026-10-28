@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSubscriptions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -9,14 +10,14 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasSubscriptions;
 
     public const COR_PRIMARIA_PADRAO  = '#2f6fc7';
     public const COR_CABECALHO_PADRAO = '#1a4585';
 
     // A senha é criptografada no AuthController (Hash::make).
     // Não use o cast 'hashed' aqui, senão ela seria criptografada duas vezes.
-    protected $fillable = ['name', 'email', 'password', 'cor_primaria', 'cor_cabecalho'];
+    protected $fillable = ['name', 'email', 'password', 'cor_primaria', 'cor_cabecalho', 'cpf_cnpj', 'asaas_customer_id'];
 
     protected $hidden = ['password', 'remember_token'];
 

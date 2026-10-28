@@ -58,3 +58,4 @@ class Tarefa extends Model
             ->orderBy('prazo');
     }
 }
+

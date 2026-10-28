@@ -31,3 +31,4 @@ class TarefaController extends Controller
         return back()->with('ok', 'Tarefa excluída.');
     }
 }
+

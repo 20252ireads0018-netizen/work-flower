@@ -258,7 +258,11 @@
                 window.WFQuadro.tipos = [...(this.tiposBloco || []).map(t => t.id), 'vivo'];
                 if (!this._colarOuvindo) {
                     this._colarOuvindo = true;
-                    window.addEventListener('wf-colar', e => this.colarBloco(e.detail));
+                    window.addEventListener('wf-colar', e => {
+                        const ok = this.colarBloco(e.detail);
+                        // avisa quem pediu (ex.: Histórico) se o bloco realmente voltou
+                        if (e.detail && typeof e.detail === 'object') e.detail.ok = ok !== false;
+                    });
                 }
                 if (EMBED) this.prepararEmbed();
                 this.$nextTick(() => {
@@ -277,13 +281,24 @@
                         this.ox = esq; this.larg = janela;
                     };
                     medir();
-                    const ro = new ResizeObserver(medir);
+                    const ro = new ResizeObserver(() => {
+                        const antes = this.larg;
+                        medir();
+                        // só a LARGURA da janela importa (a altura do quadro muda a cada arraste e não deve reorganizar nada):
+                        // se os cartões não couberem mais, arruma de novo, sem atrapalhar quem está arrastando
+                        if (this.larg === antes) return;
+                        clearTimeout(this._ao);
+                        this._ao = setTimeout(() => { if (!this.arrastando) this.autoOrganizar(); }, 500);
+                    });
                     ro.observe(pai);
                     ro.observe(document.documentElement);
 
                     // imagens que já existiam: ajusta o card ao tamanho delas (uma única vez, por aba)
                     this.corrigirImagens(this.aba);
                     this.$watch('aba', v => this.$nextTick(() => this.corrigirImagens(v)));
+
+                    // ao entrar na página: cartões organizados por tamanho, sem sobreposição, no tamanho desta tela
+                    this.autoOrganizar();
                 });
             },
             /** Modo cartão ativo (dentro de um iframe): abre a aba certa e mostra só o cartão pedido. */
@@ -401,22 +416,126 @@
                     || getComputedStyle(document.documentElement).getPropertyValue('--prim').trim() || '#2f6fc7';
             },
             setCor(sec, id, cor) { this.entrada(sec, id).cor = cor; },
+            /* ---------- organização automática (por tamanho, sem sobreposição, no tamanho da tela) ---------- */
+            /** Botão "Reorganizar": arruma a aba atual. */
             reorganizar() {
-                const sec = this.aba, W = this.col || 1088;
+                if (!this.organizar(this.aba)) { this.aviso('Nada para reorganizar nesta aba.'); return; }
+                this.marcarTela();
+                this.aviso('Layout reorganizado para o tamanho da sua tela.');
+            },
+            /** Abas que têm cartões (fixos do PADRAO, blocos livres ou layout salvo). */
+            secoesQuadro() {
+                const s = new Set([...Object.keys(PADRAO || {}), ...Object.keys(this.estado.layout || {})]);
+                (this.estado.blocos || []).forEach(b => { if (b.secao) s.add(b.secao); });
+                return [...s];
+            },
+            /** Cartões que existem de fato numa aba (entradas de layout de blocos já apagados são ignoradas). */
+            cartoesDe(sec) {
+                const ids = new Set(Object.keys(PADRAO[sec] || {}));
+                this.blocosDe(sec).forEach(b => ids.add(b.id));
+                return [...ids];
+            },
+            /** Largura útil e origem (em coordenadas do layout, que começam na coluna central). */
+            areaUtil() {
+                const larg = this.larg || this.col || 1088, ox = this.ox || 0, margem = 16;
+                return { W: Math.max(240, larg - margem * 2), x0: -ox + margem, larg, ox };
+            },
+            /** true se algum cartão da aba sai da tela ou cobre outro. */
+            temConflito(sec) {
+                const { W, x0 } = this.areaUtil();
+                const r = this.cartoesDe(sec).map(id => this.rect(sec, id));
+                const tol = 4;
+                for (let i = 0; i < r.length; i++) {
+                    const a = r[i];
+                    if (a.x < x0 - tol || a.x + Math.min(a.w, W) > x0 + W + tol) return true;
+                    for (let j = i + 1; j < r.length; j++) {
+                        const b = r[j];
+                        if (a.x < b.x + b.w - tol && b.x < a.x + a.w - tol && a.y < b.y + b.h - tol && b.y < a.y + a.h - tol) return true;
+                    }
+                }
+                return false;
+            },
+            /**
+             * Arruma todos os cartões de uma aba sem sobreposição, dentro da largura da tela.
+             * Ordena por tamanho (mais altos e largos primeiro) e encaixa cada um no ponto mais alto
+             * e mais à esquerda que couber ("skyline"), com 16 px de folga. Tamanho, cor e ordem (z) são mantidos.
+             * Devolve false se a aba não tem cartões.
+             */
+            organizar(sec) {
+                const ids = this.cartoesDe(sec);
+                if (!ids.length) return false;
+                const { W, x0 } = this.areaUtil();
+                const folga = 16, grade = 8;
+                const itens = ids.map(id => {
+                    const l = this.rect(sec, id);
+                    return { id, w: Math.min(Math.max(Number(l.w) || 360, 120), W), h: Math.max(Number(l.h) || 260, 80), cor: l.cor, z: l.z };
+                });
+                // maiores primeiro: linhas ficam parelhas e o quadro fica mais baixo
+                itens.sort((a, b) => (b.h - a.h) || (b.w - a.w) || (b.w * b.h - a.w * a.h) || String(a.id).localeCompare(String(b.id)));
+
+                // "skyline": lista de faixas horizontais [x, largura, altura ocupada]
+                let linha = [{ x: 0, w: W, y: 0 }];
+                const colocar = it => {
+                    const wt = it.w + folga;
+                    let melhor = null;
+                    for (let i = 0; i < linha.length; i++) {
+                        const x = linha[i].x;
+                        if (x + it.w > W + 0.5) continue;
+                        let y = 0, fim = x + wt;
+                        for (let j = i; j < linha.length && linha[j].x < fim; j++) y = Math.max(y, linha[j].y);
+                        if (!melhor || y < melhor.y || (y === melhor.y && x < melhor.x)) melhor = { x, y };
+                    }
+                    if (!melhor) melhor = { x: 0, y: Math.max(...linha.map(f => f.y)) };
+                    const y = Math.ceil(melhor.y / grade) * grade;
+                    const topo = y + it.h + folga, ini = melhor.x, fim = Math.min(W, ini + wt);
+                    // recorta as faixas cobertas e insere a nova
+                    const nova = [];
+                    linha.forEach(f => {
+                        const fx2 = f.x + f.w;
+                        if (fx2 <= ini || f.x >= fim) { nova.push(f); return; }
+                        if (f.x < ini) nova.push({ x: f.x, w: ini - f.x, y: f.y });
+                        if (fx2 > fim) nova.push({ x: fim, w: fx2 - fim, y: f.y });
+                    });
+                    nova.push({ x: ini, w: fim - ini, y: topo });
+                    nova.sort((a, b) => a.x - b.x);
+                    // junta faixas vizinhas na mesma altura
+                    linha = nova.reduce((acc, f) => {
+                        const u = acc[acc.length - 1];
+                        if (u && u.y === f.y && Math.abs(u.x + u.w - f.x) < 0.5) u.w += f.w; else acc.push({ ...f });
+                        return acc;
+                    }, []);
+                    return { x: snap(x0 + ini), y };
+                };
+
                 const novo = {};
-                let y = 0;
-                Object.keys(PADRAO[sec] || {}).forEach(id => { const b = this.base(sec, id); y = Math.max(y, b.y + b.h); });
-                if (y) y += 16;
-                let x = 0, linha = 0;
-                this.blocosDe(sec).forEach(b => {
-                    const o = this.estado.layout[sec]?.[b.id] || { w: 360, h: 260 };
-                    const w = Math.min(o.w, W);
-                    if (x + w > W) { x = 0; y += linha + 16; linha = 0; }
-                    novo[b.id] = { x, y, w, h: o.h, z: 1, ...(o.cor ? { cor: o.cor } : {}) };
-                    x += w + 16; linha = Math.max(linha, o.h);
+                itens.forEach(it => {
+                    const p = colocar(it);
+                    novo[it.id] = { x: p.x, y: p.y, w: it.w, h: it.h, z: it.z || 1, ...(it.cor ? { cor: it.cor } : {}) };
                 });
                 this.estado.layout[sec] = novo;
-                this.aviso('Layout reorganizado.');
+                return true;
+            },
+            /** Guarda para que largura de tela o layout foi arrumado (decide se precisa arrumar de novo). */
+            marcarTela() {
+                this.estado.tela = { larg: this.larg || this.col || 1088, em: hoje() };
+            },
+            /**
+             * Ao entrar na página (e quando a janela muda muito de tamanho): se os cartões não cabem na tela,
+             * se algum cobre outro ou se o layout foi feito para uma tela bem diferente, arruma todas as abas.
+             * Um layout que já cabe e não tem sobreposição é respeitado (o usuário pode ter arrumado à mão).
+             */
+            autoOrganizar() {
+                if (EMBED || this.empilhado() || !this.larg) return;
+                const larg = this.larg, ref = this.estado.tela;
+                const mudouTela = !ref || Math.abs((Number(ref.larg) || 0) - larg) > Math.max(96, larg * 0.12);
+                const secs = this.secoesQuadro();
+                const conflito = secs.some(sec => this.temConflito(sec));
+                if (!mudouTela && !conflito) return;
+                if (!ref && !conflito) { this.marcarTela(); return; } // primeira visita e já cabe: só registra a tela
+                let n = 0;
+                secs.forEach(sec => { if (this.organizar(sec)) n++; });
+                this.marcarTela();
+                if (n) this.aviso('Cartões organizados automaticamente para o tamanho da sua tela.');
             },
 
             /* ---------- blocos livres ---------- */
@@ -441,6 +560,19 @@
             removerBloco(b) {
                 if (!confirm(`Excluir o bloco "${b.titulo || 'sem título'}"?`)) return;
                 const { id, secao } = b;
+                // histórico: guarda uma cópia do bloco (conteúdo, imagem, cor, tamanho e posição) para poder restaurar
+                const l = this.rect(secao, id);
+                window.dispatchEvent(new CustomEvent('wf-bloco-removido', { detail: {
+                    id: uid(),
+                    nome: (b.titulo || '').trim() || 'Sem título',
+                    tipo: b.tipo,
+                    titulo: b.titulo || '',
+                    dados: normalizarDados(b.tipo, b.dados),
+                    cor: /^#[0-9a-fA-F]{6}$/.test(l.cor || '') ? l.cor : null,
+                    w: Math.round(l.w), h: Math.round(l.h), x: l.x, y: l.y,
+                    secao,
+                    imagem: this.imagens[id] || null,
+                } }));
                 const i = this.estado.blocos.findIndex(x => x.id === id);
                 if (i >= 0) this.estado.blocos.splice(i, 1);
                 if (this.estado.layout[secao]) delete this.estado.layout[secao][id];
@@ -501,22 +633,40 @@
                 item.titulo = String(item.titulo || '').slice(0, 200);
                 window.WFBiblioteca.adicionar(item)
                     .then(() => this.aviso(ok))
-                    .catch(e => this.aviso(
+                    .catch(e => {
+                        // limite do plano: leva para a tela de planos em vez de mostrar erro
+                        const limitado = window.WFPlanos && window.WFPlanos.limite('biblioteca') !== null;
+                        // 402/403 = o servidor recusou por limite de plano (vale mesmo com o biblioteca.js antigo)
+                        if (['plano', '402', '403'].includes(e.message) || (e.message === 'cheia' && limitado)) {
+                            if (window.WFPlanos) window.WFPlanos.barrar('biblioteca');
+                            else {
+                                // sem o planos.js carregado: avisa e abre a tela de planos por conta própria
+                                this.aviso('Limite do plano gratuito atingido. Abrindo os planos…');
+                                const destino = document.querySelector('meta[name="planos-url"]')?.content || '/planos';
+                                setTimeout(() => { location.href = destino; }, 1200);
+                            }
+                            return;
+                        }
+                        console.error('[Biblioteca] falha ao salvar:', e);
+                        this.aviso(
                         e.message === 'cheia' ? 'A biblioteca está cheia. Exclua algum item.'
                             : e.message === '422' ? 'A biblioteca recusou este bloco (dados inválidos). Tente salvar de novo.'
-                                : 'Não consegui salvar na biblioteca.'));
+                                : `Não consegui salvar na biblioteca (erro: ${e.message || 'desconhecido'}).`);
+                    });
             },
-            /** Cola uma cópia independente de um item da biblioteca no fim da aba atual. */
+            /** Cola uma cópia independente de um item da biblioteca no fim da aba atual.
+                Se vier do histórico (item.restaurar), volta para a aba e a posição de origem.
+                Devolve true se o bloco foi criado, false se foi recusado. */
             colarBloco(item) {
-                const sec = this.aba;
-                if (!sec || !item || !item.tipo) return;
+                const sec = (item && item.restaurar && PADRAO[item.secao]) ? item.secao : this.aba;
+                if (!sec || !item || !item.tipo) return false;
                 if (item.tipo !== 'vivo' && this.tiposBloco && !this.tiposBloco.some(t => t.id === item.tipo)) {
                     this.aviso('Esta página não tem esse tipo de bloco. Cole em outra página.');
-                    return;
+                    return false;
                 }
                 if (dadosPerdidos(item)) {
                     this.aviso('Este item da biblioteca está sem conteúdo (foi salvo por uma versão antiga). Exclua-o e salve o bloco de novo.');
-                    return;
+                    return false;
                 }
                 const dados = normalizarDados(item.tipo, item.dados);
                 // ids novos: a cópia não pode compartilhar identidade com o original
@@ -532,7 +682,9 @@
                 this.estado.blocos.push({ id, secao: sec, tipo: item.tipo, titulo: item.titulo || item.nome || 'Bloco', links: [], dados });
                 if (!this.estado.layout[sec]) this.estado.layout[sec] = {};
                 this.estado.layout[sec][id] = {
-                    x: 0, y: y0 ? y0 + 16 : 0, w: Math.min(item.w || 360, W), h: item.h || 260, z: ++this.zTop,
+                    x: item.restaurar ? Math.max(0, Number(item.x) || 0) : 0,
+                    y: item.restaurar ? Math.max(0, Number(item.y) || 0) : (y0 ? y0 + 16 : 0),
+                    w: Math.min(item.w || 360, W), h: item.h || 260, z: ++this.zTop,
                     ...(item.cor ? { cor: item.cor } : {}),
                 };
                 if (item.imagem) {
@@ -544,7 +696,8 @@
                         this.$nextTick(() => { if (bl) this.ajustarImagem(bl, item.imagem); });
                     }
                 }
-                this.aviso('Bloco colado no fim da aba. Arraste para onde quiser.');
+                this.aviso(item.restaurar ? 'Bloco restaurado.' : 'Bloco colado no fim da aba. Arraste para onde quiser.');
+                return true;
             },
             tabCol(b) { b.dados.cab.push('Coluna ' + (b.dados.cab.length + 1)); b.dados.linhas.forEach(l => l.push('')); },
             tabColRem(b, j) { if (b.dados.cab.length < 2) return; b.dados.cab.splice(j, 1); b.dados.linhas.forEach(l => l.splice(j, 1)); },

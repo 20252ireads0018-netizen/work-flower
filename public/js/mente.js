@@ -845,7 +845,7 @@
                 const d = b.dados, w = window.open('', '_blank');
                 if (!w) { this.aviso('Permita pop-ups para imprimir.'); return; }
                 const secs = d.secoes.map((s, i) => `<section class="${i === 0 && d.layout === 'faixa' ? 'cab' : ''}"><h2>${esc(s.t)}</h2><p>${esc(s.texto).replace(/\n/g, '<br>')}</p></section>`).join('');
-                w.document.write(`<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>${esc(b.titulo)}</title><style>
+                w.document.write(`<!doctype html><html lang="pt-BR"><title>${esc(b.titulo)}</title><style>
                     body{font-family:${FONTES[d.fonte]};color:#1b1f24;margin:2cm;line-height:1.5}
                     h2{font-size:1rem;margin:0 0 .25rem;border-bottom:2px solid ${d.cor};padding-bottom:.15rem}
                     section{break-inside:avoid;margin-bottom:1rem}p{margin:0}

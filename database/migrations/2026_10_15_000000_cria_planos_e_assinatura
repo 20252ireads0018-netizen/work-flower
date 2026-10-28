@@ -1,0 +1,56 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (! Schema::hasTable('plans')) {
+            Schema::create('plans', function (Blueprint $t) {
+                $t->id();
+                $t->string('name');
+                $t->string('slug')->unique();
+                $t->string('description')->nullable();
+                $t->decimal('price', 8, 2)->default(0);
+                $t->unsignedInteger('trial_days')->default(0);
+                $t->json('features')->nullable();
+                $t->boolean('active')->default(true);
+                $t->unsignedInteger('sort')->default(0);
+                $t->timestamps();
+            });
+
+            $agora = now();
+            DB::table('plans')->insert([
+                ['name' => 'Gratuito', 'slug' => 'gratuito', 'description' => 'Para começar a organizar.',      'price' => 0,     'trial_days' => 0, 'active' => 1, 'sort' => 1, 'created_at' => $agora, 'updated_at' => $agora],
+                // AJUSTE O PREÇO do Básico
+                ['name' => 'Básico',   'slug' => 'basico',   'description' => 'Sem limites para o seu fluxo.', 'price' => 19.90, 'trial_days' => 0, 'active' => 1, 'sort' => 2, 'created_at' => $agora, 'updated_at' => $agora],
+                ['name' => 'Pró',      'slug' => 'pro',      'description' => 'Em breve.',                     'price' => 0,     'trial_days' => 0, 'active' => 1, 'sort' => 3, 'created_at' => $agora, 'updated_at' => $agora],
+                ['name' => 'Premium',  'slug' => 'premium',  'description' => 'Em breve.',                     'price' => 0,     'trial_days' => 0, 'active' => 1, 'sort' => 4, 'created_at' => $agora, 'updated_at' => $agora],
+            ]);
+        }
+
+        Schema::table('users', function (Blueprint $t) {
+            if (! Schema::hasColumn('users', 'plano_slug')) {
+                $t->string('plano_slug', 20)->default('gratuito');
+            }
+            if (! Schema::hasColumn('users', 'plano_expira_em')) {
+                $t->timestamp('plano_expira_em')->nullable();
+            }
+            if (! Schema::hasColumn('users', 'asaas_subscription_id')) {
+                $t->string('asaas_subscription_id', 60)->nullable()->index();
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $t) {
+            $t->dropColumn(['plano_slug', 'plano_expira_em', 'asaas_subscription_id']);
+        });
+        Schema::dropIfExists('plans');
+    }
+};

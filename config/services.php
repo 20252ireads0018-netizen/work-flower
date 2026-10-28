@@ -36,5 +36,10 @@ return [
     ],
 
     'brapi' => ['token' => env('BRAPI_TOKEN')],
+    
+    'adsense' => [
+        'client' => env('ADSENSE_CLIENT'),
+    ],
 
 ];
+

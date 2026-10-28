@@ -1,9 +1,12 @@
 <?php
 
 use App\Http\Controllers\AreaController;
+use App\Http\Controllers\AssinaturaController;
+use App\Http\Controllers\Webhooks\AsaasWebhookController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BibliotecaController;
 use App\Http\Controllers\CorpoController;
+use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\PainelController;
 use App\Http\Controllers\TarefaController;
 use App\Http\Controllers\TemaController;
@@ -13,9 +16,53 @@ use App\Http\Controllers\FundoController;
 use App\Http\Controllers\MenteController;
 use App\Http\Controllers\CarteiraController;
 use App\Http\Controllers\DiversoController;
+use App\Http\Controllers\WorkflowTransferController;
 
-// A raiz decide para onde ir: login (visitante) ou painel (logado).
-Route::get('/', fn () => redirect()->route(auth()->check() ? 'painel' : 'login'));
+Route::get('/diag-rotas', function () {
+    if (function_exists('opcache_reset')) { @opcache_reset(); }
+
+    $arquivo = base_path('routes/web.php');
+    $todas   = collect(Route::getRoutes()->getRoutes());
+
+    return response()->json([
+        'laravel'          => app()->version(),
+        'base_path'        => base_path(),
+        'public_path'      => public_path(),
+        'web_php_mtime'    => date('Y-m-d H:i:s', filemtime($arquivo)),
+        'web_php_tem_rota' => str_contains(file_get_contents($arquivo), 'downloads/registrar'),
+        'rotas_em_cache'   => app()->routesAreCached(),
+        'rotas_downloads'  => $todas
+            ->filter(fn ($r) => str_contains($r->uri(), 'downloads'))
+            ->map(fn ($r) => implode('|', $r->methods()) . ' ' . $r->uri())
+            ->values(),
+        'total_de_rotas'   => $todas->count(),
+    ]);
+});
+
+// Webhook do Asaas (sem login e sem CSRF; a autenticação é o token no header "asaas-access-token")
+Route::post('/webhooks/asaas', AsaasWebhookController::class)
+    ->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class, // nome do CSRF no Laravel 13
+    ])
+    ->middleware('throttle:120,1')
+    ->name('webhooks.asaas');
+
+// Páginas públicas (abrem para qualquer pessoa, logada ou não).
+// A raiz mostra a página inicial para visitantes e leva quem está logado ao painel.
+Route::get('/', function () {
+    return auth()->check()
+        ? redirect()->route('painel')
+        : view('publico.inicio');
+})->name('inicio');
+
+Route::view('/privacidade', 'publico.privacidade')->name('privacidade');
+Route::view('/termos', 'publico.termos')->name('termos');
+Route::view('/contato', 'publico.contato')->name('contato');
+
+// Animação de apresentação (rolagem), aberta pela tela de login. Pública, para visitantes.
+Route::view('/conheca', 'conheca')->name('demo');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'formLogin'])->name('login');
@@ -25,10 +72,21 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::get('/assinar/{slug}/dados', [AssinaturaController::class, 'dados'])
+        ->where('slug', '[a-z0-9-]+')->name('assinar.dados');
+    Route::post('/assinar/{slug}/dados', [AssinaturaController::class, 'salvarDados'])
+        ->where('slug', '[a-z0-9-]+')->name('assinar.dados.salvar');
+    Route::view('/planos', 'planos')->name('planos');
+    Route::get('/assinar/{slug}', [AssinaturaController::class, 'assinar'])
+        ->where('slug', '[a-z0-9-]+')->name('assinar');
     Route::post('/sair', [AuthController::class, 'logout'])->name('logout');
-
+    
     Route::get('/painel', [PainelController::class, 'index'])->name('painel');
     Route::put('/tema', [TemaController::class, 'update'])->name('tema.update');
+
+    // Contador de downloads do botão de baixar dos cartões (limite do plano gratuito)
+    Route::post('/downloads/registrar', [DownloadController::class, 'registrar'])
+        ->middleware('throttle:60,1')->name('downloads.registrar');
 
     // Carteira: precisa vir ANTES da rota genérica /areas/{area}
     Route::get('/areas/carteira', [CarteiraController::class, 'show'])->name('areas.carteira');
@@ -62,6 +120,14 @@ Route::middleware('auth')->group(function () {
     // Biblioteca de blocos (vale para todas as páginas)
     Route::get('/biblioteca', [BibliotecaController::class, 'index'])->name('biblioteca.index');
     Route::put('/biblioteca', [BibliotecaController::class, 'salvar'])->name('biblioteca.salvar');
+
+    // Importar e exportar workflows (arquivo .workflower.json, serve para levar para outra conta)
+    Route::prefix('workflows')->name('workflows.')->group(function () {
+        Route::get('/lista', [WorkflowTransferController::class, 'lista'])->name('lista');
+        Route::get('/exportar', [WorkflowTransferController::class, 'exportar'])->name('exportar');
+        Route::post('/importar', [WorkflowTransferController::class, 'importar'])
+            ->middleware('throttle:20,1')->name('importar');
+    });
 });
 
 Route::middleware('auth')->prefix('mente')->name('mente.')->group(function () {
@@ -98,3 +164,6 @@ Route::middleware('auth')->prefix('diverso')->name('diverso.')->group(function (
         ->where('chave', '[A-Za-z0-9._-]{1,60}')
         ->name('apagar');
 });
+
+// Tabletop ao vivo (salas com código). O arquivo é carregado aqui para herdar o grupo "web" (sessão + CSRF).
+require __DIR__ . '/tabletop-vivo.php';

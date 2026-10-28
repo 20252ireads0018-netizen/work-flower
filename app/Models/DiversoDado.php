@@ -10,3 +10,4 @@ class DiversoDado extends Model
 
     protected $fillable = ['user_id', 'chave', 'valor'];
 }
+

@@ -392,9 +392,12 @@
         });
         const motor = Q.metodos(PADRAO);
         const copia = o => JSON.parse(JSON.stringify(o));
+        const vivo = window.WFTabletopVivo
+            ? window.WFTabletopVivo.metodos({ uid, copia, reduzirSrc, normalizarTabletop })
+            : {};
 
         return {
-            ...Q.estadoUI(), ...motor,
+            ...Q.estadoUI(), ...motor, ...vivo,
             cfg, estado, imagens, tarefas: cfg.tarefas || [], aba: estado.abas[0]?.id ?? null,
             icones: listaIcones(), formAba: null,
             ui: {}, ultimo: null,
@@ -417,8 +420,9 @@
                 let reparou = false;
                 this.estado.blocos.forEach(b => { if (b.tipo === 'tabletop' && normalizarTabletop(b.dados)) reparou = true; });
                 this.zTop = this.maiorZ();
-                this.$watch('estado', () => this.agendar());
+                this.$watch('estado', () => { this.agendar(); this.vivoAlterou?.(); });
                 this.initQuadro();
+                this.vivoIniciarTudo?.();
                 const urgente = () => { if (this.salvo === 'pendente') this.gravarEstado(); };
                 document.addEventListener('visibilitychange', () => { if (document.hidden) urgente(); });
                 window.addEventListener('pagehide', urgente);
@@ -527,10 +531,42 @@
                 const imgs = {};
                 Object.keys(this.imagens).filter(k => k === bloco.id || k.startsWith(bloco.id + '.')).forEach(k => { imgs[k] = this.imagens[k]; });
                 this.apagarImagens(bloco.id);
+                this.enviarParaHistorico(bloco, lay, imgs);
                 this.ultimo = { bloco: copia(bloco), lay: lay ? copia(lay) : null, imgs };
                 this.msg = 'Bloco excluído.';
                 clearTimeout(this._m);
                 this._m = setTimeout(() => { this.msg = ''; this.ultimo = null; }, 8000);
+            },
+            /* Histórico (lixeira.js): guarda uma cópia do bloco excluído para restaurar depois, na aba e posição de origem.
+               As imagens vão embutidas (reduzidas) porque o histórico fica no navegador, que tem pouco espaço. */
+            async enviarParaHistorico(bloco, lay, imgs) {
+                try {
+                    const dados = Q.normalizarDados(bloco.tipo, copia(bloco.dados || {}));
+                    let imagem = null;
+                    if (bloco.tipo === 'tabletop') {
+                        const pecas = {};
+                        for (const p of (dados.pecas || [])) {
+                            const im = p.img && imgs[`${bloco.id}.i.${p.img}`];
+                            if (im && !pecas[p.img]) pecas[p.img] = await reduzirSrc(im, 256, 0.75, 40000);
+                        }
+                        if (Object.keys(pecas).length) dados.imgs = pecas;
+                        if (imgs[`${bloco.id}.mapa`]) dados.mapaImg = await reduzirSrc(imgs[`${bloco.id}.mapa`], 900, 0.65, 180000);
+                    } else if (imgs[bloco.id]) {
+                        imagem = await reduzirSrc(imgs[bloco.id], 1100, 0.8, 300000);
+                    }
+                    const l = lay || {};
+                    window.dispatchEvent(new CustomEvent('wf-bloco-removido', { detail: {
+                        id: uid(),
+                        nome: (bloco.titulo || '').trim().slice(0, 120) || 'Sem título',
+                        tipo: bloco.tipo,
+                        titulo: String(bloco.titulo || '').slice(0, 200),
+                        dados,
+                        cor: /^#[0-9a-fA-F]{6}$/.test(l.cor || '') ? l.cor : null,
+                        w: Math.round(l.w || 360), h: Math.round(l.h || 260), x: l.x || 0, y: l.y || 0,
+                        secao: bloco.secao,
+                        imagem,
+                    } }));
+                } catch (e) { console.error('[Histórico] não consegui guardar o bloco excluído:', e); }
             },
             desfazerRemocao() {
                 const u = this.ultimo;
@@ -576,17 +612,19 @@
                 return motor.guardarBloco.call(this, { ...b, dados });
             },
             colarBloco(item) {
-                if (!this.aba) { this.aviso('Crie uma aba antes de colar blocos.'); return; }
+                if (!this.aba) { this.aviso('Crie uma aba antes de colar blocos.'); return false; }
+                // vindo do Histórico: volta para a aba de origem (se ela ainda existir)
+                if (item && item.restaurar && item.secao && this.abaExiste(item.secao)) this.aba = item.secao;
                 const antes = this.estado.blocos.length;
                 motor.colarBloco.call(this, item);
                 const nb = this.estado.blocos[this.estado.blocos.length - 1];
-                if (this.estado.blocos.length === antes || !nb) return;
+                if (this.estado.blocos.length === antes || !nb) return false;
                 // itens antigos da biblioteca de tipos que não existem mais (Documento, Lista de compras, Escrita, Redes sociais, Loja) não são colados
                 if (REMOVIDOS.includes(nb.tipo)) {
                     this.estado.blocos.pop();
                     if (this.estado.layout[nb.secao]) delete this.estado.layout[nb.secao][nb.id];
                     this.aviso('Esse tipo de bloco não existe mais e não pode ser colado.');
-                    return;
+                    return false;
                 }
                 const salvar = (k, v, msg) => {
                     this.imagens[k] = v;
@@ -600,6 +638,7 @@
                     normalizarTabletop(d); // o servidor troca "" por null: nomes de peças voltam como texto
                     nb.dados = d;
                 }
+                return true;
             },
 
             linkSeguro(u) { return /^https:\/\/[^\s]+$/i.test(String(u || '').trim()) ? String(u).trim() : '#'; },
@@ -1232,6 +1271,19 @@
             },
             penDesfazer(b) { b.dados.tracos?.pop(); },
             penLimpar(b) { if ((b.dados.tracos || []).length && confirm('Apagar todo o desenho deste mapa? Os nós ficam.')) b.dados.tracos = []; },
+
+            /* ---------- opções (barras de ferramentas) recolhíveis: mapa mental e campo de texto ----------
+               O estado fica em b.dados.opcoes (false = recolhidas), então é salvo junto com o bloco e lembrado ao reabrir.
+               Sem o campo (blocos antigos), as opções aparecem abertas. */
+            opcAberta(b) { return b.dados.opcoes !== false; },
+            opcAlternar(b) {
+                const abrir = !this.opcAberta(b);
+                b.dados.opcoes = abrir;
+                if (abrir) return;
+                // ao recolher, desliga o lápis/borracha (as ferramentas somem e o modo desenho ficaria preso)
+                const p = this.ui[b.id];
+                if (p) { p.on = false; p.borr = false; p.vivo = ''; p.cx = null; p.cy = null; }
+            },
         };
     };
 })();

@@ -13,6 +13,8 @@
             </div>
             <h1 class="titulo text-3xl sm:text-4xl leading-tight max-w-md mx-auto mt-8">Seu fluxo de vida unificado em um lugar</h1>
             <p class="mt-4 max-w-sm mx-auto opacity-80">Unifique. Customize. Produza.</p>
+
+            <a href="{{ \Illuminate\Support\Facades\Route::has('demo') ? route('demo') : url('/conheca') }}" class="btn-cab mt-6">▶ Ver o Work Flower em ação</a>
         </div>
 
         {{-- Mantido vazio para o conteúdo continuar centralizado entre a marca e o rodapé --}}
@@ -46,6 +48,8 @@
                 Ainda não tem conta?
                 <a href="{{ route('registro') }}" data-troca class="link-prim">Criar conta</a>
             </p>
+
+            @include('auth._links-legais')
         </form>
     </section>
 </div>

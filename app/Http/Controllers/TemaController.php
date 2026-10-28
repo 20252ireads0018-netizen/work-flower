@@ -24,3 +24,4 @@ class TemaController extends Controller
         return back()->with('ok', 'Cores salvas.');
     }
 }
+

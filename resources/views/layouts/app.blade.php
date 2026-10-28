@@ -1,6 +1,9 @@
 @php
     use App\Models\User;
 
+    // ID do AdSense (ca-pub-XXXXXXXXXXXXXXXX). Vazio = nenhum anúncio é carregado.
+    $adsenseClient = config('services.adsense.client');
+
     $usuario = auth()->user();
     $prim    = $usuario?->cor_primaria  ?? User::COR_PRIMARIA_PADRAO;
     $cab     = $usuario?->cor_cabecalho ?? User::COR_CABECALHO_PADRAO;
@@ -43,14 +46,194 @@
 @endphp
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<head><meta charset="utf-8">
+    <meta name="downloads-registrar-url" content="{{ \Illuminate\Support\Facades\Route::has('downloads.registrar') ? route('downloads.registrar') : '' }}">
+    <meta name="plano-teste-ate" content="{{ \App\Support\Planos::testeAte(auth()->user())?->toIso8601String() }}">
+    
+    {{-- viewport-fit=cover: usa a tela toda em celulares com notch (as áreas seguras são tratadas no CSS) --}}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    {{-- Limite do plano: qualquer resposta do servidor com { plano_limite: true } leva direto para a tela de planos.
+         Fica aqui, inline, para não depender de nenhum arquivo .js externo. Precisa vir antes dos outros scripts. --}}
+    <script>
+    (function () {
+        if (window.__wfLimitePlano) return;
+        window.__wfLimitePlano = true;
+
+        const planos = @json(\Illuminate\Support\Facades\Route::has('planos') ? route('planos') : url('/planos'));
+        const original = window.fetch.bind(window);
+        let indo = false;
+
+        function aviso(texto) {
+            const el = document.createElement('div');
+            el.setAttribute('role', 'alert');
+            el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99999;max-width:min(92vw,460px);' +
+                'padding:12px 16px;border-radius:12px;background:#1f1f24;color:#fff;font:14px/1.4 system-ui,sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.35);';
+            el.textContent = texto;
+            document.body.appendChild(el);
+        }
+
+        function destinoSeguro(url) {
+            try {
+                const u = new URL(url || planos, location.href);
+                return u.origin === location.origin ? u.href : planos;
+            } catch (e) { return planos; }
+        }
+
+        window.fetch = async (...args) => {
+            const r = await original(...args);
+            if (!r.ok && r.status !== 401 && r.status !== 419 && /json/i.test(r.headers.get('content-type') || '')) {
+                try {
+                    const j = await r.clone().json();
+                    if (j && j.plano_limite) {
+                        if (!indo) {
+                            indo = true;
+                            aviso((j.message || 'Você atingiu o limite do seu plano.') + ' Abrindo os planos…');
+                            setTimeout(() => { location.href = destinoSeguro(j.redirect); }, 1500);
+                        }
+                        // mantém a chamada pendente: o app não mostra "Não consegui salvar" enquanto a página troca para os planos
+                        return new Promise(() => {});
+                    }
+                } catch (e) { /* resposta sem JSON válido: segue normal */ }
+            }
+            return r;
+        };
+    })();
+    </script>
+
+    {{-- Proteção de viewport e de dados antigos (celular <-> computador).
+         Problema: a página aberta no computador fica "congelada" com o layout e os tamanhos de antes. Ao voltar de outro
+         aparelho (ou depois de redimensionar a janela), os cards aparecem quebrados.
+         O que isto faz, sem depender de nenhum outro arquivo:
+         1) marca <html data-bp="mobile|tablet|desktop"> e avisa a página com o evento "wf:viewport" quando a faixa muda
+            (quadro.js pode escutar esse evento para recalcular posições; window.WFViewport.faixa() também está disponível);
+         2) volta da página para o primeiro plano depois de um tempo, ou vinda do cache do navegador (botão voltar),
+            ou com a faixa de tela diferente: recarrega do servidor, para exibir o layout salvo mais recente;
+         3) nunca recarrega com um campo em edição, com gravação em andamento ou se window.__wfSujo === true. --}}
+    <script>
+    (function () {
+        if (window.WFViewport) return;
+
+        const raiz = document.documentElement;
+        const LIMITE_OCIOSO = 2 * 60 * 1000;   // fora da tela por mais que isso => recarrega ao voltar
+        const INTERVALO_MIN = 10 * 1000;       // nunca recarrega duas vezes em menos que isso (evita laço)
+        const CHAVE = 'wf:guarda';
+
+        const faixa = () => {
+            const w = window.innerWidth || raiz.clientWidth || 0;
+            return w < 640 ? 'mobile' : (w < 1024 ? 'tablet' : 'desktop');
+        };
+
+        let atual = faixa();
+        let pendentes = 0;      // requisições em andamento (gravações)
+        let ocultoEm = 0;
+        let faixaAoOcultar = atual;
+        let timer = 0;
+
+        raiz.dataset.bp = atual;
+        raiz.style.setProperty('--wf-vw', (window.innerWidth || 0) + 'px');
+
+        // Conta requisições em andamento para não recarregar no meio de um salvamento
+        const baseFetch = window.fetch.bind(window);
+        window.fetch = (...args) => {
+            pendentes++;
+            let p;
+            try { p = baseFetch(...args); } catch (e) { pendentes = Math.max(0, pendentes - 1); throw e; }
+            const fim = () => { pendentes = Math.max(0, pendentes - 1); };
+            p.then(fim, fim);
+            return p;
+        };
+
+        const editando = () => {
+            const el = document.activeElement;
+            if (!el || el === document.body) return false;
+            const tag = el.tagName;
+            if (tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable) return true;
+            if (tag === 'INPUT') return !/^(button|checkbox|radio|submit|reset|range|color|file|image)$/i.test(el.type || 'text');
+            return false;
+        };
+
+        const podeRecarregar = () => {
+            if (window.__wfSujo === true || pendentes > 0 || editando()) return false;
+            try {
+                const ult = Number(sessionStorage.getItem(CHAVE) || 0);
+                if (Date.now() - ult < INTERVALO_MIN) return false;
+            } catch (e) { /* sem sessionStorage: segue */ }
+            return true;
+        };
+
+        const recarregar = () => {
+            if (!podeRecarregar()) return false;
+            try { sessionStorage.setItem(CHAVE, String(Date.now())); } catch (e) { /* ok */ }
+            location.reload();
+            return true;
+        };
+
+        function mudouTela() {
+            const nova = faixa();
+            raiz.style.setProperty('--wf-vw', (window.innerWidth || 0) + 'px');
+            if (nova === atual) return;
+            const de = atual;
+            atual = nova;
+            raiz.dataset.bp = nova;
+            window.dispatchEvent(new CustomEvent('wf:viewport', { detail: { de, para: nova } }));
+        }
+
+        window.addEventListener('resize', () => {
+            clearTimeout(timer);
+            timer = setTimeout(mudouTela, 120);
+        }, { passive: true });
+        window.addEventListener('orientationchange', () => setTimeout(mudouTela, 200));
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                ocultoEm = Date.now();
+                faixaAoOcultar = atual;
+                return;
+            }
+            // voltou para a tela
+            const fora = ocultoEm ? Date.now() - ocultoEm : 0;
+            mudouTela();
+            if (fora > LIMITE_OCIOSO || faixaAoOcultar !== atual) recarregar();
+        });
+
+        // Página restaurada do cache do navegador (voltar/avançar): os dados em memória podem estar velhos
+        window.addEventListener('pageshow', (e) => {
+            if (e.persisted) recarregar();
+        });
+
+        window.WFViewport = { faixa: () => atual, recarregar, largura: () => window.innerWidth || 0 };
+    })();
+    </script>
+
+    @php
+       $planoSlug = \App\Support\Planos::slugDe(auth()->user());
+       $semAnuncios = \App\Support\Planos::semAnuncios(auth()->user());
+    @endphp
+   <meta name="plano-slug" content="{{ $planoSlug }}">
+   <meta name="plano-limites" content='@json(\App\Support\Planos::limites($planoSlug))'>
+   <meta name="planos-url" content="{{ \Illuminate\Support\Facades\Route::has('planos') ? route('planos') : url('/planos') }}">
     <meta name="biblioteca-url" content="{{ \Illuminate\Support\Facades\Route::has('biblioteca.index') ? route('biblioteca.index') : '' }}">
+    <meta name="workflows-lista-url" content="{{ \Illuminate\Support\Facades\Route::has('workflows.lista') ? route('workflows.lista') : '' }}">
+    <meta name="workflows-exportar-url" content="{{ \Illuminate\Support\Facades\Route::has('workflows.exportar') ? route('workflows.exportar') : '' }}">
+    <meta name="workflows-importar-url" content="{{ \Illuminate\Support\Facades\Route::has('workflows.importar') ? route('workflows.importar') : '' }}">
     <title>Work Flower · @yield('titulo', 'Painel')</title>
 
+    {{-- Google AdSense: carrega para visitantes e para planos com anúncios.
+         Plano Premium (Planos::SEM_ANUNCIOS) NÃO recebe nem o script, então não há Auto ads nem impressões.
+         O ID vem de config('services.adsense.client'), definido por ADSENSE_CLIENT no .env. --}}
+    @if ($adsenseClient && ! $semAnuncios)
+        <meta name="google-adsense-account" content="{{ $adsenseClient }}">
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ $adsenseClient }}"
+                crossorigin="anonymous"></script>
+    @endif
+
     <script src="{{ asset('js/biblioteca.js') }}?v={{ @filemtime(public_path('js/biblioteca.js')) }}"></script>
+    <script src="{{ asset('js/lixeira.js') }}?v={{ @filemtime(public_path('js/lixeira.js')) }}"></script>
+      <script src="{{ asset('js/planos.js') }}?v={{ @filemtime(public_path('js/planos.js')) }}"></script>
+      <script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
+    @include('partials.workflows-transfer')
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -77,19 +260,71 @@
             --tinta-2: #8c97a6;
             --linha: #222a34;
             --borda-campo: #2d3641;
+
+            /* Áreas seguras (notch / barra de gestos) */
+            --seg-e: env(safe-area-inset-left, 0px);
+            --seg-d: env(safe-area-inset-right, 0px);
+            --seg-b: env(safe-area-inset-bottom, 0px);
         }
         @if ($fundoIni['cor'])
         :root { --papel: {{ $fundoIni['cor'] }}; }
         @endif
 
         [x-cloak] { display: none !important; }
-        html { -webkit-font-smoothing: antialiased; color-scheme: dark; }
-        body { background: var(--papel); color: var(--tinta); font-family: 'DM Sans', system-ui, sans-serif; }
+        html {
+            -webkit-font-smoothing: antialiased; color-scheme: dark;
+            -webkit-text-size-adjust: 100%; text-size-adjust: 100%;   /* o celular não "infla" o texto ao girar a tela */
+            overflow-x: clip;                                         /* nada empurra a página para os lados */
+        }
+        body {
+            background: var(--papel); color: var(--tinta); font-family: 'DM Sans', system-ui, sans-serif;
+            min-height: 100vh; min-height: 100dvh;
+            overflow-x: clip;
+            overflow-wrap: break-word;
+            padding-left: var(--seg-e); padding-right: var(--seg-d);
+        }
+        img, video { max-width: 100%; }
         .titulo { font-family: 'Bricolage Grotesque', 'DM Sans', sans-serif; font-weight: 700; letter-spacing: -0.02em; }
         .texto-2 { color: var(--tinta-2); }
         ::selection { background: var(--prim); color: var(--on-prim); }
         :focus-visible { outline: 2px solid var(--prim); outline-offset: 2px; }
         body .text-red-700 { color: #f87171; }
+
+        /* ===== Responsividade universal =====
+           1) Filhos de flex/grid podem encolher (sem isso, textos longos e tabelas empurram a largura).
+           2) Cartões de blocos nunca passam da largura do quadro, em qualquer aparelho.
+           3) Campos com 16px no celular: o iOS não dá zoom ao tocar. */
+        main, main > *, .card, .tabela-wrap { min-width: 0; }
+        .wf-item { max-width: 100%; }
+        .wf-bloco, .wf-cresce, .wf-esc, .wf-xl, .wf-xl-rolagem { min-width: 0; max-width: 100%; }
+        .wf-xl-rolagem, .wf-esc, .tabela-wrap { -webkit-overflow-scrolling: touch; }
+
+        @media (max-width: 767px) {
+            .campo, select, textarea, input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]) { font-size: 16px; }
+            .wf-xl-barra .campo, .wf-xl-barra select { font-size: 14px; }
+            main { padding-bottom: calc(4rem + var(--seg-b)); }
+        }
+
+        /* Toques: alvos maiores em telas sem mouse */
+        @media (pointer: coarse) {
+            .btn, .btn-sec, .btn-cab { min-height: 2.5rem; }
+            .mini-btn { width: 2rem; height: 2rem; }
+            .menu-item { padding: .65rem .75rem; }
+            .nav-mobile a { padding: .7rem .75rem; }
+        }
+
+        /* Fileiras de mini cards circulares (abas): sempre centralizadas, em qualquer largura */
+        *:has(> .circ) {
+            display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start;
+            row-gap: 1.1rem; column-gap: .5rem;
+        }
+
+        /* Cabeçalho da página: título e subtítulo centralizados no celular */
+        .cab-pagina { text-align: left; }
+        @media (max-width: 639px) {
+            .cab-pagina { text-align: center; }
+            .cab-pagina p { margin-inline: auto; max-width: 32rem; }
+        }
 
         /* Fundo personalizado: a imagem (ou GIF, com desfoque opcional) e um véu que escurece */
         #fundo-img { position: fixed; inset: 0; z-index: -1; pointer-events: none; background-position: center; }
@@ -106,11 +341,14 @@
         /* Cabeçalho */
         .cab-bg { background: var(--cab); color: var(--on-cab); }
         header.cab-bg { border-bottom: 1px solid color-mix(in srgb, var(--on-cab) 12%, transparent); }
-        .nav-link { display: flex; align-items: center; border-bottom: 2px solid transparent; opacity: .7; transition: opacity .15s; }
+        .nav-link { display: flex; align-items: center; border-bottom: 2px solid transparent; opacity: .7; transition: opacity .15s; white-space: nowrap; }
         .nav-link:hover { opacity: 1; }
         .nav-link.ativo { opacity: 1; border-color: var(--prim); font-weight: 600; }
         .nav-mobile a { display: block; padding: .5rem .75rem; border-radius: .375rem; opacity: .8; }
         .nav-mobile a.ativo { background: color-mix(in srgb, var(--on-cab) 12%, transparent); opacity: 1; font-weight: 600; }
+        /* Navegação de desktop com muitas áreas: rola na horizontal em vez de quebrar o cabeçalho */
+        header nav[aria-label="Principal"] { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+        header nav[aria-label="Principal"]::-webkit-scrollbar { display: none; }
 
         /* Painel de entrada: malha discreta e brilho atrás da flor */
         .painel-tech {
@@ -234,6 +472,7 @@
             background: var(--superficie); color: var(--tinta);
             border: 1px solid var(--linha); border-radius: .75rem;
             box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+            max-width: calc(100vw - 1.5rem);
         }
         .menu-item {
             display: flex; align-items: center; gap: .65rem; width: 100%;
@@ -252,6 +491,7 @@
             border: 1px solid var(--borda-campo);
             border-radius: .5rem;
             cursor: pointer;
+            max-width: 100%;
             transition: border-color .15s, box-shadow .15s;
         }
         /* Select puro (sem classe) ganha o mesmo tamanho dos campos */
@@ -281,7 +521,7 @@
         select option:checked { background: var(--prim); color: var(--on-prim); }
 
         /* Mini cards circulares */
-        .circ { display: flex; flex-direction: column; align-items: center; gap: .45rem; width: 4.75rem; cursor: pointer; }
+        .circ { display: flex; flex-direction: column; align-items: center; gap: .45rem; width: 5rem; cursor: pointer; }
         .circ-bola {
             width: 3.5rem; height: 3.5rem; border-radius: 9999px;
             display: flex; align-items: center; justify-content: center;
@@ -293,7 +533,11 @@
             background: var(--prim); border-color: var(--prim); color: var(--on-prim);
             box-shadow: 0 0 0 4px color-mix(in srgb, var(--prim) 25%, transparent);
         }
-        .circ-rotulo { font-size: .75rem; text-align: center; line-height: 1.1; color: var(--tinta-2); transition: color .15s; }
+        /* Rótulos longos quebram com hífen em vez de cortar no meio da palavra */
+        .circ-rotulo {
+            font-size: .75rem; text-align: center; line-height: 1.15; color: var(--tinta-2); transition: color .15s;
+            max-width: 100%; overflow-wrap: break-word; word-break: normal; hyphens: auto; -webkit-hyphens: auto;
+        }
         .circ:hover .circ-rotulo, .circ.ativo .circ-rotulo { color: var(--tinta); }
         .erro:empty { display: none; }
         /* Tabelas no celular: cada linha vira um cartão */
@@ -306,6 +550,11 @@
             .tabela td { display: flex; justify-content: space-between; align-items: center; gap: 1rem; text-align: right; border: 0; padding: .5rem 1rem; }
             .tabela td::before { content: attr(data-label); flex-shrink: 0; text-align: left; font-size: .8rem; font-weight: 600; color: var(--tinta-2); }
             .tabela td:not([data-label])::before { display: none; }
+        }
+
+        /* Painel de cores/biblioteca/workflows: no celular vira uma folha encaixada, sem estourar a altura */
+        @media (max-width: 639px) {
+            .painel-config { top: 4.25rem !important; left: .5rem !important; right: .5rem !important; max-height: calc(100dvh - 5rem) !important; padding: 1rem !important; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -323,7 +572,7 @@
 
     <header class="cab-bg sticky top-0 z-30" x-data="{ menu: false }">
         <div class="max-w-6xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4">
-            <a href="{{ route('painel') }}" aria-label="Work Flower, ir para o painel">
+            <a href="{{ route('painel') }}" class="shrink-0" aria-label="Work Flower, ir para o painel">
                 @include('partials.marca', ['texto' => 'text-xl'])
             </a>
 
@@ -334,7 +583,7 @@
                 @endforeach
             </nav>
 
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 shrink-0">
                 {{-- Configurações --}}
                 <div class="relative" x-data="{ aberto: false }" @keydown.escape.window="aberto = false" @click.outside="aberto = false">
                     <button type="button" class="btn-cab !p-2" @click="aberto = !aberto"
@@ -356,6 +605,17 @@
                             <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v16l-5-3-5 3z"/></svg>
                             Biblioteca
                         </button>
+
+                        <button type="button" class="menu-item" role="menuitem" @click="aberto = false; $dispatch('abrir-workflows')">
+                            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
+                            Importar / exportar
+                        </button>
+
+                        <a href="{{ \Illuminate\Support\Facades\Route::has('planos') ? route('planos') : url('/planos') }}"
+                           class="menu-item" role="menuitem" style="color: var(--prim-forte); font-weight: 600;">
+                            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"/></svg>
+                            Torne-se Pró
+                        </a>
 
                         <div class="menu-sep" role="separator"></div>
 
@@ -383,7 +643,7 @@
         </nav>
     </header>
 
-    <div class="max-w-6xl mx-auto px-4 sm:px-8 pt-10 pb-6">
+    <div class="cab-pagina max-w-6xl mx-auto px-4 sm:px-8 pt-8 sm:pt-10 pb-6">
         <h1 class="titulo text-3xl sm:text-4xl">@yield('titulo', 'Painel')</h1>
         <p class="texto-2 text-sm mt-1.5">@yield('subtitulo')</p>
     </div>
@@ -404,17 +664,19 @@
 
     {{-- Painel de cores e fundo: fica ao lado, sem escurecer a tela, para ver o resultado enquanto ajusta --}}
     <div x-data="temaForm(@js($prim), @js($cab), @js($fundoIni), @js($fundoUrl), @js($fundoSalvar))" x-show="aberto" x-cloak
-         @abrir-tema.window="aberto = true; aba = 'cores'" @abrir-biblioteca.window="aberto = true; aba = 'biblioteca'"
+         @abrir-tema.window="aberto = true; aba = 'cores'" @abrir-biblioteca.window="aberto = true; aba = 'biblioteca'" @abrir-lixeira.window="aberto = true; aba = 'lixeira'" @abrir-workflows.window="aberto = true; aba = 'workflows'"
          @keydown.escape.window="if (aberto) cancelar()"
          class="fixed inset-0 z-50"
          role="dialog" aria-modal="true" aria-labelledby="tema-titulo">
         <div class="absolute inset-0" @click="cancelar()"></div>
 
-        <div class="card shadow-xl absolute top-20 right-4 left-4 sm:left-auto sm:w-[26rem] max-h-[calc(100vh-6rem)] overflow-auto p-6 space-y-5">
+        <div class="painel-config card shadow-xl absolute top-20 right-4 left-4 sm:left-auto sm:w-[26rem] max-h-[calc(100vh-6rem)] max-h-[calc(100dvh-6rem)] overflow-auto p-6 space-y-5">
 
         <div class="flex gap-1.5" role="tablist" aria-label="Configurações">
             <button type="button" role="tab" class="btn-sec flex-1" :class="{ '!bg-[var(--prim)] !text-[var(--on-prim)]': aba === 'cores' }" :aria-selected="aba === 'cores'" @click="aba = 'cores'">Cores e fundo</button>
             <button type="button" role="tab" class="btn-sec flex-1" :class="{ '!bg-[var(--prim)] !text-[var(--on-prim)]': aba === 'biblioteca' }" :aria-selected="aba === 'biblioteca'" @click="aba = 'biblioteca'; $dispatch('abrir-biblioteca')">Biblioteca</button>
+            <button type="button" role="tab" class="btn-sec flex-1" :class="{ '!bg-[var(--prim)] !text-[var(--on-prim)]': aba === 'lixeira' }" :aria-selected="aba === 'lixeira'" @click="aba = 'lixeira'; $dispatch('abrir-lixeira')">Histórico</button>
+            <button type="button" role="tab" class="btn-sec flex-1" :class="{ '!bg-[var(--prim)] !text-[var(--on-prim)]': aba === 'workflows' }" :aria-selected="aba === 'workflows'" @click="aba = 'workflows'">Workflows</button>
         </div>
 
         <form method="POST" action="{{ route('tema.update') }}" @submit.prevent="salvar($event)" x-show="aba === 'cores'" class="space-y-5">
@@ -504,7 +766,7 @@
                 <p class="erro" x-text="erro"></p>
             </div>
 
-            <div class="flex items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
                 <button type="button" class="link-prim text-sm" @click="restaurarFundo()">Restaurar fundo</button>
                 <div class="flex gap-2">
                     <button type="button" class="btn-sec" @click="cancelar()">Cancelar</button>
@@ -551,6 +813,114 @@
                     </li>
                 </template>
             </ul>
+        </section>
+
+        {{-- ===== Histórico: blocos excluídos desta página, para reconstruir ===== --}}
+        <section x-show="aba === 'lixeira'" x-cloak x-data="lixeiraPainel()" class="space-y-4">
+            <div>
+                <h2 class="titulo text-2xl">Histórico</h2>
+                <p class="text-sm texto-2 mt-1">Blocos excluídos desta página. Clique em “Restaurar” para recriá-los. Se a página for excluída, o histórico dela também some.</p>
+            </div>
+
+            <p class="text-xs texto-2" x-show="!pode">Esta página não tem quadro de blocos, então não dá para restaurar aqui.</p>
+            <p class="text-sm texto-2" x-show="!itens.length">Nenhum bloco excluído nesta página.</p>
+
+            <ul class="space-y-2">
+                <template x-for="i in itens" :key="i.id">
+                    <li class="card p-3 space-y-2" :style="i.cor ? 'border-top:2px solid ' + i.cor : ''">
+                        <div class="flex items-center gap-2">
+                            <p class="flex-1 min-w-0 truncate font-medium" x-text="i.titulo || i.nome"></p>
+                            <span class="text-xs texto-2 shrink-0" x-text="quando(i)"></span>
+                            <button type="button" class="mini-btn perigo" title="Apagar de vez" @click="excluir(i)">✕</button>
+                        </div>
+                        <template x-if="i.tipo === 'imagem' && i.imagem">
+                            <img :src="i.imagem" alt="" class="w-full h-24 object-cover rounded-lg">
+                        </template>
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-xs texto-2 min-w-0 truncate"><span x-text="rotuloTipo(i.tipo)"></span> · <span x-text="resumo(i)"></span></p>
+                            <button type="button" class="btn !py-1.5 shrink-0" :disabled="!pode || !colavel(i)" :class="{ 'opacity-50 cursor-not-allowed': !pode || !colavel(i) }" @click="restaurar(i)">Restaurar</button>
+                        </div>
+                    </li>
+                </template>
+            </ul>
+
+            <button type="button" class="btn-sec" x-show="itens.length" @click="esvaziar()">Esvaziar histórico</button>
+        </section>
+
+        {{-- ===== Workflows: baixar as áreas em um arquivo e importar de outra conta ===== --}}
+        <section x-show="aba === 'workflows'" x-cloak x-data="workflowsTransfer()"
+                 x-init="$watch('aba', v => { if (v === 'workflows') carregarUmaVez() })" class="space-y-5">
+            <div>
+                <h2 class="titulo text-2xl">Importar e exportar</h2>
+                <p class="text-sm texto-2 mt-1">Baixe Corpo, Mente, Carteira e Diverso em um único arquivo e envie para outra conta. Quem importar recebe esses dados no lugar dos que tem hoje.</p>
+            </div>
+
+            <div class="grid grid-cols-1 min-[420px]:grid-cols-2 gap-2">
+                <button type="button" class="btn" :disabled="exportando" @click="exportarTudo()">
+                    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
+                    <span x-text="exportando ? 'Gerando…' : 'Baixar tudo'"></span>
+                </button>
+                <label class="btn-sec cursor-pointer">
+                    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V9m0 0l-4 4m4-4l4 4M5 5h14"/></svg>
+                    <span>Importar arquivo</span>
+                    <input type="file" accept=".json,application/json" class="sr-only"
+                           @change="escolherArquivo($event.target.files[0]); $event.target.value = ''">
+                </label>
+            </div>
+
+            <p class="erro" x-show="!configurado">Faltam as rotas: <span x-text="faltando"></span>.</p>
+            <p class="erro" x-text="erro"></p>
+            <button type="button" class="link-prim text-sm" x-show="tentou && !carregado && !carregando && configurado" @click="carregar()">Recarregar lista</button>
+            <p class="aviso-ok !mb-0" x-show="ok" x-text="ok" role="status"></p>
+
+            {{-- Baixar só algumas áreas --}}
+            <div class="space-y-3 pt-5" style="border-top: 1px solid var(--linha)" x-show="configurado && itens.length">
+                <h3 class="titulo text-lg">Baixar só algumas áreas</h3>
+
+                <ul class="space-y-2">
+                    <template x-for="i in itens" :key="i.id">
+                        <li class="card p-2.5 flex items-center gap-3">
+                            <input type="checkbox" :value="i.id" x-model="selecionados" :aria-label="'Selecionar ' + i.nome">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-medium truncate" x-text="i.nome"></p>
+                                <p class="text-xs texto-2" x-text="resumo(i)"></p>
+                            </div>
+                        </li>
+                    </template>
+                </ul>
+
+                <button type="button" class="btn-sec w-full" :disabled="exportando || !selecionados.length" @click="exportarMarcadas()"
+                        x-text="selecionados.length ? 'Baixar ' + selecionados.length + ' selecionada(s)' : 'Marque as áreas acima'"></button>
+            </div>
+
+            {{-- Pré-visualização do arquivo escolhido --}}
+            <template x-if="pacote">
+                <div class="space-y-3 pt-5" style="border-top: 1px solid var(--linha)">
+                    <h3 class="titulo text-lg">Importar</h3>
+                    <p class="text-xs texto-2 truncate" x-text="nomeArquivo"></p>
+                    <p class="erro" x-show="avisoIntegridade">Este arquivo foi alterado depois de baixado. Importe só se você confia na origem.</p>
+
+                    <ul class="space-y-2">
+                        <template x-for="(w, idx) in pacote.workflows" :key="idx">
+                            <li class="card p-2.5 flex items-center gap-3">
+                                <input type="checkbox" :checked="selImport.includes(idx)" @change="alternarImport(idx)" :aria-label="'Importar ' + w.nome">
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-medium truncate" x-text="w.nome"></p>
+                                    <p class="text-xs texto-2" x-text="resumoPacote(w)"></p>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+
+                    <p class="text-xs texto-2">Importar <strong>substitui</strong> o conteúdo atual das áreas marcadas. Baixe um backup antes se quiser guardá-lo.</p>
+
+                    <div class="flex flex-wrap justify-end gap-2">
+                        <button type="button" class="btn-sec" @click="cancelarImportacao()">Cancelar</button>
+                        <button type="button" class="btn" :disabled="importando || !selImport.length" @click="importar()"
+                                x-text="importando ? 'Importando…' : 'Importar ' + selImport.length"></button>
+                    </div>
+                </div>
+            </template>
         </section>
 
         </div>
@@ -833,6 +1203,23 @@
 
 @guest
     @yield('conteudo')
+
+    {{-- Rodapé das páginas públicas: links legais exigidos pelo AdSense --}}
+    @php
+        $linksLegais = [
+            'Política de Privacidade' => \Illuminate\Support\Facades\Route::has('privacidade') ? route('privacidade') : url('/privacidade'),
+            'Termos de Uso'           => \Illuminate\Support\Facades\Route::has('termos') ? route('termos') : url('/termos'),
+            'Contato'                 => \Illuminate\Support\Facades\Route::has('contato') ? route('contato') : url('/contato'),
+        ];
+    @endphp
+    <footer class="max-w-6xl mx-auto px-4 sm:px-8 py-8 mt-8 text-xs texto-2" style="border-top: 1px solid var(--linha)">
+        <nav class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2" aria-label="Informações legais">
+            @foreach ($linksLegais as $nome => $url)
+                <a href="{{ $url }}" class="link-prim">{{ $nome }}</a>
+            @endforeach
+        </nav>
+        <p class="text-center mt-3">© {{ date('Y') }} Work Flower</p>
+    </footer>
 @endguest
 
 </body>
