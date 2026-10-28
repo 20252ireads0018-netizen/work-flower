@@ -47,6 +47,11 @@
     // Preferências da conta (teclas de atalho, organização automática, tutorial visto): ver PreferenciasController
     $preferencias = $usuario ? \App\Http\Controllers\PreferenciasController::de($usuario->id) : [];
     $preferenciasUrl = $usuario && \Illuminate\Support\Facades\Route::has('preferencias.salvar') ? route('preferencias.salvar') : '';
+
+    // Workflow compartilhado (ver App\Support\Compartilhar): de quem é a área aberta e se outras pessoas usam
+    $wfArea     = request()->attributes->get('wf_area');
+    $wfDono     = request()->attributes->get('wf_dono');
+    $wfDonoNome = request()->attributes->get('wf_dono_nome');
 @endphp
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -59,6 +64,41 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     {{-- versão do editor de imagem (carregado só quando alguém abre um cartão "Editor de imagem") --}}
     <meta name="wf-editor-imagem-v" content="{{ @filemtime(public_path('js/editor-imagem.js')) }}">
+    @if ($wfArea)
+        {{-- várias pessoas no mesmo workflow: área aberta, dono (se não for o próprio usuário), versão e sincronia --}}
+        <meta name="wf-area" content="{{ $wfArea }}">
+        <meta name="wf-sincronia-url" content="{{ route('sincronia', $wfArea) }}">
+        <meta name="wf-compartilhar-url" content="{{ route('compartilhar.index', $wfArea) }}">
+        @isset($wfVersao)<meta name="wf-versao" content="{{ $wfVersao }}">@endisset
+        <meta name="wf-sincronizar" content="{{ !empty($wfSincronizar) ? '1' : '0' }}">
+        @if ($wfDono)
+            <meta name="wf-dono" content="{{ $wfDono }}">
+            <meta name="wf-dono-nome" content="{{ $wfDonoNome }}">
+            <script>
+                /* Workflow de outra pessoa aberto: todo pedido desta página e todo formulário vão para os dados dela. */
+                (function () {
+                    const dono = document.querySelector('meta[name="wf-dono"]').content;
+                    const mesmo = u => { try { return new URL(u, location.href).origin === location.origin; } catch (e) { return false; } };
+                    const orig = window.fetch.bind(window);
+                    window.fetch = function (entrada, op) {
+                        const url = typeof entrada === 'string' ? entrada : (entrada && entrada.url) || '';
+                        if (!mesmo(url)) return orig(entrada, op);
+                        op = Object.assign({}, op || {});
+                        const h = new Headers(op.headers || (entrada instanceof Request ? entrada.headers : undefined));
+                        if (!h.has('X-WF-Dono')) h.set('X-WF-Dono', dono);
+                        op.headers = h;
+                        return orig(entrada, op);
+                    };
+                    const marcar = f => {
+                        if (!f || !f.action || !mesmo(f.action) || f.querySelector('input[name="wf_dono"]')) return;
+                        const i = document.createElement('input'); i.type = 'hidden'; i.name = 'wf_dono'; i.value = dono; f.appendChild(i);
+                    };
+                    document.addEventListener('submit', e => marcar(e.target), true);
+                    document.addEventListener('DOMContentLoaded', () => document.querySelectorAll('form').forEach(marcar));
+                })();
+            </script>
+        @endif
+    @endif
     <script>
         /* Preferências da conta: ler() devolve o que está valendo; salvar({...}) junta e envia ao servidor (sem conta, fica só na página). */
         window.WFPrefs = (function () {
@@ -267,6 +307,7 @@
     <script src="{{ asset('js/lixeira.js') }}?v={{ @filemtime(public_path('js/lixeira.js')) }}"></script>
       <script src="{{ asset('js/planos.js') }}?v={{ @filemtime(public_path('js/planos.js')) }}"></script>
       <script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
+      @if ($wfArea)<script src="{{ asset('js/compartilhar.js') }}?v={{ @filemtime(public_path('js/compartilhar.js')) }}"></script>@endif
     @include('partials.workflows-transfer')
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>

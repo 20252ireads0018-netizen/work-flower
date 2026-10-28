@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\CorpoDado;
+use App\Support\Compartilhar;
+use App\Support\Sincronia;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,19 +19,14 @@ class CorpoController extends Controller
             'valor' => ['required', 'string', 'json', 'max:6000000'],
         ]);
 
-        CorpoDado::updateOrCreate(
-            ['user_id' => $request->user()->id, 'chave' => $chave],
-            ['valor' => $dados['valor']],
-        );
-
-        return response()->json(['ok' => true]);
+        return Sincronia::gravar($request, 'corpo', Compartilhar::dono($request, 'corpo'), $chave, $dados['valor']);
     }
 
     public function remover(Request $request, string $chave): JsonResponse
     {
         $this->chavePermitida($chave);
 
-        CorpoDado::where('user_id', $request->user()->id)
+        CorpoDado::where('user_id', Compartilhar::dono($request, 'corpo'))
             ->where('chave', $chave)
             ->delete();
 

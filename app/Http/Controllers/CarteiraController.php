@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\CarteiraDado;
 use App\Models\Tarefa;
+use App\Support\Compartilhar;
+use App\Support\Sincronia;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -16,11 +18,12 @@ class CarteiraController extends Controller
     public function show(Request $request)
     {
         $user = $request->user();
+        $donoId = Compartilhar::dono($request, self::SLUG); // workflow compartilhado: dados do dono
 
-        $dados = CarteiraDado::where('user_id', $user->id)->pluck('valor', 'chave');
+        $dados = CarteiraDado::where('user_id', $donoId)->pluck('valor', 'chave');
 
         // Ajuste aqui se o seu model Tarefa usar outros nomes de coluna.
-        $tarefas = Tarefa::where('user_id', $user->id)
+        $tarefas = Tarefa::where('user_id', $donoId)
             ->where('area', self::SLUG)
             ->latest()
             ->get();
@@ -33,6 +36,8 @@ class CarteiraController extends Controller
             'tarefas'   => $tarefas,
             'tarefasJs' => $tarefasJs,
             'dados'     => $dados,
+            'wfVersao'      => Sincronia::versaoAtual(self::SLUG, $donoId),
+            'wfSincronizar' => Compartilhar::temOutrasPessoas($donoId, self::SLUG, $user->id),
         ]);
     }
 
@@ -43,18 +48,13 @@ class CarteiraController extends Controller
             'valor' => ['nullable', 'string', 'max:6000000'], // imagens já chegam reduzidas pelo JS
         ]);
 
-        CarteiraDado::updateOrCreate(
-            ['user_id' => $request->user()->id, 'chave' => $chave],
-            ['valor' => $data['valor'] ?? null],
-        );
-
-        return response()->json(['ok' => true]);
+        return Sincronia::gravar($request, self::SLUG, Compartilhar::dono($request, self::SLUG), $chave, $data['valor'] ?? null);
     }
 
     /** DELETE /carteira/dados/{chave} */
     public function remover(Request $request, string $chave): JsonResponse
     {
-        CarteiraDado::where('user_id', $request->user()->id)->where('chave', $chave)->delete();
+        CarteiraDado::where('user_id', Compartilhar::dono($request, self::SLUG))->where('chave', $chave)->delete();
 
         return response()->json(['ok' => true]);
     }

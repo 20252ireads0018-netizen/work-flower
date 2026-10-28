@@ -10,7 +10,7 @@
      <meta name="workflows-exportar-url" ...>                       (usada para conferir a exportação)
 
    Plano pago ativo (qualquer slug diferente de "gratuito"): biblioteca, workflows e elementos ficam SEM limite.
-   Só "usuarios" continua valendo (até 4 na conta).
+   Só "usuarios" continua valendo (pessoas no mesmo workflow, com o dono: Gratuito 1, Básico 5).
 
    Teste grátis: durante o teste o servidor já manda o slug do plano pago, então nada muda nos limites.
    Quando o prazo acaba, o servidor volta a mandar "gratuito" e os limites voltam sozinhos.
@@ -32,9 +32,9 @@
 
     const PADRAO = {
         gratuito: { biblioteca: 5,    workflows: 3,    elementos: 10,   usuarios: 1 },
-        basico:   { biblioteca: null, workflows: null, elementos: null, usuarios: 4 },
-        pro:      { biblioteca: null, workflows: null, elementos: null, usuarios: 4 },
-        premium:  { biblioteca: null, workflows: null, elementos: null, usuarios: 4 },
+        basico:   { biblioteca: null, workflows: null, elementos: null, usuarios: 5 },
+        pro:      { biblioteca: null, workflows: null, elementos: null, usuarios: 10 },
+        premium:  { biblioteca: null, workflows: null, elementos: null, usuarios: 25 },
     };
     const NOMES = { gratuito: 'Gratuito', basico: 'Básico', pro: 'Pró', premium: 'Premium' };
     const EM_BREVE = ['pro', 'premium'];
@@ -99,7 +99,7 @@
         biblioteca: l => `O plano ${NOMES[slug]} guarda até ${l} blocos na biblioteca. Assine o Básico para guardar sem limite.`,
         workflows: (l, acao) => `O plano ${NOMES[slug]} permite ${acao} até ${l} workflows por vez. Assine o Básico para não ter limite.`,
         elementos: (l, acao) => `O plano ${NOMES[slug]} permite ${acao} até ${l} elementos (texto, tabelas etc.) por arquivo. Assine o Básico para não ter limite.`,
-        usuarios: l => `O plano ${NOMES[slug]} permite ${l} ${l === 1 ? 'usuário' : 'usuários'} na conta. Assine o Básico para ter até 4.`,
+        usuarios: l => `O plano ${NOMES[slug]} permite ${l} ${l === 1 ? 'usuário' : 'usuários'} na conta (com você). Assine o Básico para trabalhar com até 5 pessoas no mesmo workflow.`,
     };
 
     function aviso(texto) {

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\CorpoDado;
 use App\Models\Tarefa;
+use App\Support\Compartilhar;
+use App\Support\Sincronia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -14,7 +16,8 @@ class AreaController extends Controller
     {
         abort_unless(array_key_exists($area, Tarefa::AREAS), 404);
 
-        $usuarioId = $request->user()->id;
+        // workflow compartilhado: dados do dono (Compartilhar::dono confere o acesso)
+        $usuarioId = Compartilhar::dono($request, $area);
         $tarefas   = Tarefa::daArea($usuarioId, $area)->get();
 
         $dados = [
@@ -39,6 +42,12 @@ class AreaController extends Controller
             $dados['menteDados'] = MenteController::dados($usuarioId);
         }
 
+        // várias pessoas no mesmo workflow: versão do estado e se o navegador deve conferir mudanças dos outros
+        if (in_array($area, ['corpo', 'mente'], true)) {
+            $dados['wfVersao'] = Sincronia::versaoAtual($area, $usuarioId);
+            $dados['wfSincronizar'] = Compartilhar::temOutrasPessoas($usuarioId, $area, $request->user()->id);
+        }
+
         return view()->first(["areas.$area.index", 'areas.show'], $dados);
     }
 
@@ -55,7 +64,7 @@ class AreaController extends Controller
             'prazo.date'      => 'Informe uma data válida.',
         ]);
 
-        Tarefa::create($dados + ['user_id' => $request->user()->id, 'area' => $area]);
+        Tarefa::create($dados + ['user_id' => Compartilhar::dono($request, $area), 'area' => $area]);
 
         return back()->with('ok', 'Tarefa adicionada.');
     }

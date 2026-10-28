@@ -58,8 +58,8 @@
                 ? 'Baixe quantos elementos quiser (textos, tabelas etc.)'
                 : "Baixe até {$l['elementos']} elementos (textos, tabelas etc.)",
             $l['usuarios'] === 1
-                ? '1 usuário'
-                : "Até {$l['usuarios']} usuários na conta",
+                ? 'Workflows só seus (1 pessoa)'
+                : "Até {$l['usuarios']} pessoas no mesmo workflow",
         ];
     };
 @endphp

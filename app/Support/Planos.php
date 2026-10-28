@@ -28,9 +28,9 @@ class Planos
     /** null = ilimitado */
     private const LIMITES = [
         'gratuito' => ['biblioteca' => 5,    'workflows' => 3,    'elementos' => 10,   'usuarios' => 1],
-        'basico'   => ['biblioteca' => null, 'workflows' => null, 'elementos' => null, 'usuarios' => 4],
-        'pro'      => ['biblioteca' => null, 'workflows' => null, 'elementos' => null, 'usuarios' => 4],
-        'premium'  => ['biblioteca' => null, 'workflows' => null, 'elementos' => null, 'usuarios' => 4],
+        'basico'   => ['biblioteca' => null, 'workflows' => null, 'elementos' => null, 'usuarios' => 5],
+        'pro'      => ['biblioteca' => null, 'workflows' => null, 'elementos' => null, 'usuarios' => 10],
+        'premium'  => ['biblioteca' => null, 'workflows' => null, 'elementos' => null, 'usuarios' => 25],
     ];
 
     private const NOMES = [
@@ -247,7 +247,7 @@ class Planos
             'biblioteca' => "O plano {$nome} guarda até {$limite} blocos na biblioteca. Assine o Básico para guardar sem limite.",
             'workflows'  => "O plano {$nome} permite {$acao} até {$limite} workflows por vez. Assine o Básico para não ter limite.",
             'elementos'  => "O plano {$nome} permite {$acao} até {$limite} elementos (texto, tabelas etc.) por arquivo. Assine o Básico para não ter limite.",
-            'usuarios'   => "O plano {$nome} permite {$limite} " . ($limite === 1 ? 'usuário' : 'usuários') . ' na conta. Assine o Básico para ter até 4.',
+            'usuarios'   => "O plano {$nome} permite {$limite} " . ($limite === 1 ? 'usuário' : 'usuários') . ' na conta (com você). Assine o Básico para trabalhar com até 5 pessoas no mesmo workflow.',
             default      => "O plano {$nome} atingiu o limite de {$recurso}. Assine o Básico para continuar.",
         };
     }

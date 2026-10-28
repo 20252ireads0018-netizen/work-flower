@@ -244,6 +244,8 @@
 
     /** Traz o que a versão antiga guardava no navegador (localStorage) na primeira abertura. */
     function migrarLocal(e) {
+        // workflow de outra pessoa aberto: o que está neste navegador é meu, não vai para os dados dela
+        if (document.querySelector('meta[name="wf-dono"]')) return;
         const ler = k => { try { return JSON.parse(localStorage.getItem('corpo.' + k)); } catch { return null; } };
         const paraIso = s => { const m = String(s || '').match(/(\d{2})\/(\d{2})\/(\d{4})/); return m ? `${m[3]}-${m[2]}-${m[1]}` : hoje(); };
 

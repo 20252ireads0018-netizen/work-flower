@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\CorpoDado;
+use App\Support\Compartilhar;
+use App\Support\Sincronia;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -31,17 +33,12 @@ class MenteController extends Controller
     {
         $request->validate(['valor' => ['required', 'string', 'max:8000000']]);
 
-        CorpoDado::updateOrCreate(
-            ['user_id' => $request->user()->id, 'chave' => self::PREFIXO . $chave],
-            ['valor' => $request->input('valor')]
-        );
-
-        return response()->json(['ok' => true]);
+        return Sincronia::gravar($request, 'mente', Compartilhar::dono($request, 'mente'), $chave, $request->input('valor'));
     }
 
     public function apagar(Request $request, string $chave): JsonResponse
     {
-        CorpoDado::where('user_id', $request->user()->id)
+        CorpoDado::where('user_id', Compartilhar::dono($request, 'mente'))
             ->where('chave', self::PREFIXO . $chave)
             ->delete();
 
@@ -78,6 +75,6 @@ class MenteController extends Controller
 
     private function pasta(Request $request): string
     {
-        return 'mente/pdf/' . $request->user()->id;
+        return 'mente/pdf/' . Compartilhar::dono($request, 'mente'); // PDFs do dono do workflow
     }
 }

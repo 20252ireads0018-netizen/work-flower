@@ -4,6 +4,8 @@
 @section('subtitulo', $area['descricao'])
 
 @section('conteudo')
+{{-- várias pessoas no mesmo workflow (partials/compartilhar, js/compartilhar.js) --}}
+@include('partials.compartilhar', ['area' => 'carteira'])
 @php
     $cfg = [
         'url'     => url('/carteira/dados'),

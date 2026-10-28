@@ -263,6 +263,75 @@
         return texto ? { tipo: 'texto', dados: { texto, tam: 'm' } } : null;
     }
 
+    /* ---------- várias pessoas no mesmo workflow: juntar mudanças e aplicar as dos outros ---------- */
+    const igual = (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b);
+    const ehObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+    const temIds = arr => Array.isArray(arr) && arr.length > 0 && arr.every(x => ehObj(x) && x.id != null);
+    const clonar = v => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
+
+    /**
+     * Junta três versões do estado: base (a última que os dois viram), a minha e a deles.
+     * Quem mudou um campo vence; se os dois mudaram o mesmo campo, a minha vence (é a gravação mais nova).
+     * Listas de objetos com "id" (blocos, abas, itens, nós) são juntadas item a item: cada pessoa pode
+     * criar, editar e excluir itens diferentes sem perder o que a outra fez.
+     */
+    function juntarEstados(base, meu, deles) {
+        if (igual(meu, base)) return clonar(deles);
+        if (igual(deles, base) || igual(meu, deles)) return meu;
+        if (ehObj(meu) && ehObj(deles)) {
+            const b = ehObj(base) ? base : {}, out = {};
+            new Set([...Object.keys(meu), ...Object.keys(deles)]).forEach(k => {
+                const emB = k in b, emM = k in meu, emD = k in deles;
+                if (!emM && emB && igual(deles[k], b[k])) return;   // eu apaguei e eles não mexeram
+                if (!emD && emB && igual(meu[k], b[k])) return;     // eles apagaram e eu não mexi
+                if (!emM) { out[k] = clonar(deles[k]); return; }
+                if (!emD) { out[k] = meu[k]; return; }
+                out[k] = juntarEstados(b[k], meu[k], deles[k]);
+            });
+            return out;
+        }
+        if ((temIds(meu) || temIds(deles)) && Array.isArray(meu) && Array.isArray(deles)) {
+            const porId = arr => new Map((Array.isArray(arr) ? arr : []).filter(ehObj).map(x => [String(x.id), x]));
+            const B = porId(base), M = porId(meu), D = porId(deles), out = [];
+            deles.forEach(x => {
+                const id = String(x.id);
+                if (M.has(id)) out.push(juntarEstados(B.get(id), M.get(id), x));
+                else if (!B.has(id) || !igual(x, B.get(id))) out.push(clonar(x)); // novo deles, ou eu apaguei mas eles editaram
+            });
+            meu.forEach((x, i) => {
+                const id = String(x.id);
+                if (D.has(id)) return;
+                if (B.has(id) && igual(x, B.get(id))) return;  // eles apagaram e eu não mexi
+                // novo meu (ou eu editei o que eles apagaram): entra perto de onde estava
+                let antes = -1;
+                for (let p = i - 1; p >= 0 && antes < 0; p--) antes = out.findIndex(o => String(o.id) === String(meu[p].id));
+                out.splice(antes + 1, 0, x);
+            });
+            return out;
+        }
+        return meu;
+    }
+
+    /**
+     * Coloca o estado novo dentro do objeto atual sem trocar os objetos que continuam existindo (mesmo id):
+     * cartões abertos (editor de texto, tabelas, tabletop) seguem apontando para o objeto certo.
+     */
+    function aplicarNoLugar(alvo, novo) {
+        if (!ehObj(alvo) || !ehObj(novo)) return novo;
+        Object.keys(alvo).forEach(k => { if (!(k in novo)) delete alvo[k]; });
+        Object.keys(novo).forEach(k => {
+            const a = alvo[k], n = novo[k];
+            if (ehObj(a) && ehObj(n)) aplicarNoLugar(a, n);
+            else if (Array.isArray(a) && Array.isArray(n) && temIds(n)) {
+                const velhos = new Map(a.filter(ehObj).map(x => [String(x.id), x]));
+                const lista = n.map(x => { const v = velhos.get(String(x.id)); return v && ehObj(x) ? aplicarNoLugar(v, x) : x; });
+                if (!igual(a.map(x => x && x.id), lista.map(x => x && x.id)) || lista.some((x, i) => x !== a[i])) a.splice(0, a.length, ...lista);
+            } else if (!igual(a, n)) alvo[k] = n;
+        });
+        return alvo;
+    }
+    const metaWF = n => document.querySelector(`meta[name="${n}"]`)?.content || '';
+
     /* ---------- encaixe dos cartões (organização automática) ---------- */
     const ORG_VERSAO = 2;            // sobe quando o algoritmo muda: layouts automáticos antigos são refeitos uma vez
     const ORG_CHAVE = 'wf-organizar-auto';
@@ -394,22 +463,109 @@
                 return { ok: 'Tudo salvo', pendente: 'Alterações…', salvando: 'Salvando…', erro: 'Erro ao salvar. Tentando de novo' }[this.salvo];
             },
             agendar() {
+                if (this._silencio) return; // mudança que veio de outra pessoa: não precisa gravar de volta
                 this._v++;
                 this.salvo = 'pendente';
                 clearTimeout(this._t);
                 this._t = setTimeout(() => this.gravarEstado(), 800);
             },
+            /**
+             * Grava o estado dizendo em cima de qual versão ele foi feito (X-WF-Versao). Se outra pessoa do
+             * workflow gravou antes (409), junta as duas versões (juntarEstados) e grava de novo.
+             */
             async gravarEstado() {
                 clearTimeout(this._t);
                 const v = this._v;
                 this.salvo = 'salvando';
+                const texto = JSON.stringify(this.estado);
                 try {
-                    await enviar(this.cfg.url + '/estado', JSON.stringify(this.estado));
+                    const cab = {
+                        'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    };
+                    if (this._versao !== undefined) cab['X-WF-Versao'] = this._versao;
+                    const r = await fetch(this.cfg.url + '/estado', {
+                        method: 'PUT', credentials: 'same-origin', keepalive: texto.length < 50000,
+                        headers: cab, body: JSON.stringify({ valor: texto }),
+                    });
+                    if (r.status === 401 || r.status === 419) { location.reload(); return; }
+                    if (r.status === 409) {
+                        const j = await r.json();
+                        this.juntarComOutros(j.valor, j.versao);
+                        this.salvo = 'pendente';
+                        this._t = setTimeout(() => this.gravarEstado(), 300);
+                        return;
+                    }
+                    if (r.status === 403) { this.salvo = 'erro'; this.aviso('Você não tem mais acesso a este workflow. Recarregue a página.'); return; }
+                    if (!r.ok) throw new Error(String(r.status));
+                    const j = await r.json().catch(() => ({}));
+                    if (j && typeof j.versao === 'string') { this._versao = j.versao; this._baseTexto = texto; }
                     if (v === this._v) this.salvo = 'ok';
                 } catch {
                     this.salvo = 'erro';
                     this._t = setTimeout(() => this.gravarEstado(), 10000);
                 }
+            },
+            /** Outra pessoa gravou antes: junta (base, o meu agora, o dela) e fica na versão dela como base. */
+            juntarComOutros(valorDeles, versaoDeles) {
+                let base = {}, deles = {};
+                try { base = JSON.parse(this._baseTexto || '{}'); } catch { /* base desconhecida */ }
+                try { deles = JSON.parse(valorDeles || '{}'); } catch { return; }
+                const junto = juntarEstados(base, JSON.parse(JSON.stringify(this.estado)), deles);
+                this.aplicarSemGravar(junto);
+                this._versao = versaoDeles; this._baseTexto = valorDeles;
+                this.aviso('Outra pessoa também mexeu neste workflow agora. As mudanças das duas foram juntadas.');
+            },
+            /** Troca o estado pelo novo sem disparar uma gravação (e sem recriar os objetos que já existem). */
+            aplicarSemGravar(novo) {
+                this._silencio = true;
+                aplicarNoLugar(this.estado, novo);
+                setTimeout(() => { this._silencio = false; }, 0);
+            },
+            /**
+             * Workflow com mais de uma pessoa: a cada 5 s pergunta ao servidor se o estado mudou (e imagens novas).
+             * Mudança dos outros entra direto se não há nada meu esperando para gravar; se houver, a gravação junta.
+             */
+            prepararSincronia() {
+                if (this._sincPronta || EMBED) return;
+                this._sincPronta = true;
+                if (metaWF('wf-versao') !== '' || document.querySelector('meta[name="wf-versao"]')) {
+                    this._versao = metaWF('wf-versao');
+                    this._baseTexto = (this.cfg && this.cfg.dados && typeof this.cfg.dados.estado === 'string') ? this.cfg.dados.estado : JSON.stringify(this.estado);
+                }
+                const url = metaWF('wf-sincronia-url');
+                if (!url) return;
+                const conferir = async () => {
+                    if (this._sincOcupado || document.hidden) return;
+                    this._sincOcupado = true;
+                    try {
+                        const q = `?versao=${encodeURIComponent(this._versao || '')}` + (this._desde ? `&desde=${encodeURIComponent(this._desde)}` : '');
+                        const r = await fetch(url + q, { credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                        if (r.status === 403) { clearInterval(this._sincT); this.aviso('Você não tem mais acesso a este workflow.'); return; }
+                        if (!r.ok) return;
+                        const j = await r.json();
+                        this._desde = j.agora;
+                        Object.entries(j.imagens || {}).forEach(([k, v]) => {
+                            if (!k.startsWith('img.')) return;
+                            try { this.imagens[k.slice(4)] = JSON.parse(v); } catch { /* imagem corrompida */ }
+                        });
+                        if (typeof j.estado === 'string' && j.versao !== this._versao && this.salvo === 'ok' && !this.arrastando) {
+                            let deles; try { deles = JSON.parse(j.estado); } catch { return; }
+                            this.aplicarSemGravar(deles);
+                            this._versao = j.versao; this._baseTexto = j.estado;
+                            this.aviso('Atualizado com as mudanças de outra pessoa do workflow.');
+                        }
+                    } catch { /* sem rede: tenta de novo na próxima */ } finally { this._sincOcupado = false; }
+                };
+                const iniciar = () => {
+                    if (this._sincT) return;
+                    this._sincT = setInterval(conferir, 5000);
+                    document.addEventListener('visibilitychange', () => { if (!document.hidden) conferir(); });
+                    setTimeout(conferir, 1500);
+                };
+                if (metaWF('wf-sincronizar') === '1') iniciar();
+                // o dono acabou de adicionar a primeira pessoa (compartilhar.js): começa a conferir sem recarregar
+                window.addEventListener('wf-compartilhado', iniciar);
             },
 
             /* ---------- quadro: medir, arrastar, redimensionar, cor ---------- */
@@ -436,6 +592,7 @@
                     window.addEventListener('wf-atalho', e => { if (e.detail && e.detail.id) this.executarAtalho(e.detail.id, e.detail); });
                 }
                 this.prepararPastas();
+                this.prepararSincronia();
                 this.$nextTick(() => {
                     const area = this.$refs.area, pai = area.parentElement;
                     const medir = () => {
@@ -1572,6 +1729,6 @@
     window.WFQuadro = {
         util: { pad, iso, hoje, agora, uid, r1, num, clamp, snap, norm, dataBR },
         PALETA, MM, EMBED, enviar, reduzir, estadoUI, metodos, normalizarDados, dadosPerdidos,
-        autoLigado, definirAuto, planejar,
+        autoLigado, definirAuto, planejar, juntarEstados, aplicarNoLugar,
     };
 })();

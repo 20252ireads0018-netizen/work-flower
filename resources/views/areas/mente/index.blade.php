@@ -4,6 +4,8 @@
 @section('subtitulo', $area['descricao'])
 
 @section('conteudo')
+{{-- várias pessoas no mesmo workflow (partials/compartilhar, js/compartilhar.js) --}}
+@include('partials.compartilhar', ['area' => 'mente'])
 @php
     // Tudo que o mente.js precisa: onde salvar, o que já foi salvo e as tarefas da área.
     $cfg = [

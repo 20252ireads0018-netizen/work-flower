@@ -1059,7 +1059,7 @@
         el.querySelector('[data-titulo]').textContent = S.titulo;
         S.hist = []; S.refaz = []; S.alterado = false;
         sincronizarCores(); escolherFerramenta('pincel'); desenharCamadas();
-        requestAnimationFrame(() => { ajustarTela(); });
+        requestAnimationFrame(() => { if (S) ajustarTela(); }); // fechado antes do primeiro quadro: nada a medir
     }
 
     window.WFEditorImagem = { abrir, aberto: () => !!S };

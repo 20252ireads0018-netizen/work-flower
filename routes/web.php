@@ -18,6 +18,7 @@ use App\Http\Controllers\CarteiraController;
 use App\Http\Controllers\DiversoController;
 use App\Http\Controllers\WorkflowTransferController;
 use App\Http\Controllers\PreferenciasController;
+use App\Http\Controllers\CompartilharController;
 
 Route::get('/diag-rotas', function () {
     if (function_exists('opcache_reset')) { @opcache_reset(); }
@@ -121,6 +122,18 @@ Route::middleware('auth')->group(function () {
     Route::put('/preferencias', [PreferenciasController::class, 'salvar'])
         ->middleware('throttle:60,1')->name('preferencias.salvar');
     Route::get('/fundo/imagem', [FundoController::class, 'imagem'])->name('fundo.imagem');
+
+    // Workflows compartilhados: convidar pessoas para uma área (limite de pessoas vem do plano do dono)
+    Route::get('/compartilhar/{area}', [CompartilharController::class, 'index'])->name('compartilhar.index');
+    Route::post('/compartilhar/{area}', [CompartilharController::class, 'adicionar'])
+        ->middleware('throttle:20,1')->name('compartilhar.adicionar');
+    Route::delete('/compartilhar/{area}/sair/{dono}', [CompartilharController::class, 'sair'])
+        ->whereNumber('dono')->name('compartilhar.sair');
+    Route::delete('/compartilhar/{area}/{membro}', [CompartilharController::class, 'remover'])
+        ->whereNumber('membro')->name('compartilhar.remover');
+    // o que as outras pessoas do workflow mudaram (o navegador confere a cada poucos segundos)
+    Route::get('/sincronia/{area}', [CompartilharController::class, 'sincronia'])
+        ->middleware('throttle:120,1')->name('sincronia');
 
     // Biblioteca de blocos (vale para todas as páginas)
     Route::get('/biblioteca', [BibliotecaController::class, 'index'])->name('biblioteca.index');
