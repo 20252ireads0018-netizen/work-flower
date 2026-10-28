@@ -17,6 +17,7 @@ use App\Http\Controllers\MenteController;
 use App\Http\Controllers\CarteiraController;
 use App\Http\Controllers\DiversoController;
 use App\Http\Controllers\WorkflowTransferController;
+use App\Http\Controllers\PreferenciasController;
 
 Route::get('/diag-rotas', function () {
     if (function_exists('opcache_reset')) { @opcache_reset(); }
@@ -115,6 +116,10 @@ Route::middleware('auth')->group(function () {
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->name('corpo.dados.remover');
 
     Route::put('/fundo', [FundoController::class, 'salvar'])->name('fundo.salvar');
+
+    // Preferências da conta: teclas de atalho, organização automática dos cartões, tutorial visto
+    Route::put('/preferencias', [PreferenciasController::class, 'salvar'])
+        ->middleware('throttle:60,1')->name('preferencias.salvar');
     Route::get('/fundo/imagem', [FundoController::class, 'imagem'])->name('fundo.imagem');
 
     // Biblioteca de blocos (vale para todas as páginas)

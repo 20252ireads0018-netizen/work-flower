@@ -15,6 +15,11 @@
         <div class="h-full">
 
             {{-- Texto --}}
+            {{-- Pasta: guarda outros cartões (partials/pasta-cartao) --}}
+            <template x-if="b.tipo === 'pasta'">
+                @include('partials.pasta-cartao')
+            </template>
+
             <template x-if="b.tipo === 'texto'">
                 <div class="h-full flex flex-col gap-2">
                     <select class="wf-link-sel self-end" x-model="b.dados.tam" aria-label="Tamanho da letra">

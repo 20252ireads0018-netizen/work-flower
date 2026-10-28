@@ -37,7 +37,7 @@ class WorkflowTransferController extends Controller
     private const PREFIXO_MENTE = 'mente.';
 
     /** Chaves de corpo_dados que NÃO pertencem à área Corpo. */
-    private const PREFIXOS_FORA_DO_CORPO = ['mente.', 'fundo', 'biblioteca'];
+    private const PREFIXOS_FORA_DO_CORPO = ['mente.', 'fundo', 'biblioteca', 'preferencias'];
 
     private const MAX_LINHAS_POR_AREA = 5000;
     private const MAX_VALOR           = 8000000;           // mesmo limite do MenteController

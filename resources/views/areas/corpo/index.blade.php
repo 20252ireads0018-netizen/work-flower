@@ -209,6 +209,7 @@
 
     <p x-show="msg" x-cloak class="aviso-ok" role="status" x-text="msg"></p>
 
+    @include('partials.pasta-barra')
     <div x-ref="area" class="w-full">
 
         {{-- ================= TAREFAS ================= --}}

@@ -14,6 +14,11 @@
             <div class="flex-1 min-h-0">
 
                 {{-- Texto --}}
+                {{-- Pasta: guarda outros cartões (partials/pasta-cartao) --}}
+                <template x-if="b.tipo === 'pasta'">
+                    @include('partials.pasta-cartao')
+                </template>
+
                 <template x-if="b.tipo === 'texto'">
                     <div class="h-full flex flex-col gap-2">
                         <select class="campo wf-link-sel" x-model="b.dados.tam" aria-label="Tamanho da letra">

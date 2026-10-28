@@ -43,6 +43,10 @@
     $fundoEstiloVeu = $fundoIni['imagem']
         ? "background:color-mix(in srgb, var(--papel) {$fundoIni['escurecer']}%, transparent);"
         : 'display:none;';
+
+    // Preferências da conta (teclas de atalho, organização automática, tutorial visto): ver PreferenciasController
+    $preferencias = $usuario ? \App\Http\Controllers\PreferenciasController::de($usuario->id) : [];
+    $preferenciasUrl = $usuario && \Illuminate\Support\Facades\Route::has('preferencias.salvar') ? route('preferencias.salvar') : '';
 @endphp
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -53,6 +57,34 @@
     {{-- viewport-fit=cover: usa a tela toda em celulares com notch (as áreas seguras são tratadas no CSS) --}}
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script>
+        /* Preferências da conta: ler() devolve o que está valendo; salvar({...}) junta e envia ao servidor (sem conta, fica só na página). */
+        window.WFPrefs = (function () {
+            let p = @json((object) $preferencias);
+            const url = @json($preferenciasUrl);
+            let fila = {}, t = 0;
+            function enviar() {
+                const corpo = fila; fila = {};
+                if (!url || !Object.keys(corpo).length) return;
+                fetch(url, {
+                    method: 'PUT', credentials: 'same-origin', keepalive: true,
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',
+                               'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+                    body: JSON.stringify(corpo),
+                }).catch(() => {});
+            }
+            window.addEventListener('pagehide', () => { if (t) { clearTimeout(t); t = 0; enviar(); } });
+            return {
+                ler: () => p,
+                salvar(m) {
+                    p = { ...p, ...m };
+                    Object.assign(fila, m);
+                    clearTimeout(t); t = setTimeout(() => { t = 0; enviar(); }, 400);
+                    window.dispatchEvent(new CustomEvent('wf-prefs', { detail: p }));
+                },
+            };
+        })();
+    </script>
 
     {{-- Limite do plano: qualquer resposta do servidor com { plano_limite: true } leva direto para a tela de planos.
          Fica aqui, inline, para não depender de nenhum arquivo .js externo. Precisa vir antes dos outros scripts. --}}
@@ -480,6 +512,19 @@
         .wf-teclas li + li { border-top: 1px dashed var(--linha); }
         .wf-teclas kbd { display: inline-block; min-width: 1.5rem; padding: .05rem .4rem; border-radius: .3rem; text-align: center;
                          font: 600 .75rem/1.4 ui-monospace, monospace; border: 1px solid var(--linha); border-bottom-width: 2px; }
+        .wf-tecla-btn { display: inline-flex; align-items: center; min-height: 1.75rem; padding: .1rem .35rem; border-radius: .4rem; border: 1px solid transparent; }
+        .wf-tecla-btn:hover { border-color: var(--linha); }
+        .wf-tecla-btn.gravando { border-color: var(--prim); color: var(--prim-forte); animation: wf-pisca-borda 1s ease-in-out infinite; }
+        @keyframes wf-pisca-borda { 50% { border-color: transparent; } }
+        .wf-topo-btn { position: fixed; z-index: 41; right: max(1rem, var(--seg-d, 0px)); bottom: calc(1rem + var(--seg-b, 0px));
+                       width: 2.75rem; height: 2.75rem; border-radius: 9999px; display: grid; place-content: center;
+                       background: var(--superficie); color: var(--tinta); border: 1px solid var(--linha);
+                       box-shadow: 0 8px 24px rgba(0,0,0,.4); opacity: 0; pointer-events: none; transform: translateY(.5rem);
+                       transition: opacity .2s, transform .2s, border-color .15s; }
+        .wf-topo-btn.visivel { opacity: 1; pointer-events: auto; transform: none; }
+        .wf-topo-btn.acima { bottom: calc(4.25rem + var(--seg-b, 0px)); }
+        .wf-topo-btn:hover { border-color: var(--prim); color: var(--prim-forte); }
+        @media (prefers-reduced-motion: reduce) { .wf-topo-btn { transition: none; } }
         /* Menu de configurações (engrenagem) */
         .menu-pop {
             background: var(--superficie); color: var(--tinta);
@@ -941,12 +986,12 @@
                 </div>
             </template>
         </section>
-        {{-- Atalhos: organização automática dos cartões (opcional) e atalhos de teclado --}}
+        {{-- Atalhos: organização automática dos cartões (opcional) e teclas de atalho personalizáveis --}}
         <section x-show="aba === 'atalhos'" x-cloak x-data="atalhosPainel()" class="space-y-5"
-                 x-init="$watch('aba', v => { if (v === 'atalhos') atualizar() })">
+                 x-init="$watch('aba', v => { if (v === 'atalhos') atualizar(); else parar() })">
             <div>
                 <h2 class="titulo text-2xl">Atalhos</h2>
-                <p class="text-sm texto-2 mt-1">Ajustes rápidos dos quadros e as teclas que fazem as ações mais comuns.</p>
+                <p class="text-sm texto-2 mt-1">Ajustes rápidos dos quadros e as teclas que fazem as ações mais comuns. Tudo fica salvo na sua conta.</p>
             </div>
 
             <div class="wf-opcao">
@@ -959,26 +1004,56 @@
                     <span class="sr-only" x-text="ligado ? 'Ligado' : 'Desligado'"></span>
                 </button>
             </div>
-            <p class="text-xs texto-2 -mt-3" x-text="ligado ? 'Ligado neste navegador.' : 'Desligado neste navegador. O botão Reorganizar continua funcionando quando você quiser.'"></p>
 
             <div class="space-y-2">
                 <button type="button" class="btn w-full disabled:opacity-50 disabled:cursor-not-allowed" :disabled="!temQuadro" @click="reorganizarAgora()">Reorganizar a aba atual agora</button>
                 <p class="text-xs texto-2" x-show="!temQuadro">Disponível nas páginas com quadro: Corpo, Mente, Carteira e Diverso.</p>
             </div>
 
-            <div class="space-y-2" style="border-top: 1px solid var(--linha); padding-top: 1rem">
-                <p class="font-semibold text-sm">Teclas de atalho</p>
-                <ul class="wf-teclas text-sm">
-                    <li><span><kbd>Alt</kbd> + <kbd>R</kbd></span><span class="texto-2">Reorganizar a aba atual</span></li>
-                    <li><span><kbd>Alt</kbd> + <kbd>O</kbd></span><span class="texto-2">Ligar ou desligar a organização automática</span></li>
-                    <li><span><kbd>Alt</kbd> + <kbd>K</kbd></span><span class="texto-2">Abrir esta aba de atalhos</span></li>
-                    <li><span><kbd>Esc</kbd></span><span class="texto-2">Fechar este painel</span></li>
-                </ul>
+            <div class="space-y-3" style="border-top: 1px solid var(--linha); padding-top: 1rem">
+                <div class="flex items-center justify-between gap-2">
+                    <p class="font-semibold text-sm">Teclas de atalho</p>
+                    <button type="button" class="link-prim text-xs" x-show="temPersonalizado()" @click="restaurarTodos()">Voltar todas ao padrão</button>
+                </div>
+                <p class="text-xs texto-2">Clique numa tecla para trocar e aperte a combinação nova (use <kbd>Alt</kbd> ou <kbd>Ctrl</kbd> junto). <kbd>Esc</kbd> cancela, <kbd>Backspace</kbd> deixa a ação sem tecla. As ações de cartão agem no último cartão em que você clicou.</p>
+                <p class="aviso-ok text-xs" x-show="nota" x-text="nota" role="status"></p>
+
+                <template x-for="g in grupos()" :key="g">
+                    <div>
+                        <p class="text-xs font-semibold texto-2 uppercase tracking-wide mb-1" x-text="g"></p>
+                        <ul class="wf-teclas text-sm">
+                            <template x-for="a in acoesDo(g)" :key="a.id">
+                                <li>
+                                    <span class="min-w-0" x-text="a.nome"></span>
+                                    <span class="flex items-center gap-1 shrink-0">
+                                        <button type="button" class="wf-tecla-btn" :class="{ 'gravando': gravando === a.id }" @click="gravar(a.id)"
+                                                :aria-label="'Trocar a tecla de: ' + a.nome" :title="gravando === a.id ? 'Aperte a combinação nova…' : 'Clique para trocar'">
+                                            <template x-if="gravando === a.id"><span>Aperte…</span></template>
+                                            <template x-if="gravando !== a.id && tecla(a.id)">
+                                                <span class="flex items-center gap-1">
+                                                    <template x-for="(p, i) in partes(tecla(a.id))" :key="i"><kbd x-text="p"></kbd></template>
+                                                </span>
+                                            </template>
+                                            <template x-if="gravando !== a.id && !tecla(a.id)"><span class="texto-2">sem tecla</span></template>
+                                        </button>
+                                        <button type="button" class="mini-btn" x-show="personalizado(a.id)" @click="padrao(a.id)" title="Voltar ao padrão" aria-label="Voltar ao padrão">↺</button>
+                                    </span>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                </template>
+                <p class="text-xs texto-2"><kbd>Esc</kbd> fecha este painel e <kbd>Ctrl</kbd> + clique marca vários cartões (essas duas não mudam).</p>
             </div>
         </section>
 
         </div>
     </div>
+
+    {{-- Voltar ao topo: aparece depois de rolar a página (atalho padrão Alt + ↑) --}}
+    <button type="button" id="wf-topo" class="wf-topo-btn" aria-label="Voltar ao topo da página" title="Voltar ao topo">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5m0 0l-6 6m6-6l6 6"/></svg>
+    </button>
 
     <script>
         function temaForm(primInicial, cabInicial, fundoIni, urlImagem, urlFundo) {
@@ -1253,45 +1328,177 @@
     }
 });
 
-        /* ---------- Atalhos: organização automática (liga/desliga) e teclas ---------- */
+        /* ---------- Atalhos: organização automática (liga/desliga) e teclas personalizáveis ---------- */
         const WF_ORG_CHAVE = 'wf-organizar-auto';
         function wfOrgLigada() {
+            const p = window.WFPrefs ? window.WFPrefs.ler() : {};
+            if (typeof p.organizarAuto === 'boolean') return p.organizarAuto;
             try { return localStorage.getItem(WF_ORG_CHAVE) !== '0'; } catch (e) { return true; }
         }
         function wfOrgDefinir(ligado) {
             try { localStorage.setItem(WF_ORG_CHAVE, ligado ? '1' : '0'); } catch (e) { /* sem armazenamento */ }
+            if (window.WFPrefs) window.WFPrefs.salvar({ organizarAuto: !!ligado });
             window.dispatchEvent(new CustomEvent('wf-organizar-auto', { detail: { ligado: !!ligado } }));
         }
         function wfTemQuadro() { return !!(window.WFQuadro && window.WFQuadro.ativo && !window.WFQuadro.EMBED); }
+
+        /** Ações com tecla de atalho. quadro: só funciona nas páginas com quadro (Corpo, Mente, Carteira, Diverso). */
+        const WF_ACOES = [
+            { id: 'topo',            grupo: 'Geral',  nome: 'Voltar ao topo da página',                 padrao: 'Alt+ArrowUp' },
+            { id: 'atalhos',         grupo: 'Geral',  nome: 'Abrir esta aba de atalhos',                padrao: 'Alt+K' },
+            { id: 'auto',            grupo: 'Geral',  nome: 'Ligar ou desligar a organização automática', padrao: 'Alt+O' },
+            { id: 'biblioteca',      grupo: 'Geral',  nome: 'Abrir a biblioteca',                       padrao: 'Alt+H' },
+            { id: 'historico',       grupo: 'Geral',  nome: 'Abrir o histórico (itens excluídos)',      padrao: 'Alt+J' },
+            { id: 'salvar',          grupo: 'Quadro', nome: 'Salvar agora',                             padrao: 'Ctrl+S',       quadro: true },
+            { id: 'reorganizar',     grupo: 'Quadro', nome: 'Reorganizar a aba atual',                  padrao: 'Alt+R',        quadro: true },
+            { id: 'abaAnterior',     grupo: 'Quadro', nome: 'Ir para a aba anterior',                   padrao: 'Alt+PageUp',   quadro: true },
+            { id: 'abaSeguinte',     grupo: 'Quadro', nome: 'Ir para a próxima aba',                    padrao: 'Alt+PageDown', quadro: true },
+            { id: 'selecionarTodos', grupo: 'Quadro', nome: 'Selecionar todos os blocos da aba',        padrao: 'Alt+A',        quadro: true },
+            { id: 'excluir',         grupo: 'Quadro', nome: 'Excluir o cartão clicado (ou os selecionados)', padrao: 'Alt+X',   quadro: true },
+            { id: 'duplicar',        grupo: 'Quadro', nome: 'Duplicar o cartão clicado',                padrao: 'Alt+C',        quadro: true },
+            { id: 'telaCheia',       grupo: 'Quadro', nome: 'Tela cheia do cartão clicado',             padrao: 'Alt+Enter',    quadro: true },
+            { id: 'novo.texto',      grupo: 'Criar',  nome: 'Novo campo de texto',                      padrao: 'Alt+T',        quadro: true },
+            { id: 'novo.lista',      grupo: 'Criar',  nome: 'Nova lista de itens',                      padrao: 'Alt+L',        quadro: true },
+            { id: 'novo.tabela',     grupo: 'Criar',  nome: 'Nova tabela',                              padrao: 'Alt+B',        quadro: true },
+            { id: 'novo.imagem',     grupo: 'Criar',  nome: 'Nova imagem',                              padrao: 'Alt+I',        quadro: true },
+            { id: 'novo.mapa',       grupo: 'Criar',  nome: 'Novo mapa mental',                         padrao: 'Alt+M',        quadro: true },
+            { id: 'novo.codigo',     grupo: 'Criar',  nome: 'Novo GitHub / VS Code (Diverso)',           padrao: 'Alt+G',        quadro: true },
+            { id: 'novo.tabletop',   grupo: 'Criar',  nome: 'Novo tabletop (Diverso)',                  padrao: 'Alt+Y',        quadro: true },
+            { id: 'novo.documento',  grupo: 'Criar',  nome: 'Novo documento (Mente)',                   padrao: 'Alt+N',        quadro: true },
+            { id: 'novo.pasta',      grupo: 'Pastas', nome: 'Nova pasta (com os selecionados, se houver)', padrao: 'Alt+P',     quadro: true },
+            { id: 'abrirPasta',      grupo: 'Pastas', nome: 'Abrir a pasta clicada',                    padrao: 'Alt+U',        quadro: true },
+            { id: 'fecharPasta',     grupo: 'Pastas', nome: 'Voltar (fechar a pasta aberta)',           padrao: 'Alt+V',        quadro: true },
+            { id: 'tirarDaPasta',    grupo: 'Pastas', nome: 'Tirar da pasta o cartão clicado (ou os selecionados)', padrao: 'Alt+W', quadro: true },
+        ];
+        // combinações que o navegador ou a edição de texto já usam: não podem virar atalho
+        const WF_RESERVADAS = ['Ctrl+C', 'Ctrl+V', 'Ctrl+X', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+A', 'Ctrl+F', 'Ctrl+P', 'Ctrl+R', 'Ctrl+T', 'Ctrl+W', 'Ctrl+N', 'Ctrl+L', 'Ctrl+Q', 'Ctrl+Shift+Z', 'Alt+F4', 'Alt+Tab', 'Alt+ArrowLeft', 'Alt+ArrowRight', 'Alt+D', 'Alt+E', 'Alt+F', 'Alt+Home'];
+        const WF_NOMES_TECLA = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', PageUp: 'Page Up', PageDown: 'Page Down', Delete: 'Del', Backspace: 'Backspace', Space: 'Espaço' };
+
+        /** Tecla de cada ação: a escolhida pelo usuário ("" = sem tecla) ou a padrão. */
+        function wfTeclaDe(id) {
+            const p = window.WFPrefs ? window.WFPrefs.ler() : {};
+            const mine = p.atalhos && typeof p.atalhos === 'object' ? p.atalhos : {};
+            if (Object.prototype.hasOwnProperty.call(mine, id)) return mine[id] || '';
+            return (WF_ACOES.find(a => a.id === id) || {}).padrao || '';
+        }
+        /** Combinação apertada, no mesmo formato das teclas salvas ("Alt+T", "Ctrl+S", "Alt+ArrowUp"). */
+        function wfCombo(e) {
+            if (['Control', 'Alt', 'Shift', 'Meta', 'AltGraph', 'CapsLock', 'OS'].includes(e.key)) return null;
+            let k = null;
+            const m = /^(Key([A-Z])|Digit(\d))$/.exec(e.code || '');
+            if (m) k = m[2] || m[3];
+            else if (/^F([1-9]|1[0-2])$/.test(e.key)) k = e.key;
+            else if (e.key === ' ') k = 'Space';
+            else if (/^[A-Za-z]+$/.test(e.key) && e.key.length > 1) k = e.key;
+            else if (/^[A-Za-z0-9]$/.test(e.key)) k = e.key.toUpperCase();
+            if (!k) return null;
+            const p = [];
+            if (e.ctrlKey || e.metaKey) p.push('Ctrl');
+            if (e.altKey) p.push('Alt');
+            if (e.shiftKey) p.push('Shift');
+            p.push(k);
+            return p.join('+');
+        }
+        function wfPartes(combo) { return String(combo || '').split('+').filter(Boolean).map(x => WF_NOMES_TECLA[x] || x); }
+        function wfDigitando(el) {
+            return !!(el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)));
+        }
+
         function atalhosPainel() {
             return {
                 ligado: wfOrgLigada(),
                 temQuadro: wfTemQuadro(),
+                gravando: null, nota: '', _v: 0,
                 init() {
                     window.addEventListener('wf-organizar-auto', e => { this.ligado = !!(e.detail && e.detail.ligado); });
+                    window.addEventListener('wf-prefs', () => { this._v++; });
+                    // gravação de uma tecla nova: pega a próxima combinação antes de qualquer outro atalho
+                    window.addEventListener('keydown', e => {
+                        if (!this.gravando) return;
+                        e.preventDefault(); e.stopImmediatePropagation();
+                        if (e.key === 'Escape') { this.parar(); return; }
+                        if ((e.key === 'Backspace' || e.key === 'Delete') && !e.ctrlKey && !e.altKey && !e.metaKey) { this.definir(this.gravando, ''); this.parar(); return; }
+                        const c = wfCombo(e);
+                        if (!c) return;
+                        if (!/(^|\+)(Ctrl|Alt)\+/.test(c) && !/^F([1-9]|1[0-2])$/.test(c)) { this.mostrar('Use Alt ou Ctrl junto com a tecla (ou uma tecla F1 a F12).'); return; }
+                        if (e.getModifierState && e.getModifierState('AltGraph')) { this.mostrar('AltGr não serve para atalhos. Use o Alt da esquerda.'); return; }
+                        if (WF_RESERVADAS.includes(c)) { this.mostrar('Essa combinação é do navegador (copiar, colar, desfazer…). Escolha outra.'); return; }
+                        const outra = WF_ACOES.find(a => a.id !== this.gravando && wfTeclaDe(a.id) === c);
+                        if (outra) { this.definir(outra.id, ''); this.mostrar(`Essa tecla era de “${outra.nome}”, que ficou sem tecla.`); }
+                        this.definir(this.gravando, c);
+                        this.parar();
+                    }, true);
                 },
-                atualizar() { this.ligado = wfOrgLigada(); this.temQuadro = wfTemQuadro(); },
+                atualizar() { this.ligado = wfOrgLigada(); this.temQuadro = wfTemQuadro(); this._v++; },
                 alternar() { wfOrgDefinir(!this.ligado); },
                 reorganizarAgora() { window.dispatchEvent(new CustomEvent('wf-reorganizar')); },
+                grupos() { return [...new Set(WF_ACOES.map(a => a.grupo))]; },
+                acoesDo(g) { return WF_ACOES.filter(a => a.grupo === g); },
+                tecla(id) { void this._v; return wfTeclaDe(id); },
+                partes(c) { return wfPartes(c); },
+                personalizado(id) {
+                    void this._v;
+                    const mine = (window.WFPrefs ? window.WFPrefs.ler() : {}).atalhos || {};
+                    return Object.prototype.hasOwnProperty.call(mine, id);
+                },
+                temPersonalizado() { void this._v; return Object.keys((window.WFPrefs ? window.WFPrefs.ler() : {}).atalhos || {}).length > 0; },
+                gravar(id) { this.gravando = this.gravando === id ? null : id; this.nota = ''; },
+                parar() { this.gravando = null; },
+                definir(id, combo) {
+                    const atual = { ...((window.WFPrefs ? window.WFPrefs.ler() : {}).atalhos || {}) };
+                    const padrao = (WF_ACOES.find(a => a.id === id) || {}).padrao || '';
+                    if (combo === padrao) delete atual[id]; else atual[id] = combo;
+                    if (window.WFPrefs) window.WFPrefs.salvar({ atalhos: atual });
+                    this._v++;
+                },
+                padrao(id) {
+                    const atual = { ...((window.WFPrefs ? window.WFPrefs.ler() : {}).atalhos || {}) };
+                    delete atual[id];
+                    const p = (WF_ACOES.find(a => a.id === id) || {}).padrao;
+                    // se a tecla padrão estiver com outra ação, a outra fica sem tecla
+                    const outra = WF_ACOES.find(a => a.id !== id && wfTeclaDe(a.id) === p);
+                    if (outra) { atual[outra.id] = ''; this.mostrar(`“${outra.nome}” ficou sem tecla, porque usava essa.`); }
+                    if (window.WFPrefs) window.WFPrefs.salvar({ atalhos: atual });
+                    this._v++;
+                },
+                restaurarTodos() {
+                    if (window.WFPrefs) window.WFPrefs.salvar({ atalhos: {} });
+                    this.mostrar('Todas as teclas voltaram ao padrão.');
+                    this._v++;
+                },
+                mostrar(t) { this.nota = t; clearTimeout(this._n); this._n = setTimeout(() => { this.nota = ''; }, 4000); },
             };
         }
-        /** Teclas: Alt+R reorganiza, Alt+O liga/desliga, Alt+K abre a aba Atalhos (AltGr e Ctrl ficam de fora). */
+
+        /** Executa a ação ligada à combinação apertada. Ações de quadro vão para a página pelo evento wf-atalho. */
         window.addEventListener('keydown', e => {
-            if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat) return;
-            const k = (e.key || '').toLowerCase();
-            if (k === 'r' && wfTemQuadro()) {
-                e.preventDefault();
-                window.dispatchEvent(new CustomEvent('wf-reorganizar'));
-            } else if (k === 'o') {
-                e.preventDefault();
-                const novo = !wfOrgLigada();
-                wfOrgDefinir(novo);
-                wfAvisoRapido(novo ? 'Organização automática ligada.' : 'Organização automática desligada.');
-            } else if (k === 'k') {
-                e.preventDefault();
-                window.dispatchEvent(new CustomEvent('abrir-atalhos'));
+            if (e.repeat || e.defaultPrevented) return;
+            if (e.getModifierState && e.getModifierState('AltGraph')) return;
+            const c = wfCombo(e);
+            if (!c) return;
+            const a = WF_ACOES.find(x => wfTeclaDe(x.id) === c);
+            if (!a) return;
+            // sem Alt/Ctrl (só teclas F), não atrapalha quem está escrevendo
+            if (!e.altKey && !e.ctrlKey && !e.metaKey && wfDigitando(document.activeElement)) return;
+            e.preventDefault();
+            switch (a.id) {
+                case 'topo': window.scrollTo({ top: 0, behavior: 'smooth' }); return;
+                case 'atalhos': window.dispatchEvent(new CustomEvent('abrir-atalhos')); return;
+                case 'auto': {
+                    const novo = !wfOrgLigada();
+                    wfOrgDefinir(novo);
+                    wfAvisoRapido(novo ? 'Organização automática ligada.' : 'Organização automática desligada.');
+                    return;
+                }
+                case 'biblioteca': window.dispatchEvent(new CustomEvent('abrir-biblioteca')); return;
+                case 'historico': window.dispatchEvent(new CustomEvent('abrir-lixeira')); return;
             }
+            if (!wfTemQuadro()) { wfAvisoRapido('Esse atalho funciona nas páginas com quadro: Corpo, Mente, Carteira e Diverso.'); return; }
+            if (a.id === 'reorganizar') { window.dispatchEvent(new CustomEvent('wf-reorganizar')); return; }
+            window.dispatchEvent(new CustomEvent('wf-atalho', { detail: { id: a.id } }));
         });
+        window.WFAtalhos = { acoes: WF_ACOES, tecla: wfTeclaDe, partes: wfPartes };
+
         /** Aviso curto no canto da tela (vale em qualquer página, com ou sem quadro). */
         function wfAvisoRapido(txt) {
             let el = document.getElementById('wf-aviso-rapido');
@@ -1308,6 +1515,22 @@
             clearTimeout(el._t);
             el._t = setTimeout(() => { el.style.opacity = '0'; }, 2200);
         }
+
+        /* ---------- botão "voltar ao topo": aparece depois de rolar um pouco, em qualquer página ---------- */
+        (function () {
+            const b = document.getElementById('wf-topo');
+            if (!b) return;
+            b.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+            const ver = () => {
+                b.classList.toggle('visivel', window.scrollY > 320);
+                b.classList.toggle('acima', !!document.getElementById('wft-botao'));
+                const t = wfTeclaDe('topo');
+                b.title = 'Voltar ao topo' + (t ? ' (' + wfPartes(t).join(' + ') + ')' : '');
+            };
+            window.addEventListener('scroll', ver, { passive: true });
+            window.addEventListener('wf-prefs', ver);
+            ver();
+        })();
     </script>
 @endauth
 

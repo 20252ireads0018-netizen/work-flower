@@ -459,6 +459,7 @@
     </p>
 
     {{-- O quadro livre da aba escolhida (a primeira aba também mostra as tarefas) --}}
+    @include('partials.pasta-barra')
     <div x-ref="area" class="w-full">
         <section class="wf-quadro" x-show="aba" x-cloak :style="{ minHeight: alturaQuadro(aba) + 'px' }">
 

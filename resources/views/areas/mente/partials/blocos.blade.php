@@ -113,6 +113,11 @@
         <div class="wf-bloco">
 
             {{-- ===== Campo de texto ===== --}}
+            {{-- Pasta: guarda outros cartões (partials/pasta-cartao) --}}
+            <template x-if="b.tipo === 'pasta'">
+                @include('partials.pasta-cartao')
+            </template>
+
             <template x-if="b.tipo === 'texto'">
                 <div class="wf-cresce flex flex-col gap-2">
                     <textarea class="campo wf-cresce resize-none" x-model="b.dados.texto" placeholder="Escreva aqui…"

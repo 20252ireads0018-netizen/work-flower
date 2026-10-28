@@ -267,5 +267,6 @@
 })();
 </script>
 {{-- Tutorial do painel (botão flutuante) --}}
-@include('partials.tutorial')
+{{-- abre sozinho no primeiro acesso da conta (PainelController::index decide) --}}
+@include('partials.tutorial', ['tutorialAuto' => $tutorialAuto ?? false])
 @endsection

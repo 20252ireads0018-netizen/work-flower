@@ -1535,6 +1535,11 @@ console.info('— fim da execução —');
             <div class="flex-1 min-h-0">
 
                 {{-- Texto: editor por blocos (lógica em public/js/escrita.js; o conteúdo fica em b.dados.texto como Markdown) --}}
+                {{-- Pasta: guarda outros cartões (partials/pasta-cartao) --}}
+                <template x-if="b.tipo === 'pasta'">
+                    @include('partials.pasta-cartao')
+                </template>
+
                 <template x-if="b.tipo === 'texto'">
                     <div class="wf-es" x-data="WFEscrita(b)" x-init="iniciar()"
                         @click.outside="foco = null; menu = null; opcBl = null; sumario = false; tipoMenu = false; limparSel()">

@@ -27,7 +27,35 @@
                 display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5rem;
                 min-height: 7rem; height: 100%; padding: 1rem; text-align: center;
                 border: 1px dashed var(--linha); border-radius: .5rem;
-            }`;
+            }
+            /* pastas */
+            .wf-pasta { display: flex; flex-direction: column; gap: .6rem; height: 100%; min-height: 0; }
+            .wf-pasta-topo { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+            .wf-pasta-ico { font-size: 1.9rem; line-height: 1; }
+            .wf-pasta-info { flex: 1; min-width: 6rem; font-size: .8rem; color: var(--tinta-2); }
+            .wf-pasta-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem;
+                              grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); overflow: auto; min-height: 0; }
+            .wf-pasta-lista button { width: 100%; display: flex; align-items: center; gap: .45rem; text-align: left;
+                                     padding: .4rem .55rem; border-radius: .5rem; border: 1px solid var(--linha);
+                                     background: color-mix(in srgb, var(--prim) 6%, transparent); font-size: .8rem; }
+            .wf-pasta-lista button:hover { border-color: var(--prim); }
+            .wf-pasta-lista span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .wf-pasta-vazia { font-size: .8rem; color: var(--tinta-2); border: 1px dashed var(--linha); border-radius: .5rem;
+                              padding: .75rem; text-align: center; }
+            .wf-pasta-barra { position: sticky; top: 4.5rem; z-index: 25; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
+                              padding: .55rem .75rem; margin-bottom: .75rem; border-radius: .75rem;
+                              background: color-mix(in srgb, var(--prim) 16%, var(--superficie, #111)); border: 1px solid var(--prim); }
+            .wf-pasta-trilha { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; font-size: .85rem; flex: 1; min-width: 0; }
+            .wf-pasta-trilha button { padding: .15rem .4rem; border-radius: .35rem; }
+            .wf-pasta-trilha button:hover { background: color-mix(in srgb, var(--prim) 25%, transparent); }
+            .wf-pasta-trilha b { font-weight: 600; }
+            .wf-sel-barra { position: fixed; left: 50%; bottom: calc(1rem + var(--seg-b, 0px)); transform: translateX(-50%); z-index: 45;
+                            display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .5rem;
+                            max-width: calc(100vw - 1.5rem); padding: .55rem .75rem; border-radius: .85rem;
+                            background: var(--superficie, #111); border: 1px solid var(--prim); box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+            .wf-sel-barra select { max-width: 11rem; }
+            .wf-item.wf-piscar { animation: wf-piscar 1.3s ease-out; }
+            @keyframes wf-piscar { 0%, 60% { box-shadow: 0 0 0 4px var(--prim); } 100% { box-shadow: 0 0 0 0 transparent; } }`;
         document.head.appendChild(st);
     })();
 
@@ -223,11 +251,15 @@
     const ORG_FOLGA = 16, ORG_INF = 1e7;
 
     /** Organização automática ligada neste navegador? (padrão: ligada) */
+    // A escolha fica na conta (preferências, window.WFPrefs do layout); o navegador guarda uma cópia para quando não houver conta.
     function autoLigado() {
+        const p = window.WFPrefs && window.WFPrefs.ler();
+        if (p && typeof p.organizarAuto === 'boolean') return p.organizarAuto;
         try { return localStorage.getItem(ORG_CHAVE) !== '0'; } catch { return true; }
     }
     function definirAuto(ligado) {
         try { localStorage.setItem(ORG_CHAVE, ligado ? '1' : '0'); } catch { /* navegador sem armazenamento */ }
+        if (window.WFPrefs) window.WFPrefs.salvar({ organizarAuto: !!ligado });
         window.dispatchEvent(new CustomEvent('wf-organizar-auto', { detail: { ligado: !!ligado } }));
     }
 
@@ -327,7 +359,11 @@
 
     /** Propriedades de interface que o motor precisa no componente Alpine. */
     function estadoUI() {
-        return { larg: 1088, col: 1088, ox: 0, salvo: 'ok', msg: '', zTop: 10, arrastando: null, menuBloco: false, destaque: null, _v: 0, embutido: !!EMBED };
+        return {
+            larg: 1088, col: 1088, ox: 0, salvo: 'ok', msg: '', zTop: 10, arrastando: null, menuBloco: false, destaque: null, _v: 0, embutido: !!EMBED,
+            // pastas: pasta aberta em cada aba (só na tela, não é salvo), cartões selecionados (Ctrl+clique) e o último cartão clicado
+            pasta: {}, sel: [], atual: null, alvoPasta: null,
+        };
     }
 
     /** Métodos do motor. PADRAO = posição inicial dos itens por aba (área de 1088 px). */
@@ -378,7 +414,10 @@
                     // aba "Atalhos" das configurações: liga/desliga a organização automática e "Reorganizar agora" (Alt+R)
                     window.addEventListener('wf-organizar-auto', e => { if (e.detail && e.detail.ligado && !this.arrastando) this.autoOrganizar(); });
                     window.addEventListener('wf-reorganizar', () => { if (!this.arrastando) this.reorganizar(); });
+                    // teclas de atalho personalizáveis (layout): ações do quadro chegam por este evento
+                    window.addEventListener('wf-atalho', e => { if (e.detail && e.detail.id) this.executarAtalho(e.detail.id, e.detail); });
                 }
+                this.prepararPastas();
                 this.$nextTick(() => {
                     const area = this.$refs.area, pai = area.parentElement;
                     const medir = () => {
@@ -420,6 +459,10 @@
             prepararEmbed() {
                 const procurar = () => document.querySelector(`.wf-item[data-sec="${EMBED.sec}"][data-bid="${EMBED.bid}"]`);
                 let tentativas = 0;
+                // cartão guardado numa pasta: abre a pasta dele para o cartão aparecer
+                const bl = (this.estado.blocos || []).find(x => x.id === EMBED.bid);
+                const dentro = bl ? this.pastaValida(bl) : null;
+                if (dentro) this.pasta = { ...this.pasta, [EMBED.sec]: dentro };
                 const t = setInterval(() => {
                     this.aba = EMBED.sec;
                     const alvo = procurar();
@@ -463,15 +506,16 @@
                 if (!L[id]) L[id] = this.base(sec, id);
                 return L[id];
             },
+            /** Altura ocupada pelos cartões que aparecem agora na aba (com uma pasta aberta, só os cartões dela). */
             alturaConteudo(sec) {
-                const ids = new Set([...Object.keys(PADRAO[sec] || {}), ...Object.keys(this.estado.layout[sec] || {})]);
                 let alt = 0;
-                ids.forEach(id => { const l = this.rect(sec, id); alt = Math.max(alt, l.y + l.h); });
+                this.cartoesDe(sec).forEach(id => { const l = this.rect(sec, id); alt = Math.max(alt, l.y + l.h); });
                 return alt;
             },
             alturaQuadro(sec) { return Math.max(360, this.alturaConteudo(sec) + 40); },
             frente(sec, id) {
                 if (EMBED) return;
+                this.atual = id; // último cartão clicado: é nele que agem os atalhos (excluir, duplicar, tela cheia…)
                 const l = this.rect(sec, id);
                 if ((l.z || 1) >= this.zTop) return;
                 this.entrada(sec, id).z = ++this.zTop;
@@ -485,12 +529,28 @@
                 const larg = this.larg, ox = this.ox;
                 const x0 = e.clientX, y0 = e.clientY, lx = l.x, ly = l.y;
                 this.arrastando = id;
+                // soltar em cima de uma pasta guarda o cartão nela; soltar na barra da pasta aberta tira o cartão dela
+                const ehBloco = this.estado.blocos.some(b => b.id === id);
+                let destino;
                 const mover = ev => {
                     l.x = clamp(snap(lx + ev.clientX - x0), -ox, Math.max(-ox, larg - ox - Math.min(l.w, larg)));
                     l.y = Math.max(0, snap(ly + ev.clientY - y0));
+                    if (ehBloco) {
+                        destino = this.destinoSob(ev.clientX, ev.clientY, sec, id);
+                        const alvo = destino ? destino.pasta || 'sair' : null;
+                        if (alvo !== this.alvoPasta) { this.alvoPasta = alvo; this.atualizarCssPastas(); }
+                    }
                 };
                 const fim = () => {
                     this.arrastando = null;
+                    if (destino && ehBloco) {
+                        // cartões selecionados junto com este vão todos
+                        const ids = this.sel.includes(id) ? [...this.sel] : [id];
+                        l.x = lx; l.y = ly;
+                        this.moverParaPasta(sec, ids, destino.pasta);
+                    }
+                    destino = null;
+                    if (this.alvoPasta) { this.alvoPasta = null; this.atualizarCssPastas(); }
                     window.removeEventListener('pointermove', mover);
                     window.removeEventListener('pointerup', fim);
                     window.removeEventListener('pointercancel', fim);
@@ -549,9 +609,21 @@
             },
             /** Cartões que existem de fato numa aba (entradas de layout de blocos já apagados são ignoradas). */
             cartoesDe(sec) {
-                const ids = new Set(Object.keys(PADRAO[sec] || {}));
+                // com uma pasta aberta, só os cartões dela aparecem (os fixos ficam escondidos)
+                const ids = new Set(this.pastaAberta(sec) ? [] : Object.keys(PADRAO[sec] || {}));
                 this.blocosDe(sec).forEach(b => ids.add(b.id));
                 return [...ids];
+            },
+            /** Todos os cartões da aba, inclusive os guardados em pastas fechadas. */
+            todosIdsDe(sec) {
+                const ids = new Set(Object.keys(PADRAO[sec] || {}));
+                this.estado.blocos.forEach(b => { if (b.secao === sec) ids.add(b.id); });
+                return [...ids];
+            },
+            /** Nome da vista para a assinatura da organização: a aba, ou a aba + a pasta aberta. */
+            chaveVista(sec) {
+                const p = this.pastaAberta(sec);
+                return p ? sec + '>' + p : sec;
             },
             /** Largura útil e origem (em coordenadas do layout, que começam na coluna central). */
             areaUtil() {
@@ -607,7 +679,8 @@
                         it.alturaPara = ww => Math.ceil((ww - 2) * prop) + topo + 3;
                         it.h = it.alturaPara(w);
                         it.minW = Math.min(w, Math.max(220, Math.round(w * 0.6)));
-                    } else if (img) {
+                    } else if (img || (bl && bl.tipo === 'pasta')) {
+                        // imagem sem proporção e pasta (o título e os botões precisam de espaço) não estreitam
                         it.minW = w;
                     } else {
                         it.minW = Math.min(w, Math.max(min.w, Math.round(w * 0.7)));
@@ -634,22 +707,26 @@
                     else if (it.alturaPara && e.w !== it.w) { e.bw = it.w; }
                     novo[it.id] = e;
                 });
+                // posições dos cartões de outras vistas (dentro de pastas fechadas, ou do quadro com uma pasta aberta) ficam
+                const antigo = this.estado.layout[sec] || {}, existem = new Set(this.todosIdsDe(sec));
+                Object.keys(antigo).forEach(id => { if (!novo[id] && existem.has(id)) novo[id] = antigo[id]; });
                 this.estado.layout[sec] = novo;
                 const org = (this.estado.org && this.estado.org.v === ORG_VERSAO) ? this.estado.org : { v: ORG_VERSAO, sig: {} };
                 org.sig = org.sig || {};
-                org.sig[sec] = this.assinatura(sec);
+                org.sig[this.chaveVista(sec)] = this.assinatura(sec);
                 this.estado.org = org;
                 return true;
             },
             /** Posição e tamanho de cada cartão da aba, para saber depois se o usuário mexeu na arrumação automática. */
             assinatura(sec) {
                 const s = {};
-                Object.entries(this.estado.layout[sec] || {}).forEach(([id, l]) => { s[id] = [l.x, l.y, l.w, l.h].map(v => Math.round(v)).join(','); });
+                const L = this.estado.layout[sec] || {};
+                this.cartoesDe(sec).forEach(id => { const l = L[id]; if (l) s[id] = [l.x, l.y, l.w, l.h].map(v => Math.round(v)).join(','); });
                 return s;
             },
             /** true se a aba ainda está como a organização automática deixou (cartões novos não contam). */
             intocado(sec) {
-                const sig = this.estado.org?.sig?.[sec];
+                const sig = this.estado.org?.sig?.[this.chaveVista(sec)];
                 if (!sig) return false;
                 const atual = this.assinatura(sec);
                 return Object.keys(sig).every(id => !(id in atual) || atual[id] === sig[id]);
@@ -682,7 +759,7 @@
                 const novo = {};
                 this.secoesQuadro().forEach(sec => {
                     const g = guardado[sec] || {}, a = atual[sec] || {}, L = {};
-                    this.cartoesDe(sec).forEach(id => {
+                    this.todosIdsDe(sec).forEach(id => {
                         if (g[id]) L[id] = { ...g[id], ...(a[id]?.cor ? { cor: a[id].cor } : {}) };
                         else if (a[id]) L[id] = a[id];
                     });
@@ -732,7 +809,412 @@
             },
 
             /* ---------- blocos livres ---------- */
-            blocosDe(sec) { return this.estado.blocos.filter(b => b.secao === sec); },
+            /** Blocos que aparecem agora na aba: os da pasta aberta, ou os que não estão em pasta nenhuma. */
+            blocosDe(sec) {
+                const aberta = this.pastaAberta(sec);
+                return this.estado.blocos.filter(b => b.secao === sec && this.pastaValida(b) === aberta);
+            },
+
+            /* ---------- pastas: guardar cartões, abrir, mover, desfazer e excluir ---------- */
+            /**
+             * Liga as pastas a esta página: tipo "Pasta" no menu "+ Bloco", blocos novos ou colados entram na pasta aberta,
+             * Ctrl+clique seleciona cartões e o CSS de seleção/destino é mantido num <style> próprio.
+             */
+            prepararPastas() {
+                if (this._pastasProntas) return;
+                this._pastasProntas = true;
+                if (Array.isArray(this.tiposBloco) && !this.tiposBloco.some(t => t.id === 'pasta')) {
+                    this.tiposBloco.push({ id: 'pasta', nome: 'Pasta (guarda outros cartões)' });
+                    window.WFQuadro.tipos = [...this.tiposBloco.map(t => t.id), 'vivo'];
+                }
+                // cada página cria e cola blocos do seu jeito; aqui só se ajusta o resultado
+                const dentroDaPasta = fn => (...args) => {
+                    const antes = new Set(this.estado.blocos.map(b => b.id));
+                    const r = fn(...args);
+                    const sec = typeof args[0] === 'string' ? args[0] : this.aba;
+                    const aberta = this.pastaAberta(sec);
+                    if (aberta) {
+                        const novos = this.estado.blocos.filter(b => !antes.has(b.id) && b.secao === sec && b.id !== aberta);
+                        novos.forEach(b => { b.pasta = aberta; });
+                        if (novos.length && /fim da aba/.test(this.msg || '')) {
+                            this.msg = this.msg.replace(/no fim da aba|ao fim da aba/, `na pasta “${(this.blocoPorId(aberta)?.titulo || 'Pasta').trim()}”`);
+                        }
+                    }
+                    return r;
+                };
+                const novo = this.novoBloco, colar = this.colarBloco, remover = this.removerBloco, guardar = this.guardarBloco;
+                if (typeof guardar === 'function') {
+                    this.guardarBloco = (b, ...resto) => (b && b.tipo === 'pasta'
+                        ? this.aviso('Pastas não vão para a biblioteca. Salve os cartões de dentro, um a um.')
+                        : guardar.call(this, b, ...resto));
+                }
+                if (typeof novo === 'function') {
+                    this.novoBloco = dentroDaPasta((sec, tipo, ...resto) => (tipo === 'pasta' ? this.novaPasta(sec) : novo.call(this, sec, tipo, ...resto)));
+                }
+                if (typeof colar === 'function') {
+                    this.colarBloco = item => dentroDaPasta(() => colar.call(this, item))(this.aba);
+                }
+                if (typeof remover === 'function') {
+                    this._removerBase = remover;
+                    this.removerBloco = (b, ...resto) => (b && b.tipo === 'pasta' ? this.removerPasta(b) : remover.call(this, b, ...resto));
+                }
+                this._cssPastas = document.createElement('style');
+                document.head.appendChild(this._cssPastas);
+                this.$watch('sel', () => this.atualizarCssPastas());
+                this.$watch('pasta', () => this.atualizarCssPastas());
+                this.$watch('aba', () => { this.sel = []; });
+                // Ctrl (ou Cmd) + clique num cartão: marca/desmarca; clique no fundo do quadro: limpa a seleção
+                this.$nextTick(() => {
+                    const area = this.$refs.area;
+                    if (!area) return;
+                    area.addEventListener('pointerdown', e => {
+                        const card = e.target.closest('.wf-item[data-bid]');
+                        if (!card) { if (this.sel.length && !e.ctrlKey && !e.metaKey) this.sel = []; return; }
+                        if (!(e.ctrlKey || e.metaKey) || e.button !== 0) return;
+                        const id = card.dataset.bid;
+                        if (!this.estado.blocos.some(b => b.id === id)) return; // cartões fixos não vão para pastas
+                        e.preventDefault(); e.stopPropagation();
+                        this.alternarSel(id);
+                    }, true);
+                    // no celular (sem Ctrl): segurar o dedo meio segundo no topo de um cartão marca/desmarca
+                    let toque = 0, x0 = 0, y0 = 0;
+                    const cancelar = () => { clearTimeout(toque); toque = 0; };
+                    area.addEventListener('pointerdown', e => {
+                        if (e.pointerType !== 'touch') return;
+                        const topo = e.target.closest('.wf-topo');
+                        const card = topo && topo.closest('.wf-item[data-bid]');
+                        if (!card || !this.estado.blocos.some(b => b.id === card.dataset.bid)) return;
+                        x0 = e.clientX; y0 = e.clientY;
+                        cancelar();
+                        toque = setTimeout(() => { toque = 0; this.alternarSel(card.dataset.bid); if (navigator.vibrate) navigator.vibrate(15); }, 550);
+                    }, true);
+                    area.addEventListener('pointermove', e => { if (toque && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) cancelar(); }, true);
+                    ['pointerup', 'pointercancel'].forEach(t => area.addEventListener(t, cancelar, true));
+                });
+                this.atualizarCssPastas();
+            },
+            /** Pasta onde o bloco está (null = solto no quadro). Pasta apagada, de outra aba ou em ciclo conta como solto. */
+            pastaValida(b) {
+                let id = b && b.pasta, n = 0;
+                const p = id && this.estado.blocos.find(x => x.id === id && x.tipo === 'pasta' && x.secao === b.secao);
+                if (!p) return null;
+                // pasta dentro dela mesma (direta ou indiretamente) não vale
+                for (let q = p; q && n < 50; n++) {
+                    if (q.pasta === b.id) return null;
+                    q = q.pasta && this.estado.blocos.find(x => x.id === q.pasta && x.tipo === 'pasta');
+                }
+                return id;
+            },
+            /** Pasta aberta na aba (null = quadro principal). */
+            pastaAberta(sec) {
+                const id = this.pasta && this.pasta[sec];
+                if (!id) return null;
+                const p = this.estado.blocos.find(b => b.id === id && b.tipo === 'pasta' && b.secao === sec);
+                return p ? id : null;
+            },
+            blocoPorId(id) { return this.estado.blocos.find(b => b.id === id) || null; },
+            /** Cartões guardados direto na pasta. */
+            filhosDe(p) {
+                const id = typeof p === 'string' ? p : p && p.id;
+                return this.estado.blocos.filter(b => b.pasta === id && this.pastaValida(b) === id);
+            },
+            /** Todos os cartões dentro da pasta, inclusive os de subpastas. */
+            descendentesDe(p) {
+                const out = [];
+                const ir = id => this.filhosDe(id).forEach(f => { out.push(f); if (f.tipo === 'pasta') ir(f.id); });
+                ir(typeof p === 'string' ? p : p.id);
+                return out;
+            },
+            /** Caminho da pasta aberta: [pasta de fora, ..., pasta aberta]. */
+            caminhoPasta(sec) {
+                const out = [];
+                let id = this.pastaAberta(sec), n = 0;
+                while (id && n++ < 50) {
+                    const p = this.blocoPorId(id);
+                    if (!p) break;
+                    out.unshift(p);
+                    id = this.pastaValida(p);
+                }
+                return out;
+            },
+            iconeTipo(t) {
+                return { texto: '📝', tabela: '▦', lista: '☑', imagem: '🖼', mapa: '🧠', documento: '📄', codigo: '⌨', tabletop: '♟', pasta: '📁', vivo: '🔗' }[t] || '▢';
+            },
+            resumoPasta(b) {
+                const f = this.filhosDe(b).length, t = this.descendentesDe(b).length;
+                if (!t) return 'Vazia';
+                return `${f} ${f === 1 ? 'item' : 'itens'}` + (t > f ? ` · ${t} no total` : '');
+            },
+            /** Abre a pasta (o quadro passa a mostrar só o que está nela). `foco` = cartão para destacar. */
+            abrirPasta(b, foco) {
+                if (!b || b.tipo !== 'pasta') return;
+                this.pasta = { ...this.pasta, [b.secao]: b.id };
+                this.sel = [];
+                this.aoMudarVista(b.secao, foco);
+            },
+            /** Volta um nível (para a pasta de fora ou para o quadro). */
+            fecharPasta(sec) {
+                const id = this.pastaAberta(sec);
+                if (!id) return false;
+                const p = this.blocoPorId(id);
+                this.pasta = { ...this.pasta, [sec]: p ? this.pastaValida(p) : null };
+                this.sel = [];
+                this.aoMudarVista(sec, id);
+                return true;
+            },
+            irPasta(sec, id) {
+                this.pasta = { ...this.pasta, [sec]: id || null };
+                this.sel = [];
+                this.aoMudarVista(sec);
+            },
+            /** Depois de abrir/fechar uma pasta: sobe para o quadro, arruma se algo ficou sobreposto e destaca um cartão. */
+            aoMudarVista(sec, foco) {
+                this.$nextTick(() => {
+                    if (autoLigado() && !this.empilhado() && this.temConflito(sec)) this.organizar(sec);
+                    const area = this.$refs.area;
+                    const topo = area ? area.getBoundingClientRect().top + window.scrollY - 120 : 0;
+                    if (window.scrollY > topo) window.scrollTo({ top: Math.max(0, topo), behavior: 'smooth' });
+                    if (foco) this.destacarCartao(sec, foco);
+                });
+            },
+            destacarCartao(sec, id) {
+                this.$nextTick(() => {
+                    const q = window.CSS && CSS.escape ? CSS.escape : s => s;
+                    const el = document.querySelector(`.wf-item[data-sec="${q(sec)}"][data-bid="${q(id)}"]`);
+                    if (!el) return;
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.classList.add('wf-piscar');
+                    setTimeout(() => el.classList.remove('wf-piscar'), 1400);
+                });
+            },
+            /** Primeira posição livre no fim de uma vista (quadro ou pasta), para cartões que acabaram de entrar nela. */
+            fimDaVista(sec, pastaId) {
+                const ids = this.estado.blocos.filter(b => b.secao === sec && this.pastaValida(b) === pastaId).map(b => b.id);
+                if (!pastaId) Object.keys(PADRAO[sec] || {}).forEach(id => ids.push(id));
+                let alt = 0;
+                ids.forEach(id => { const l = this.rect(sec, id); alt = Math.max(alt, l.y + l.h); });
+                return alt ? alt + 16 : 0;
+            },
+            /**
+             * Guarda cartões numa pasta (pastaId) ou tira para o nível de fora (pastaId undefined = sai da pasta aberta).
+             * Cartões vão para o fim da vista de destino, um abaixo do outro.
+             */
+            moverParaPasta(sec, ids, pastaId) {
+                const aberta = this.pastaAberta(sec);
+                const destino = pastaId === undefined
+                    ? (aberta ? this.pastaValida(this.blocoPorId(aberta)) : null)
+                    : pastaId;
+                if (pastaId === undefined && !aberta) return;
+                const proibidos = new Set();
+                if (destino) {
+                    // uma pasta não pode entrar nela mesma nem numa pasta que está dentro dela
+                    let q = this.blocoPorId(destino), n = 0;
+                    while (q && n++ < 50) { proibidos.add(q.id); q = q.pasta ? this.blocoPorId(q.pasta) : null; }
+                }
+                const blocos = ids.map(id => this.blocoPorId(id)).filter(b => b && b.secao === sec && !proibidos.has(b.id) && this.pastaValida(b) !== destino);
+                if (!blocos.length) { if (ids.length) this.aviso('Esse cartão já está aí.'); return; }
+                const { x0 } = this.areaUtil();
+                let y = this.fimDaVista(sec, destino);
+                blocos.forEach(b => {
+                    if (destino) b.pasta = destino; else delete b.pasta;
+                    const l = this.entrada(sec, b.id);
+                    l.x = snap(x0); l.y = y; y += l.h + 16;
+                });
+                this.sel = this.sel.filter(id => !blocos.some(b => b.id === id));
+                if (autoLigado() && !this.empilhado() && this.temConflito(sec)) this.organizar(sec);
+                const nome = destino ? `“${(this.blocoPorId(destino)?.titulo || 'Pasta').trim()}”` : (aberta && this.pastaValida(this.blocoPorId(aberta)) ? 'a pasta de fora' : 'o quadro');
+                this.aviso(`${blocos.length === 1 ? 'Cartão movido' : blocos.length + ' cartões movidos'} para ${nome}.`);
+            },
+            /** Cria uma pasta na vista atual; com `ids`, já guarda esses cartões nela. */
+            novaPasta(sec, ids = []) {
+                sec = sec || this.aba;
+                if (!sec) return null;
+                const id = 'b' + uid();
+                const aberta = this.pastaAberta(sec);
+                const { x0 } = this.areaUtil();
+                const bloco = { id, secao: sec, tipo: 'pasta', titulo: 'Nova pasta', links: [], dados: {} };
+                if (aberta) bloco.pasta = aberta;
+                this.estado.blocos.push(bloco);
+                if (!this.estado.layout[sec]) this.estado.layout[sec] = {};
+                this.estado.layout[sec][id] = { x: snap(x0), y: this.fimDaVista(sec, aberta), w: 320, h: 240, z: ++this.zTop };
+                this.menuBloco = false;
+                if (ids.length) this.moverParaPasta(sec, ids, id);
+                if (autoLigado() && !this.empilhado()) this.$nextTick(() => { if (this.temConflito(sec) || this.vaiMelhorar(sec)) this.organizar(sec); });
+                this.aviso(ids.length ? `Pasta criada com ${ids.length} ${ids.length === 1 ? 'cartão' : 'cartões'}. Dê um nome a ela no topo do cartão.` : 'Pasta criada. Arraste cartões para cima dela para guardá-los.');
+                this.destacarCartao(sec, id);
+                return id;
+            },
+            /** Desfaz a pasta: o que estava dentro volta para o nível de fora e a pasta some. */
+            esvaziarPasta(b) {
+                const filhos = this.filhosDe(b);
+                if (filhos.length && !confirm(`Desfazer a pasta “${b.titulo || 'Pasta'}”? Os ${filhos.length} itens dela voltam para o quadro.`)) return;
+                const fora = this.pastaValida(b);
+                const { x0 } = this.areaUtil();
+                const l0 = this.rect(b.secao, b.id);
+                let y = l0.y;
+                filhos.forEach(f => {
+                    if (fora) f.pasta = fora; else delete f.pasta;
+                    const l = this.entrada(b.secao, f.id);
+                    l.x = snap(x0); l.y = y; y += l.h + 16;
+                });
+                this.apagarPastaSo(b);
+                if (autoLigado() && !this.empilhado()) this.$nextTick(() => { if (this.temConflito(b.secao)) this.organizar(b.secao); });
+                this.aviso(filhos.length ? 'Pasta desfeita. Os cartões voltaram para o quadro.' : 'Pasta removida.');
+            },
+            /** Tira só o bloco da pasta (sem conteúdo, sem histórico). */
+            apagarPastaSo(b) {
+                const i = this.estado.blocos.findIndex(x => x.id === b.id);
+                if (i >= 0) this.estado.blocos.splice(i, 1);
+                if (this.estado.layout[b.secao]) delete this.estado.layout[b.secao][b.id];
+                if (this.pasta[b.secao] === b.id) this.pasta = { ...this.pasta, [b.secao]: this.pastaValida(b) };
+            },
+            /** Exclui a pasta e tudo o que está dentro (cada cartão vai para o Histórico, como numa exclusão normal). */
+            removerPasta(b) {
+                const tudo = this.descendentesDe(b);
+                const ok = tudo.length
+                    ? confirm(`Excluir a pasta “${b.titulo || 'Pasta'}” e os ${tudo.length} itens dentro dela?\nPara manter os cartões, use “Desfazer pasta”.`)
+                    : confirm(`Excluir a pasta vazia “${b.titulo || 'Pasta'}”?`);
+                if (!ok) return;
+                this.excluirSemPerguntar(tudo.filter(x => x.tipo !== 'pasta'));
+                tudo.filter(x => x.tipo === 'pasta').forEach(p => this.apagarPastaSo(p));
+                this.apagarPastaSo(b);
+                this.aviso(tudo.length ? `Pasta excluída com ${tudo.length} itens (eles ficam no Histórico).` : 'Pasta excluída.');
+            },
+            /** Exclui vários blocos com a exclusão da própria página, sem uma pergunta para cada um. */
+            excluirSemPerguntar(blocos) {
+                const base = this._removerBase || this.removerBloco;
+                const conf = window.confirm;
+                window.confirm = () => true;
+                try { blocos.forEach(x => base.call(this, x)); } finally { window.confirm = conf; }
+            },
+            /* ---------- seleção (Ctrl+clique) ---------- */
+            alternarSel(id) {
+                this.sel = this.sel.includes(id) ? this.sel.filter(x => x !== id) : [...this.sel, id];
+            },
+            selecionarTodos(sec) {
+                this.sel = this.blocosDe(sec || this.aba).map(b => b.id);
+                if (!this.sel.length) this.aviso('Esta aba não tem blocos para selecionar.');
+            },
+            /** Pastas da vista atual, para o "Mover para…" da barra de seleção. */
+            pastasDaVista(sec) {
+                return this.blocosDe(sec).filter(b => b.tipo === 'pasta' && !this.sel.includes(b.id));
+            },
+            pastaComSelecionados(sec) {
+                const ids = this.sel.filter(id => this.blocoPorId(id));
+                this.novaPasta(sec || this.aba, ids);
+            },
+            excluirSelecionados() {
+                const blocos = this.sel.map(id => this.blocoPorId(id)).filter(Boolean);
+                if (!blocos.length) return;
+                if (blocos.length === 1) { this.removerBloco(blocos[0]); this.sel = []; return; }
+                const n = blocos.reduce((s, b) => s + 1 + (b.tipo === 'pasta' ? this.descendentesDe(b).length : 0), 0);
+                if (!confirm(`Excluir ${blocos.length} cartões selecionados${n > blocos.length ? ` (${n} contando o que está dentro das pastas)` : ''}?`)) return;
+                const pastas = blocos.filter(b => b.tipo === 'pasta');
+                const tudo = [...blocos.filter(b => b.tipo !== 'pasta'), ...pastas.flatMap(p => this.descendentesDe(p).filter(x => x.tipo !== 'pasta'))];
+                this.excluirSemPerguntar([...new Set(tudo)]);
+                pastas.forEach(p => { this.descendentesDe(p).filter(x => x.tipo === 'pasta').forEach(q => this.apagarPastaSo(q)); this.apagarPastaSo(p); });
+                this.sel = [];
+                this.aviso(`${blocos.length} cartões excluídos (eles ficam no Histórico).`);
+            },
+            /** O que está debaixo do ponteiro durante um arraste: uma pasta (guardar) ou a barra da pasta aberta (tirar). */
+            destinoSob(x, y, sec, id) {
+                const els = document.elementsFromPoint(x, y);
+                for (const el of els) {
+                    if (el.closest && el.closest('[data-wf-sair-pasta]') && this.pastaAberta(sec)) return { pasta: undefined };
+                    const card = el.closest && el.closest('.wf-item[data-bid]');
+                    if (!card || card.dataset.bid === id || card.dataset.sec !== sec) continue;
+                    const b = this.blocoPorId(card.dataset.bid);
+                    if (b && b.tipo === 'pasta' && !(this.sel.includes(id) && this.sel.includes(b.id))) return { pasta: b.id };
+                    return null;
+                }
+                return null;
+            },
+            /** CSS gerado: cartões selecionados, pasta de destino do arraste e cartões fixos escondidos dentro de uma pasta. */
+            atualizarCssPastas() {
+                if (!this._cssPastas) return;
+                const q = window.CSS && CSS.escape ? CSS.escape : s => s;
+                const r = [];
+                this.sel.forEach(id => r.push(`.wf-item[data-bid="${q(id)}"]{outline:2px solid var(--prim);outline-offset:3px}`));
+                if (this.alvoPasta && this.alvoPasta !== 'sair') {
+                    r.push(`.wf-item[data-bid="${q(this.alvoPasta)}"]{outline:3px dashed var(--prim);outline-offset:4px;filter:brightness(1.25)}`);
+                }
+                if (this.alvoPasta === 'sair') r.push('[data-wf-sair-pasta]{outline:3px dashed var(--prim);outline-offset:2px}');
+                Object.keys(this.pasta || {}).forEach(sec => {
+                    if (!this.pastaAberta(sec)) return;
+                    Object.keys(PADRAO[sec] || {}).forEach(id => r.push(`.wf-item[data-sec="${q(sec)}"][data-bid="${q(id)}"]{display:none!important}`));
+                });
+                this._cssPastas.textContent = r.join('\n');
+            },
+            /** Copia um bloco (conteúdo, cor, tamanho e imagem) logo abaixo do fim da vista atual. */
+            duplicarBloco(b) {
+                if (!b) return;
+                if (b.tipo === 'pasta') { this.aviso('Pastas não podem ser duplicadas. Duplique os cartões de dentro.'); return; }
+                const l = this.rect(b.secao, b.id);
+                const ok = this.colarBloco({
+                    tipo: b.tipo, titulo: (b.titulo || 'Bloco') + ' (cópia)', nome: b.titulo,
+                    dados: JSON.parse(JSON.stringify(b.dados || {})),
+                    cor: /^#[0-9a-fA-F]{6}$/.test(l.cor || '') ? l.cor : null,
+                    w: Math.round(l.w), h: Math.round(l.h), imagem: this.imagens[b.id] || null,
+                });
+                if (ok !== false) this.aviso('Cartão duplicado no fim da aba.');
+            },
+
+            /* ---------- teclas de atalho (as teclas são definidas na aba Atalhos das configurações) ---------- */
+            /** Cartão em que os atalhos agem: o último clicado, se ainda estiver na tela. */
+            cartaoAtual() {
+                const b = this.atual && this.blocoPorId(this.atual);
+                return b && b.secao === this.aba && this.blocosDe(this.aba).includes(b) ? b : null;
+            },
+            executarAtalho(id) {
+                if (EMBED || !this.aba) return;
+                const sec = this.aba;
+                if (id.startsWith('novo.')) {
+                    const tipo = id.slice(5);
+                    if (tipo === 'pasta' && this.sel.length) { this.pastaComSelecionados(sec); return; }
+                    if (!(this.tiposBloco || []).some(t => t.id === tipo)) { this.aviso('Esta página não tem esse tipo de bloco.'); return; }
+                    this.novoBloco(sec, tipo);
+                    return;
+                }
+                const b = this.cartaoAtual();
+                const precisa = () => { if (!b) this.aviso('Clique num cartão (bloco livre) primeiro.'); return !!b; };
+                switch (id) {
+                    case 'salvar': this.gravarEstado().then(() => this.aviso('Tudo salvo.')); break;
+                    case 'reorganizar': this.reorganizar(); break;
+                    case 'excluir':
+                        if (this.sel.length) this.excluirSelecionados();
+                        else if (precisa()) this.removerBloco(b);
+                        break;
+                    case 'duplicar': if (precisa()) this.duplicarBloco(b); break;
+                    case 'telaCheia': {
+                        const alvo = b ? document.querySelector(`.wf-item[data-bid="${(window.CSS && CSS.escape) ? CSS.escape(b.id) : b.id}"]`) : null;
+                        if (!alvo) { this.aviso('Clique num cartão primeiro.'); break; }
+                        if (window.WFTelaCheia) window.WFTelaCheia.alternar(alvo);
+                        break;
+                    }
+                    case 'pastaSelecao': this.pastaComSelecionados(sec); break;
+                    case 'abrirPasta': if (precisa()) { if (b.tipo === 'pasta') this.abrirPasta(b); else this.aviso('O cartão clicado não é uma pasta.'); } break;
+                    case 'fecharPasta': if (!this.fecharPasta(sec)) this.aviso('Nenhuma pasta aberta nesta aba.'); break;
+                    case 'tirarDaPasta':
+                        if (!this.pastaAberta(sec)) { this.aviso('Abra uma pasta para tirar cartões dela.'); break; }
+                        if (this.sel.length) this.moverParaPasta(sec, [...this.sel]);
+                        else if (precisa()) this.moverParaPasta(sec, [b.id]);
+                        break;
+                    case 'selecionarTodos': this.selecionarTodos(sec); break;
+                    case 'abaAnterior': case 'abaSeguinte': this.trocarAba(id === 'abaSeguinte' ? 1 : -1); break;
+                }
+            },
+            /** Lista das abas desta página, na ordem dos botões. */
+            listaAbas() {
+                if (Array.isArray(this.abas)) return this.abas.map(a => (typeof a === 'string' ? a : a.id));
+                if (this.estado && Array.isArray(this.estado.abas)) return this.estado.abas.map(a => a.id);
+                return Object.keys(PADRAO || {});
+            },
+            trocarAba(passo) {
+                const abas = this.listaAbas().filter(Boolean);
+                if (abas.length < 2) return;
+                const i = abas.indexOf(this.aba);
+                this.aba = abas[(i + passo + abas.length) % abas.length];
+            },
             novoBloco(sec, tipo) {
                 const def = {
                     texto: [340, 240, 'Texto', { texto: '', tam: 'm' }],

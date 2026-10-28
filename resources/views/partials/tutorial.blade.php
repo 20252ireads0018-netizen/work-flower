@@ -439,6 +439,17 @@
             p: ['Restaurar: engrenagem → <b>Histórico</b> → <b>Restaurar</b>.'],
         },
         {
+            t: 'Pastas e atalhos', v: 'pastas',
+            x: 'Organize muitos cartões sem bagunçar o quadro e faça tudo pelo teclado.',
+            campos: [
+                ['Criar pasta', '+ Bloco → Pasta, ou Alt + P.'],
+                ['Guardar cartões', 'Arraste o cartão para cima da pasta.'],
+                ['Vários de uma vez', 'Ctrl + clique nos cartões → “Nova pasta com eles”.'],
+                ['Abrir e sair', '“Abrir” na pasta; a barra de cima volta e recebe cartões para tirar.'],
+            ],
+            p: ['Teclas para criar, excluir, duplicar e mais: engrenagem → <b>Atalhos</b> (ou <b>Alt + K</b>). Dá para trocar qualquer tecla.'],
+        },
+        {
             t: 'Corpo', v: 'corpo', area: 'Corpo',
             x: 'Treino, dieta e hábitos de saúde.',
             campos: [
@@ -525,7 +536,12 @@
         });
     }
     const reduzido = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const marcarVisto = () => { try { localStorage.setItem(CHAVE, '1'); } catch (e) {} document.getElementById('wft-botao')?.classList.remove('novo'); };
+    const marcarVisto = () => {
+        try { localStorage.setItem(CHAVE, '1'); } catch (e) {}
+        document.getElementById('wft-botao')?.classList.remove('novo');
+        // na conta também: assim ele não abre sozinho de novo em outro navegador
+        if (window.WFPrefs && !window.WFPrefs.ler().tutorialVisto) window.WFPrefs.salvar({ tutorialVisto: true });
+    };
 
     function linkDaArea(nome) {
         const links = document.querySelectorAll('[data-atualiza="painel-areas"] a.card');
@@ -700,5 +716,11 @@
     let visto = false;
     try { visto = localStorage.getItem(CHAVE) === '1'; } catch (e) {}
     if (!visto) document.getElementById('wft-botao').classList.add('novo');
+
+    // primeiro acesso da conta: o tutorial começa sozinho, depois que a página termina de desenhar
+    if (@json((bool) ($tutorialAuto ?? false))) {
+        const comecar = () => setTimeout(() => abrir(0), 700);
+        if (document.readyState === 'complete') comecar(); else window.addEventListener('load', comecar, { once: true });
+    }
 })();
 </script>
