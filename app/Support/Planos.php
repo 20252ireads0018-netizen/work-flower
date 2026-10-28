@@ -27,10 +27,10 @@ class Planos
 
     /** null = ilimitado */
     private const LIMITES = [
-        'gratuito' => ['biblioteca' => 5,    'workflows' => 3,    'elementos' => 10,   'usuarios' => 1],
-        'basico'   => ['biblioteca' => null, 'workflows' => null, 'elementos' => null, 'usuarios' => 5],
-        'pro'      => ['biblioteca' => null, 'workflows' => null, 'elementos' => null, 'usuarios' => 10],
-        'premium'  => ['biblioteca' => null, 'workflows' => null, 'elementos' => null, 'usuarios' => 25],
+        'gratuito' => ['biblioteca' => 5,    'workflows' => 3,    'elementos' => 10,   'usuarios' => 1,  'marketplaces' => 1],
+        'basico'   => ['biblioteca' => null, 'workflows' => null, 'elementos' => null, 'usuarios' => 5,  'marketplaces' => 5],
+        'pro'      => ['biblioteca' => null, 'workflows' => null, 'elementos' => null, 'usuarios' => 10, 'marketplaces' => 20],
+        'premium'  => ['biblioteca' => null, 'workflows' => null, 'elementos' => null, 'usuarios' => 25, 'marketplaces' => null],
     ];
 
     private const NOMES = [
@@ -248,6 +248,7 @@ class Planos
             'workflows'  => "O plano {$nome} permite {$acao} até {$limite} workflows por vez. Assine o Básico para não ter limite.",
             'elementos'  => "O plano {$nome} permite {$acao} até {$limite} elementos (texto, tabelas etc.) por arquivo. Assine o Básico para não ter limite.",
             'usuarios'   => "O plano {$nome} permite {$limite} " . ($limite === 1 ? 'usuário' : 'usuários') . ' na conta (com você). Assine o Básico para trabalhar com até 5 pessoas no mesmo workflow.',
+            'marketplaces' => "O plano {$nome} conecta até {$limite} " . ($limite === 1 ? 'conta' : 'contas') . ' de marketplace. Assine o Básico para conectar até 5 contas.',
             default      => "O plano {$nome} atingiu o limite de {$recurso}. Assine o Básico para continuar.",
         };
     }

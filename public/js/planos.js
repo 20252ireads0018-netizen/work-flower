@@ -31,10 +31,10 @@
     'use strict';
 
     const PADRAO = {
-        gratuito: { biblioteca: 5,    workflows: 3,    elementos: 10,   usuarios: 1 },
-        basico:   { biblioteca: null, workflows: null, elementos: null, usuarios: 5 },
-        pro:      { biblioteca: null, workflows: null, elementos: null, usuarios: 10 },
-        premium:  { biblioteca: null, workflows: null, elementos: null, usuarios: 25 },
+        gratuito: { biblioteca: 5,    workflows: 3,    elementos: 10,   usuarios: 1,  marketplaces: 1 },
+        basico:   { biblioteca: null, workflows: null, elementos: null, usuarios: 5,  marketplaces: 5 },
+        pro:      { biblioteca: null, workflows: null, elementos: null, usuarios: 10, marketplaces: 20 },
+        premium:  { biblioteca: null, workflows: null, elementos: null, usuarios: 25, marketplaces: null },
     };
     const NOMES = { gratuito: 'Gratuito', basico: 'Básico', pro: 'Pró', premium: 'Premium' };
     const EM_BREVE = ['pro', 'premium'];
@@ -100,6 +100,7 @@
         workflows: (l, acao) => `O plano ${NOMES[slug]} permite ${acao} até ${l} workflows por vez. Assine o Básico para não ter limite.`,
         elementos: (l, acao) => `O plano ${NOMES[slug]} permite ${acao} até ${l} elementos (texto, tabelas etc.) por arquivo. Assine o Básico para não ter limite.`,
         usuarios: l => `O plano ${NOMES[slug]} permite ${l} ${l === 1 ? 'usuário' : 'usuários'} na conta (com você). Assine o Básico para trabalhar com até 5 pessoas no mesmo workflow.`,
+        marketplaces: l => `O plano ${NOMES[slug]} conecta até ${l} ${l === 1 ? 'conta' : 'contas'} de marketplace. Assine o Básico para conectar até 5 contas.`,
     };
 
     function aviso(texto) {

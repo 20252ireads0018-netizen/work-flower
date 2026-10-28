@@ -6,6 +6,10 @@
 @section('conteudo')
 {{-- várias pessoas no mesmo workflow (partials/compartilhar, js/compartilhar.js) --}}
 @include('partials.compartilhar', ['area' => 'carteira'])
+{{-- Mercado Livre, Shopee e Amazon (MarketplaceController) --}}
+<div class="mb-4">
+    <a class="btn-sec !py-1.5 !px-3 text-sm" href="{{ route('carteira.mkt', request()->attributes->get('wf_dono') ? ['de' => request()->attributes->get('wf_dono')] : []) }}">🛒 Marketplaces</a>
+</div>
 @php
     $cfg = [
         'url'     => url('/carteira/dados'),

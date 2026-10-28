@@ -60,6 +60,9 @@
             $l['usuarios'] === 1
                 ? 'Workflows só seus (1 pessoa)'
                 : "Até {$l['usuarios']} pessoas no mesmo workflow",
+            $l['marketplaces'] === null
+                ? 'Contas de marketplace ilimitadas (Mercado Livre, Shopee, Amazon)'
+                : "Até {$l['marketplaces']} " . ($l['marketplaces'] === 1 ? 'conta' : 'contas') . ' de marketplace (Mercado Livre, Shopee, Amazon)',
         ];
     };
 @endphp

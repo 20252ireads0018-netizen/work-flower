@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FundoController;
 use App\Http\Controllers\MenteController;
 use App\Http\Controllers\CarteiraController;
+use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\DiversoController;
 use App\Http\Controllers\WorkflowTransferController;
 use App\Http\Controllers\PreferenciasController;
@@ -97,6 +98,24 @@ Route::middleware('auth')->group(function () {
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->name('carteira.dados.salvar');
     Route::delete('/carteira/dados/{chave}', [CarteiraController::class, 'remover'])
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->name('carteira.dados.remover');
+
+    // Carteira › Marketplaces (Mercado Livre, Shopee, Amazon). Limite de contas vem do plano do dono.
+    Route::prefix('/carteira/marketplaces')->name('carteira.mkt')->group(function () {
+        Route::get('/', [MarketplaceController::class, 'show'])->name('');
+        Route::get('/dados', [MarketplaceController::class, 'dados'])->name('.dados');
+        Route::get('/conectar/{canal}', [MarketplaceController::class, 'conectar'])
+            ->whereIn('canal', ['mercadolivre', 'shopee', 'amazon'])->middleware('throttle:20,1')->name('.conectar');
+        Route::get('/retorno/{canal}', [MarketplaceController::class, 'retorno'])
+            ->whereIn('canal', ['mercadolivre', 'shopee', 'amazon'])->middleware('throttle:20,1')->name('.retorno');
+        Route::post('/contas/demo', [MarketplaceController::class, 'demo'])->middleware('throttle:20,1')->name('.demo');
+        Route::patch('/contas', [MarketplaceController::class, 'editarContas'])->name('.contas.editar');
+        Route::delete('/contas', [MarketplaceController::class, 'removerContas'])->name('.contas.remover');
+        Route::post('/sincronizar', [MarketplaceController::class, 'sincronizar'])->middleware('throttle:30,1')->name('.sincronizar');
+        Route::put('/produtos', [MarketplaceController::class, 'salvarProdutos'])->name('.produtos.salvar');
+        Route::delete('/produtos', [MarketplaceController::class, 'removerProdutos'])->name('.produtos.remover');
+        Route::post('/anuncios/acao', [MarketplaceController::class, 'acaoAnuncios'])->middleware('throttle:60,1')->name('.anuncios.acao');
+        Route::patch('/anuncios', [MarketplaceController::class, 'editarAnuncios'])->name('.anuncios.editar');
+    });
 
     // Diverso: precisa vir ANTES da rota genérica /areas/{area}
     Route::get('/areas/diverso', [DiversoController::class, 'show'])->name('areas.diverso');
