@@ -7,7 +7,9 @@
    Não depende de nada do diverso.js.
    Atalhos: Ctrl+S salvar · Ctrl+P abrir arquivo · Ctrl+G ir para linha · Ctrl+F buscar · Ctrl+/ comentar · Alt+↑/↓ mover linha
    · Alt+Shift+↑/↓ duplicar linha · Ctrl+Shift+K excluir linha · Ctrl+Shift+F formatar JSON · Ctrl+Enter executar.
-   Botão direito na lista de arquivos: ▶ Executar (.js, .html, .py e, via servidor Judge0, Java/PHP/C/Go/etc.), renomear, excluir, copiar caminho… */
+   Botão direito na lista de arquivos: ▶ Executar (.js, .html, .py, .php, .sql e views .blade.php no próprio navegador;
+   Java/C/Go/etc. no servidor Judge0), renomear, excluir, copiar caminho…
+   Motores (Python, PHP, SQL, Blade) e dicas de erro: public/js/ide-motores.js (WFMotores, WFDicas). */
 (function () {
     'use strict';
 
@@ -48,13 +50,13 @@
     const NOME = { blade: 'Blade', php: 'PHP', java: 'Java', kt: 'Kotlin', kts: 'Kotlin', scala: 'Scala', groovy: 'Groovy', gradle: 'Gradle', cs: 'C#', go: 'Go', rs: 'Rust', c: 'C', h: 'C', cpp: 'C++', py: 'Python', rb: 'Ruby', sh: 'Shell', sql: 'SQL', js: 'JavaScript', ts: 'TypeScript', tsx: 'TSX', jsx: 'JSX', html: 'HTML', css: 'CSS', json: 'JSON', md: 'Markdown', yml: 'YAML', yaml: 'YAML', xml: 'XML', vue: 'Vue' };
     const TIPO = { blade: 'BL', php: 'PHP', java: 'JV', kt: 'KT', cs: 'C#', go: 'GO', rs: 'RS', py: 'PY', sql: 'SQL', js: 'JS', ts: 'TS', html: '<>', css: '#', json: '{}', md: 'MD' };
     // o que realmente não dá para executar isolado (Blade precisa do Laravel; .h é só cabeçalho; kts/gradle são scripts de build)
-    const NAO_RODA = new Set(['blade', 'h', 'kts', 'gradle']);
+    const NAO_RODA = new Set(['h', 'kts', 'gradle']);
     // linguagens executadas no servidor Judge0 (o navegador não roda Java, PHP, C, Go…)
     const JUDGE0 = 'https://ce.judge0.com'; // troque aqui se hospedar o seu próprio Judge0
     const REMOTO = {
         java: { id: 62, nome: 'Java' }, kt: { id: 78, nome: 'Kotlin' }, cs: { id: 51, nome: 'C#' },
         go: { id: 60, nome: 'Go' }, rs: { id: 73, nome: 'Rust' }, c: { id: 50, nome: 'C' }, cpp: { id: 54, nome: 'C++' },
-        php: { id: 68, nome: 'PHP' }, rb: { id: 72, nome: 'Ruby' }, sql: { id: 82, nome: 'SQL (SQLite)' },
+        rb: { id: 72, nome: 'Ruby' },
         sh: { id: 46, nome: 'Bash' }, scala: { id: 81, nome: 'Scala' }, groovy: { id: 88, nome: 'Groovy' },
     };
     const b64 = s => { const u = new TextEncoder().encode(s); let r = ''; for (let i = 0; i < u.length; i += 8192) r += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(r); };
@@ -364,6 +366,8 @@
         return {
             sel: '', fechadas: [], ln: 1, col: 1, selN: 0, msg: '', ver: 0,
             saida: [], srcdoc: '', painel: null, disco: '', movendo: false, menuCtx: null,
+            // motores já usados nesta página (a primeira execução de cada um avisa que vai baixar) e a aba Banco (SQL)
+            motorUsado: {}, banco: { tabelas: [], sel: null, dados: null },
             busca: { on: false, q: '', r: '', todos: false, caso: false, regex: false },
             pal: { on: false, modo: 'arq', q: '', i: 0 },
             suporteDisco: typeof window.showDirectoryPicker === 'function',
@@ -374,8 +378,7 @@
                 ouvinte = ev => {
                     const d = ev.data;
                     if (!d || d.wfIde !== token || ev.source !== (this.$refs.frame && this.$refs.frame.contentWindow)) return;
-                    this.saida.push({ t: d.t, m: String(d.m).slice(0, 4000) });
-                    if (this.saida.length > MAX_SAIDA) this.saida.shift();
+                    this.logar(d.t, d.m, 'js');
                 };
                 window.addEventListener('message', ouvinte);
                 this.$nextTick(() => { this.sincronizar(); this.cursor(); });
@@ -492,6 +495,8 @@
                 if (!I.abertas.includes(id)) I.abertas.push(id);
                 I.ativo = id;
                 this.sel = f.caminho;
+                // Python, PHP, SQL e Blade: o motor começa a baixar em segundo plano, para o ▶ Executar ser rápido
+                if (window.WFMotores) { const l = lingua(f.caminho); setTimeout(() => window.WFMotores.aquecer(l), 1200); }
                 this.$nextTick(() => {
                     const ta = this.$refs.ta;
                     if (mudou && ta) { ta.scrollTop = 0; ta.scrollLeft = 0; ta.setSelectionRange(0, 0); }
@@ -1025,21 +1030,197 @@
             },
             podeExecutar() {
                 const f = this.arqAtivo(), l = f ? lingua(f.caminho) : '';
-                return ['js', 'mjs', 'py'].includes(l) || !!REMOTO[l] || this.htmls().length > 0;
+                return ['js', 'mjs', 'py', 'php', 'sql', 'blade'].includes(l) || !!REMOTO[l] || this.htmls().length > 0;
+            },
+            /** Uma linha no console; erros ganham uma dica em português do porquê. */
+            logar(t, m, l) {
+                const texto = String(m ?? '').slice(0, 4000);
+                if (!texto.trim() && t !== 'log') return;
+                this.saida.push({ t, m: texto });
+                if ((t === 'error' || /fatal error|parse error|warning:|exception/i.test(texto)) && window.WFDicas) {
+                    const d = window.WFDicas.explicar(l, texto);
+                    if (d && !this.saida.some(x => x.t === 'dica' && x.m === d)) this.saida.push({ t: 'dica', m: d });
+                }
+                while (this.saida.length > MAX_SAIDA) this.saida.shift();
+            },
+            /** Antes de rodar: chave, parêntese ou colchete sem par vira dica já com a linha. */
+            conferirAntes(f) {
+                if (!window.WFDicas) return true;
+                const l = lingua(f.caminho);
+                if (l === 'blade') { const p = window.WFDicas.conferirBlade(f.texto); if (p) { this.logar('warn', 'Atenção em ' + f.caminho + ': ' + p, l); } return true; }
+                if (!['js', 'mjs', 'py', 'php', 'sql'].includes(l)) return true;
+                const p = window.WFDicas.conferirPares(f.texto, l);
+                if (p) { this.logar('error', f.caminho + ', linha ' + p.linha + ': ' + p.msg, l); this.saida.push({ t: 'dica', m: 'Corrija e rode de novo. Dica: clique numa chave/parêntese para ver o par dele; Ctrl+G vai direto para a linha ' + p.linha + '.' }); return false; }
+                return true;
+            },
+            motorPronto() {
+                if (window.WFMotores) return true;
+                this.logar('error', 'Os motores da IDE não carregaram. Recarregue a página (Ctrl+F5).');
+                this.painel = 'saida';
+                return false;
+            },
+            arquivosTexto() { const a = {}; I.arquivos.forEach(x => { a[x.caminho] = x.texto; }); return a; },
+            /** PHP comum roda no navegador (PHP 8.4). Arquivos do Laravel (controllers, models, rotas…) só têm a sintaxe conferida. */
+            ehLaravel(f) { return /(\bnamespace\s+App\\|use\s+Illuminate\\|\bRoute::|\bSchema::|extends\s+(Model|Controller|Migration)\b)/.test(f.texto); },
+            async rodarPhp(f) {
+                if (!this.motorPronto()) return;
+                const n = ++token;
+                htmlId = null; this.saida = []; this.painel = 'saida';
+                if (!this.conferirAntes(f)) return;
+                if (this.ehLaravel(f)) return this.verificarPhp(f, n);
+                this.logar('info', 'Rodando PHP 8.4 no navegador…' + (this.motorUsado.php ? '' : ' (a primeira vez baixa o PHP, ~12 MB)'));
+                const t0 = performance.now();
+                let html = '';
+                const html_ = /<html|<body|<div|<p>|<h[1-6]/i.test(f.texto.replace(/<\?php[\s\S]*?(\?>|$)/g, ''));
+                await window.WFMotores.rodar({ acao: 'php', arqs: this.arquivosTexto(), html: html_, codigo: '<' + '?php chdir(' + JSON.stringify('/app/' + pai(f.caminho)) + '); error_reporting(E_ALL); ini_set("display_errors", "1"); require ' + JSON.stringify('/app/' + f.caminho) + ';' }, d => {
+                    if (n !== token) return;
+                    if (d.t === 'html') html = d.m || '';
+                    else this.logar(d.t, d.m, 'php');
+                });
+                this.motorUsado.php = true;
+                if (n !== token) return;
+                if (html_) { this.mostrarHtml(html, n); if (/(fatal error|parse error|warning:)/i.test(html)) this.logar('error', html.replace(/<[^>]+>/g, '').trim().slice(0, 600), 'php'); }
+                this.logar('info', '— fim · ' + Math.round(performance.now() - t0) + ' ms —');
+            },
+            /** Confere a sintaxe de todos os .php do projeto (token_get_all com TOKEN_PARSE acusa o erro e a linha). */
+            async verificarPhp(f, n) {
+                const phps = I.arquivos.filter(x => ['php', 'blade'].includes(lingua(x.caminho)) && lingua(x.caminho) === 'php');
+                this.logar('info', 'Arquivos do Laravel (controllers, models, rotas, migrations) precisam do framework para rodar. Conferindo a sintaxe de ' + phps.length + ' arquivo(s) PHP… Para ver uma página, abra uma view .blade.php e clique em ▶ Executar.');
+                const lista = JSON.stringify(phps.map(x => x.caminho));
+                const codigo = '<' + '?php foreach (json_decode(' + JSON.stringify(lista) + ', true) as $a) { try { token_get_all(file_get_contents("/app/" . $a), TOKEN_PARSE); echo "✓ $a\\n"; } catch (\\ParseError $e) { echo "✗ $a, linha " . $e->getLine() . ": " . $e->getMessage() . "\\n"; } }';
+                await window.WFMotores.rodar({ acao: 'php', arqs: this.arquivosTexto(), codigo }, d => {
+                    if (n !== token) return;
+                    String(d.m || '').split('\n').filter(Boolean).forEach(linha => this.logar(linha.startsWith('✗') ? 'error' : d.t, linha, 'php'));
+                });
+                this.motorUsado.php = true;
+            },
+            /** View Blade: converte as views do projeto para PHP e mostra a página com os dados de dados.json. */
+            async rodarBlade(f) {
+                if (!this.motorPronto()) return;
+                const n = ++token;
+                htmlId = f.id; this.saida = [];
+                this.conferirAntes(f);
+                const M = window.WFMotores, arqs = { '__preludio.php': M.PRELUDIO };
+                I.arquivos.filter(x => lingua(x.caminho) === 'blade').forEach(x => { arqs['__views/' + M.nomeView(x.caminho) + '.php'] = M.compilarBlade(x.texto); });
+                const dadosArq = I.arquivos.find(x => x.caminho === f.caminho.replace(/\.blade\.php$/i, '.json')) || I.arquivos.find(x => nomeDe(x.caminho) === 'dados.json');
+                let dados = '{}';
+                if (dadosArq) { try { JSON.parse(dadosArq.texto); dados = dadosArq.texto; } catch (e) { this.logar('error', nomeDe(dadosArq.caminho) + ' não é um JSON válido: ' + e.message); this.saida.push({ t: 'dica', m: 'No JSON, os nomes vão entre aspas duplas ("nome": "Ana") e não pode sobrar vírgula no último item.' }); } }
+                else this.logar('info', 'Dica: crie um arquivo dados.json com as variáveis da view (ex.: {"titulo": "Olá"}) para ver a página com dados.');
+                arqs['__dados.json'] = dados;
+                this.logar('info', 'Renderizando ' + f.caminho + ' com o PHP do navegador…' + (this.motorUsado.php ? '' : ' (a primeira vez baixa o PHP, ~12 MB)'));
+                const t0 = performance.now();
+                let html = '';
+                const codigo = '<' + '?php require "/app/__preludio.php"; $__d = json_decode(file_get_contents("/app/__dados.json"), true) ?: []; echo $__blade->incluir(' + JSON.stringify(M.nomeView(f.caminho)) + ', $__d);';
+                await M.rodar({ acao: 'php', arqs, codigo, html: true }, d => { if (n !== token) return; if (d.t === 'html') html = d.m || ''; else this.logar(d.t, d.m, 'blade'); });
+                this.motorUsado.php = true;
+                if (n !== token) return;
+                const erroNaPagina = /<b>(?:Fatal error|Parse error|Warning)<\/b>|(?:Fatal error|Parse error|Warning): /i.exec(html);
+                if (erroNaPagina) this.logar('error', html.slice(erroNaPagina.index).replace(/<[^>]+>/g, '').trim().slice(0, 600).replace(/\/app\/__views\/([\w.]+)\.php/g, 'view $1'), 'blade');
+                this.mostrarHtml(html, n);
+                this.logar('info', '— página pronta · ' + Math.round(performance.now() - t0) + ' ms —');
+            },
+            mostrarHtml(html, n) {
+                if (this.painel !== 'previa' && this.altPainel < 340) { this.altPainel = 340; this.gravarLayout(); }
+                this.srcdoc = (/^\s*<!doctype/i.test(html) ? '' : '<!doctype html><meta char' + 'set="utf-8">') + shim(n) + html;
+                this.painel = this.saida.some(x => x.t === 'error') ? 'saida' : 'previa';
+            },
+            /** SQL no navegador (SQLite). O banco fica guardado enquanto a página estiver aberta; veja as tabelas na aba Banco. */
+            async rodarSql(f) {
+                if (!this.motorPronto()) return;
+                const n = ++token;
+                htmlId = null; this.saida = []; this.painel = 'saida';
+                if (!this.conferirAntes(f)) return;
+                this.logar('info', 'Rodando no SQLite do navegador…' + (this.motorUsado.sql ? '' : ' (a primeira vez baixa o SQLite, ~1 MB)'));
+                const t0 = performance.now();
+                await window.WFMotores.rodar({ acao: 'sql', projeto: b.id, texto: f.texto }, d => this.receberSql(d, n));
+                this.motorUsado.sql = true;
+                if (n === token) this.logar('info', '— ' + Math.round(performance.now() - t0) + ' ms —');
+            },
+            receberSql(d, n) {
+                if (n !== undefined && n !== token) return;
+                if (d.t === 'tabela') this.saida.push({ t: 'tabela', m: d.titulo, colunas: d.colunas, linhas: d.linhas, total: d.total });
+                else if (d.t === 'esquema') this.banco.tabelas = d.tabelas || [];
+                else this.logar(d.t, d.m, 'sql');
+            },
+            async verTabela(nome) {
+                if (!this.motorPronto()) return;
+                this.banco.sel = nome; this.banco.dados = null;
+                await window.WFMotores.rodar({ acao: 'sqltabela', projeto: b.id, tabela: nome }, d => { if (d.t === 'tabela') this.banco.dados = d; else this.receberSql(d); });
+            },
+            async atualizarBanco() {
+                if (!this.motorPronto()) return;
+                await window.WFMotores.rodar({ acao: 'sqlesquema', projeto: b.id }, d => this.receberSql(d));
+            },
+            /** Apaga o banco e roda todos os .sql do projeto em ordem de nome (ex.: 01_tabelas.sql, 02_dados.sql). */
+            async recriarBanco() {
+                if (!this.motorPronto()) return;
+                const n = ++token;
+                this.saida = []; this.banco.sel = null; this.banco.dados = null;
+                await window.WFMotores.rodar({ acao: 'sqlreset', projeto: b.id }, d => this.receberSql(d, n));
+                const sqls = I.arquivos.filter(x => lingua(x.caminho) === 'sql').sort((a, c) => a.caminho.localeCompare(c.caminho));
+                for (const s of sqls) {
+                    this.logar('info', '▶ ' + s.caminho);
+                    await window.WFMotores.rodar({ acao: 'sql', projeto: b.id, texto: s.texto }, d => this.receberSql(d, n));
+                }
+                if (!sqls.length) this.logar('info', 'Nenhum arquivo .sql no projeto.');
+            },
+            temSql() { return I.arquivos.some(x => lingua(x.caminho) === 'sql'); },
+            /** Programa travado (laço infinito em Python/PHP): recria o motor. */
+            pararMotores() {
+                if (window.WFMotores) window.WFMotores.reiniciar();
+                this.motorUsado = {};
+                ++token;
+                this.srcdoc = '';
+                this.logar('info', 'Execução interrompida. Os motores serão carregados de novo na próxima execução.');
+            },
+            /** Arquivos prontos do Laravel: controller, model, migration, rota, view e layout. */
+            novoLaravel() {
+                const tipos = { 1: 'controller', 2: 'model', 3: 'migration', 4: 'rota', 5: 'view', 6: 'layout' };
+                const t = prompt('Que arquivo Laravel criar?\n1 Controller\n2 Model\n3 Migration (tabela)\n4 Rotas (routes/web.php)\n5 View Blade (com dados de exemplo)\n6 Layout Blade (layouts/app)', '5');
+                const tipo = tipos[String(t || '').trim()];
+                if (!tipo) return;
+                const nome = ['rota', 'layout'].includes(tipo) ? 'Post' : prompt('Nome (ex.: Post, Cliente, Produto):', 'Post');
+                if (!nome) return;
+                const novo = window.WFMotores ? window.WFMotores.laravel(tipo, nome) : null;
+                if (!novo) { this.aviso('Recarregue a página para usar os modelos do Laravel.'); return; }
+                const criar = (caminho, texto) => {
+                    const c = limpar(caminho);
+                    const ja = I.arquivos.find(x => x.caminho === c);
+                    if (ja) return ja;
+                    if (I.arquivos.length >= MAX_ARQ) return null;
+                    const f = { id: uid(), caminho: c, texto };
+                    I.arquivos.push(f);
+                    return f;
+                };
+                const f = criar(novo.caminho, novo.texto);
+                if (!f) { this.aviso('Limite de ' + MAX_ARQ + ' arquivos neste projeto.'); return; }
+                // a view de exemplo já vem com o layout e os dados para a prévia funcionar de primeira
+                if (tipo === 'view') {
+                    const l = window.WFMotores.laravel('layout');
+                    criar(l.caminho, l.texto);
+                    criar('dados.json', window.WFMotores.DADOS_EXEMPLO.replace(/posts/g, novo.caminho.split('/').slice(-2, -1)[0] || 'posts'));
+                }
+                this.fechadas = this.fechadas.filter(p => !f.caminho.startsWith(p + '/'));
+                this.abrir(f.id);
+                this.agendarAuto();
+                this.aviso(tipo === 'view' ? 'View criada com layout e dados.json. Clique em ▶ Executar para ver a página.' : 'Arquivo criado: ' + f.caminho);
             },
             executar() {
                 const f = this.arqAtivo(), e = f ? extDe(f.caminho) : '';
                 const pagina = this.paginaPara(f);
                 if (pagina) return this.rodarHtml(pagina);
-                // Python roda no navegador via Pyodide
+                // Python, PHP, SQL e views Blade rodam no navegador (public/js/ide-motores.js)
                 if (f && e === 'py') return this.rodarPy(f);
+                if (f && lingua(f.caminho) === 'blade') return this.rodarBlade(f);
+                if (f && e === 'php') return this.rodarPhp(f);
+                if (f && e === 'sql') return this.rodarSql(f);
                 // nenhum HTML usa este arquivo: JavaScript solto roda sozinho, só com o console
                 if (f && (e === 'js' || e === 'mjs')) return this.rodarJs(f);
                 // Java, PHP, C, Go…: executa no servidor Judge0
                 if (f && REMOTO[lingua(f.caminho)]) return this.rodarRemoto(f);
-                // Blade e afins não rodam isolados
+                // cabeçalhos .h e scripts de build não rodam isolados
                 if (f && NAO_RODA.has(lingua(f.caminho))) {
-                    this.aviso('Blade precisa do Laravel para rodar. Use "Baixar ZIP" ou "Abrir pasta" e rode no seu projeto.');
+                    this.aviso('Este tipo de arquivo não roda sozinho. Execute o arquivo principal do projeto.');
                     return;
                 }
                 // outros arquivos (css, md, json…): abre a página principal do projeto
@@ -1109,45 +1290,32 @@
                 const e = extDe(f.caminho);
                 if (ehHtml(f.caminho)) return this.rodarHtml(f);
                 if (e === 'py') return this.rodarPy(f);
+                if (lingua(f.caminho) === 'blade') return this.rodarBlade(f);
+                if (e === 'php') return this.rodarPhp(f);
+                if (e === 'sql') return this.rodarSql(f);
                 if (e === 'js' || e === 'mjs') return this.rodarJs(f);
                 if (REMOTO[lingua(f.caminho)]) return this.rodarRemoto(f);
                 this.executar();
             },
 
-            /** Python no navegador (Pyodide). Os arquivos do projeto ficam num sistema de arquivos virtual, então `import outro_modulo` funciona. */
-            rodarPy(f) {
+            /** Python no navegador (Pyodide). O motor fica carregado entre execuções: só a primeira baixa o Python.
+                Os arquivos do projeto ficam num sistema de arquivos virtual, então `import outro_modulo` funciona. */
+            async rodarPy(f) {
+                if (!this.motorPronto()) return;
                 const n = ++token;
-                htmlId = null;
-                this.saida = [];
-                const arqs = {};
-                I.arquivos.forEach(x => { arqs[x.caminho] = x.texto; });
-                const dados = JSON.stringify({ arqs, main: f.caminho }).replace(/</g, '\\u003c');
-                const boot = `(async()=>{
-const D=${dados};
-try{
-console.info('Carregando o Python (Pyodide)… na primeira vez demora alguns segundos.');
-const py=await loadPyodide();
-py.setStdout({batched:s=>console.log(s)});
-py.setStderr({batched:s=>console.error(s)});
-py.setStdin({stdin:()=>prompt('O programa pede uma entrada (input):')});
-const fs=py.FS;
-const dirs=p=>{const a=p.split('/');a.pop();let c='/home/pyodide';a.forEach(s=>{c+='/'+s;try{fs.mkdir(c)}catch(e){}})};
-for(const k in D.arqs){dirs(k);fs.writeFile('/home/pyodide/'+k,D.arqs[k])}
-await py.loadPackagesFromImports(D.arqs[D.main]);
-py.globals.set('_main','/home/pyodide/'+D.main);
-await py.runPythonAsync('import os,sys,runpy\\nd=os.path.dirname(_main)\\nos.chdir(d)\\nsys.path.insert(0,"/home/pyodide")\\nsys.path.insert(0,d)\\nrunpy.run_path(_main,run_name="__main__")');
-console.info('— fim da execução —');
-}catch(e){console.error(String(e&&e.message||e))}
-})();`;
-                this.srcdoc = '<!doctype html>' + shim(n)
-                    + '<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"><\/script>'
-                    + '<script>' + boot + '<\/script>';
-                this.painel = 'saida';
+                htmlId = null; this.saida = []; this.painel = 'saida';
+                if (!this.conferirAntes(f)) return;
+                this.logar('info', this.motorUsado.py ? 'Rodando Python…' : 'Carregando o Python (só na primeira vez demora alguns segundos)…');
+                const t0 = performance.now();
+                await window.WFMotores.rodar({ acao: 'py', arqs: this.arquivosTexto(), main: f.caminho }, d => { if (n === token) this.logar(d.t, d.m, 'py'); });
+                this.motorUsado.py = true;
+                if (n === token) this.logar('info', '— fim · ' + Math.round(performance.now() - t0) + ' ms —');
             },
             rodarJs(f) {
                 const n = ++token;
                 htmlId = null;
                 this.saida = [];
+                if (!this.conferirAntes(f)) { this.painel = 'saida'; return; }
                 this.srcdoc = '<!doctype html>' + shim(n) + '<script>' + f.texto.replace(/<\/script/gi, '<\\/script') + '<\/script>';
                 this.painel = 'saida';
             },
@@ -1364,6 +1532,21 @@ console.info('— fim da execução —');
     .wf-ide-log { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; border-bottom: 1px dashed var(--linha); padding: .1rem 0; }
     .wf-ide-log.l-error { color: #f87171; }
     .wf-ide-log.l-warn { color: #fbbf24; }
+    .wf-ide-log.l-info { color: var(--tinta-2); }
+    /* dica em português de por que o código deu erro (WFDicas) */
+    .wf-ide-log.l-dica { color: var(--tinta); background: color-mix(in srgb, var(--prim) 12%, transparent); border: 1px solid var(--prim-linha); border-radius: .35rem; padding: .3rem .5rem; margin: .2rem 0; font-family: system-ui, sans-serif; font-size: 12.5px; }
+    /* resultado de SELECT e tabelas do banco */
+    .wf-ide-tab { margin: .3rem 0; border: 1px solid var(--linha); border-radius: .35rem; overflow: hidden; }
+    .wf-ide-tab .cab { padding: .2rem .5rem; background: var(--superficie-2); color: var(--tinta-2); font-size: 11px; border-bottom: 1px solid var(--linha); }
+    .wf-ide-tab .rolar { max-height: 16rem; overflow: auto; }
+    .wf-ide-tab table { border-collapse: collapse; width: max-content; min-width: 100%; }
+    .wf-ide-tab th, .wf-ide-tab td { border: 1px solid var(--linha); padding: .15rem .5rem; text-align: left; white-space: nowrap; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
+    .wf-ide-tab th { position: sticky; top: 0; background: var(--superficie-2); font-weight: 600; }
+    .wf-ide-tab td.nulo { color: var(--tinta-2); font-style: italic; }
+    .wf-ide-banco .lista { display: flex; flex-direction: column; gap: .25rem; }
+    .wf-ide-banco .item { text-align: left; padding: .3rem .5rem; border: 1px solid var(--linha); border-radius: .35rem; background: var(--superficie-2); }
+    .wf-ide-banco .item.sel { border-color: var(--prim); }
+    .wf-ide-banco .item .cols { display: block; font-size: 11px; color: var(--tinta-2); white-space: normal; }
     .wf-ide-frame { flex: 1 1 0; min-height: 0; width: 100%; border: 0; background: #fff; }
     .wf-ide-status { display: flex; flex-wrap: wrap; gap: .3rem 1rem; font-size: .7rem; color: var(--tinta-2); }
     @media (max-width: 899px) {
@@ -1972,6 +2155,7 @@ console.info('— fim da execução —');
                                     <button type="button" class="btn-sec" @click="alternarBarra()" :aria-expanded="b.dados.ide.layout?.barra ?? true" title="Mostrar ou ocultar as opções">☰ Opções</button>
                                     <span class="contents" x-show="b.dados.ide.layout?.barra ?? true">
                                         <button type="button" class="btn-sec" @click="novoArquivo()" title="Novo arquivo (ex.: pagina.blade.php, Main.java)">+ Arquivo</button>
+                                        <button type="button" class="btn-sec" @click="novoLaravel()" title="Controller, model, migration, rotas, view Blade ou layout prontos">+ Laravel</button>
                                         <button type="button" class="btn-sec" @click="novaPasta()" title="Nova pasta">+ Pasta</button>
                                         <label class="btn-sec" title="Enviar arquivos de texto do computador">Enviar
                                             <input type="file" multiple class="hidden" @change="enviar($event.target.files); $event.target.value = ''">
@@ -1984,7 +2168,8 @@ console.info('— fim da execução —');
                                         <button type="button" class="btn-sec" x-show="suporteDisco" @click="abrirPasta()" title="Abrir uma pasta do computador (Chrome/Edge)">Abrir pasta</button>
                                         <button type="button" class="btn-sec" x-show="disco" x-cloak @click="salvarDisco()" :title="'Gravar tudo em ' + disco">Salvar na pasta</button>
                                         <span class="sep"></span>
-                                        <button type="button" class="btn-sec" x-show="podeExecutar()" @click="executar()" title="Executar o arquivo aberto: .js, .py, .html (prévia) ou Java, PHP, C, Go… no servidor (Ctrl+Enter)">▶ Executar</button>
+                                        <button type="button" class="btn-sec" x-show="podeExecutar()" @click="executar()" title="Executar o arquivo aberto (Ctrl+Enter): .js, .py, .php, .sql e views .blade.php rodam no navegador; Java, C, Go… no servidor">▶ Executar</button>
+                                        <button type="button" class="btn-sec" x-show="Object.keys(motorUsado).length" x-cloak @click="pararMotores()" title="Interrompe um programa travado (laço infinito) e recarrega os motores">■ Parar</button>
                                         <button type="button" class="btn-sec" @click="abrirBusca()" title="Buscar e substituir (Ctrl+F)">Buscar</button>
                                         <button type="button" class="btn-sec" @click="abrirPaleta('arq')" title="Abrir arquivo pelo nome (Ctrl+P)">Ir p/ arquivo</button>
                                         <button type="button" class="btn-sec" x-show="arqAtivo()" @click="abrirPaleta('linha')" title="Ir para a linha (Ctrl+G)">Ir p/ linha</button>
@@ -2075,6 +2260,7 @@ console.info('— fim da execução —');
                                             <div class="wf-ide-painel-topo">
                                                 <span class="t" :class="{ 'ativo': painel === 'saida' }" @click="painel = 'saida'">Console</span>
                                                 <span class="t" :class="{ 'ativo': painel === 'previa' }" @click="painel = 'previa'">Prévia</span>
+                                                <span class="t" x-show="temSql()" :class="{ 'ativo': painel === 'banco' }" @click="painel = 'banco'; atualizarBanco()">Banco</span>
                                                 <span style="flex:1"></span>
                                                 <button type="button" class="link-prim" x-show="painel === 'previa'" @click="telaCheiaPrevia()" title="Prévia em tela cheia">Tela cheia</button>
                                                 <button type="button" class="link-prim" @click="limparSaida()">Limpar</button>
@@ -2083,7 +2269,45 @@ console.info('— fim da execução —');
                                             <div class="wf-ide-saida" x-show="painel === 'saida'">
                                                 <p class="texto-2" x-show="!saida.length">Sem saída. Use console.log() (JS), print() (Python), System.out.println() (Java), echo (PHP)…</p>
                                                 <template x-for="(l, i) in saida" :key="i">
-                                                    <div class="wf-ide-log" :class="'l-' + l.t" x-text="l.m"></div>
+                                                    <div>
+                                                        <template x-if="l.t !== 'tabela'">
+                                                            <div class="wf-ide-log" :class="'l-' + l.t"><span x-show="l.t === 'dica'" aria-hidden="true">💡 </span><span x-text="l.m"></span></div>
+                                                        </template>
+                                                        <template x-if="l.t === 'tabela'">
+                                                            <div class="wf-ide-tab">
+                                                                <div class="cab" x-text="l.m + ' · ' + l.total + (l.total === 1 ? ' linha' : ' linhas') + (l.total > l.linhas.length ? ' (mostrando ' + l.linhas.length + ')' : '')"></div>
+                                                                <div class="rolar"><table>
+                                                                    <thead><tr><template x-for="c in l.colunas" :key="c"><th x-text="c"></th></template></tr></thead>
+                                                                    <tbody><template x-for="(r, k) in l.linhas" :key="k"><tr><template x-for="(v, j) in r" :key="j"><td :class="{ nulo: v === null }" x-text="v === null ? 'NULL' : v"></td></template></tr></template></tbody>
+                                                                </table></div>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <div class="wf-ide-saida wf-ide-banco" x-show="painel === 'banco'">
+                                                <div class="flex items-center gap-2 mb-2">
+                                                    <b>Tabelas do banco (SQLite do navegador)</b>
+                                                    <span style="flex:1"></span>
+                                                    <button type="button" class="link-prim" @click="recriarBanco()" title="Apaga o banco e roda todos os .sql do projeto em ordem de nome">Recriar banco</button>
+                                                </div>
+                                                <p class="texto-2" x-show="!banco.tabelas.length">Nenhuma tabela ainda. Rode um .sql com CREATE TABLE (▶ Executar).</p>
+                                                <div class="lista">
+                                                    <template x-for="t in banco.tabelas" :key="t.nome">
+                                                        <button type="button" class="item" :class="{ sel: banco.sel === t.nome }" @click="verTabela(t.nome)">
+                                                            <b x-text="t.nome"></b> <span class="texto-2" x-text="t.total + (t.total === 1 ? ' linha' : ' linhas')"></span>
+                                                            <span class="cols" x-text="t.colunas.join(' · ')"></span>
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                                <template x-if="banco.dados">
+                                                    <div class="wf-ide-tab mt-2">
+                                                        <div class="cab" x-text="banco.dados.titulo + ' · primeiras ' + banco.dados.linhas.length + ' linhas'"></div>
+                                                        <div class="rolar"><table>
+                                                            <thead><tr><template x-for="c in banco.dados.colunas" :key="c"><th x-text="c"></th></template></tr></thead>
+                                                            <tbody><template x-for="(r, k) in banco.dados.linhas" :key="k"><tr><template x-for="(v, j) in r" :key="j"><td :class="{ nulo: v === null }" x-text="v === null ? 'NULL' : v"></td></template></tr></template></tbody>
+                                                        </table></div>
+                                                    </div>
                                                 </template>
                                             </div>
                                             <iframe class="wf-ide-frame" x-ref="frame" x-show="painel === 'previa'" title="Prévia do projeto"
