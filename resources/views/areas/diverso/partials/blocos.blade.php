@@ -1547,6 +1547,10 @@ console.info('— fim da execução —');
                 <template x-if="b.tipo === 'editorvid'">
                     @include('partials.editor-video-cartao')
                 </template>
+                {{-- Conversa com o Claude, que muda os cartões pedindo permissão (partials/claude-cartao; js/claude.js) --}}
+                <template x-if="b.tipo === 'claude'">
+                    @include('partials.claude-cartao')
+                </template>
 
                 <template x-if="b.tipo === 'texto'">
                     <div class="wf-es" x-data="WFEscrita(b)" x-init="iniciar()"

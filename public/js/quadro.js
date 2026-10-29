@@ -91,6 +91,47 @@
         }
         return editorVideoCarregando;
     }
+    let claudeCarregando = null;
+    function carregarClaude() {
+        if (window.WFClaude) return Promise.resolve();
+        if (!claudeCarregando) {
+            claudeCarregando = new Promise((ok, falha) => {
+                const s = document.createElement('script');
+                s.src = BASE_JS + 'claude.js' + (VERSAO_JS ? '?v=' + VERSAO_JS : '');
+                s.onload = () => ok(); s.onerror = () => { claudeCarregando = null; falha(new Error('claude')); };
+                document.head.appendChild(s);
+            });
+        }
+        return claudeCarregando;
+    }
+    // ferramentas que o Claude pode usar no cartão "Claude" (as que mudam algo pedem permissão antes)
+    const CLAUDE_MODELOS = [['claude-opus-5-5', 'Claude Opus 5.5 (mais capaz)'], ['claude-sonnet-5-5', 'Claude Sonnet 5.5 (equilibrado)'], ['claude-haiku-5-5', 'Claude Haiku 5.5 (mais barato)']];
+    const CLAUDE_SO_LEITURA = ['ler_pagina', 'ler_cartao', 'ir_para_aba'];
+    const ITENS_SCHEMA = { type: 'array', description: 'Itens da lista, em ordem.', items: { type: 'object', properties: { texto: { type: 'string' }, feito: { type: 'boolean' } }, required: ['texto'] } };
+    const CLAUDE_FERRAMENTAS = [
+        { name: 'ler_pagina', description: 'Lista as abas desta página e os cartões de cada aba (id, tipo, título e um resumo). Use antes de criar, editar ou excluir.', input_schema: { type: 'object', properties: {} } },
+        { name: 'ler_cartao', description: 'Mostra o conteúdo completo de um cartão: texto, itens da lista, cabeçalho e linhas da tabela, ou as legendas de um vídeo.', input_schema: { type: 'object', properties: { id: { type: 'string', description: 'id do cartão (de ler_pagina)' } }, required: ['id'] } },
+        { name: 'ir_para_aba', description: 'Abre uma aba desta página na tela do usuário.', input_schema: { type: 'object', properties: { aba: { type: 'string', description: 'id da aba' } }, required: ['aba'] } },
+        { name: 'criar_cartao', description: 'Cria um cartão de texto, lista ou tabela. O usuário precisa permitir.', input_schema: { type: 'object', properties: {
+            tipo: { type: 'string', enum: ['texto', 'lista', 'tabela'] },
+            titulo: { type: 'string' },
+            aba: { type: 'string', description: 'id da aba; sem ele, a aba aberta' },
+            texto: { type: 'string', description: 'conteúdo do cartão de texto' },
+            itens: ITENS_SCHEMA,
+            cabecalho: { type: 'array', items: { type: 'string' }, description: 'nomes das colunas da tabela' },
+            linhas: { type: 'array', items: { type: 'array', items: { type: 'string' } }, description: 'linhas da tabela, cada uma com um valor por coluna' },
+        }, required: ['tipo', 'titulo'] } },
+        { name: 'editar_cartao', description: 'Muda um cartão existente. Só os campos enviados mudam; itens, cabecalho, linhas e legendas substituem o que havia. Para vídeos, só título e legendas. O usuário precisa permitir.', input_schema: { type: 'object', properties: {
+            id: { type: 'string' },
+            titulo: { type: 'string' },
+            texto: { type: 'string' },
+            itens: ITENS_SCHEMA,
+            cabecalho: { type: 'array', items: { type: 'string' } },
+            linhas: { type: 'array', items: { type: 'array', items: { type: 'string' } } },
+            legendas: { type: 'array', description: 'textos do vídeo (cartão Editor de vídeo)', items: { type: 'object', properties: { texto: { type: 'string' }, inicio: { type: 'number', description: 'segundos' }, duracao: { type: 'number', description: 'segundos' } }, required: ['texto', 'inicio', 'duracao'] } },
+        }, required: ['id'] } },
+        { name: 'excluir_cartao', description: 'Exclui um cartão (ele vai para o histórico de itens excluídos e pode ser restaurado). O usuário precisa permitir.', input_schema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
+    ];
 
     const SEG = /^[A-Za-z0-9._-]{1,60}$/;
     const EMBED = (() => {
@@ -466,6 +507,8 @@
             pasta: {}, sel: [], atual: null, alvoPasta: null,
             // workflow compartilhado: abas com mudanças de outra pessoa que ainda não foram vistas (bolinha no botão)
             novidades: {},
+            // cartão "Claude": estado da tela de cada cartão (o que se digita, aguardando, permissão pendente)
+            claudeUI: {}, claudeTemChave: false,
         };
     }
 
@@ -1056,6 +1099,10 @@
                 if (Array.isArray(this.tiposBloco) && !this.tiposBloco.some(t => t.id === 'editorvid')) {
                     this.tiposBloco.push({ id: 'editorvid', nome: 'Editor de vídeo' });
                 }
+                // conversa com o Claude, que mexe nos cartões desta página (com a chave de API de cada pessoa)
+                if (Array.isArray(this.tiposBloco) && !this.tiposBloco.some(t => t.id === 'claude')) {
+                    this.tiposBloco.push({ id: 'claude', nome: 'Claude' });
+                }
                 if (Array.isArray(this.tiposBloco)) window.WFQuadro.tipos = [...this.tiposBloco.map(t => t.id), 'vivo'];
                 // cada página cria e cola blocos do seu jeito; aqui só se ajusta o resultado
                 const dentroDaPasta = fn => (...args) => {
@@ -1082,6 +1129,7 @@
                     this.novoBloco = dentroDaPasta((sec, tipo, ...resto) => (tipo === 'pasta' ? this.novaPasta(sec)
                         : tipo === 'editorimg' ? this.novoEditorImagem(sec)
                         : tipo === 'editorvid' ? this.novoEditorVideo(sec)
+                        : tipo === 'claude' ? this.novoClaude(sec)
                         : novo.call(this, sec, tipo, ...resto)));
                 }
                 if (typeof colar === 'function') {
@@ -1501,6 +1549,211 @@
                 if (!b) return;
                 try { await carregarEditorVideo(); } catch { this.aviso('Não consegui carregar o player. Verifique a conexão.'); return; }
                 window.WFEditorVideo.assistir({ blocoId: b.id, titulo: b.titulo });
+            },
+
+            /* ---------- cartão Claude (js/claude.js) ----------
+               O Claude lê os cartões da página e propõe mudanças; cada mudança espera o "Permitir" do usuário
+               (ou "permitir as próximas" nesta conversa). A conversa visível fica em dados.chat. */
+            novoClaude(sec) {
+                sec = sec || this.aba;
+                if (!sec) return null;
+                const id = 'b' + uid();
+                const aberta = this.pastaAberta(sec);
+                const { x0 } = this.areaUtil();
+                const bloco = { id, secao: sec, tipo: 'claude', titulo: 'Claude', links: [], dados: { modelo: CLAUDE_MODELOS[0][0], chat: [] } };
+                if (aberta) bloco.pasta = aberta;
+                this.estado.blocos.push(bloco);
+                if (!this.estado.layout[sec]) this.estado.layout[sec] = {};
+                this.estado.layout[sec][id] = { x: snap(x0), y: this.fimDaVista(sec, aberta), w: 420, h: 480, z: ++this.zTop };
+                this.menuBloco = false;
+                this.aviso('Cartão do Claude adicionado. Cole a sua chave da API da Anthropic para começar.');
+                return id;
+            },
+            claudeModelos() { return CLAUDE_MODELOS; },
+            claude(b) {
+                if (!this.claudeUI[b.id]) {
+                    this.claudeUI[b.id] = { entrada: '', ocupado: false, erro: '', pendente: null, tudo: false, tokens: 0, chave: '' };
+                    try { this.claudeTemChave = !!localStorage.getItem('wf-claude-chave'); } catch { /* sem armazenamento */ }
+                }
+                return this.claudeUI[b.id];
+            },
+            claudeGuardarChave(b) {
+                const ui = this.claude(b), v = ui.chave.trim();
+                if (!/^sk-ant-/.test(v)) { ui.erro = 'A chave da Anthropic começa com “sk-ant-”. Copie de console.anthropic.com → API Keys.'; return; }
+                try { localStorage.setItem('wf-claude-chave', v); } catch { ui.erro = 'Este navegador não deixou guardar a chave.'; return; }
+                ui.chave = ''; ui.erro = ''; this.claudeTemChave = true;
+            },
+            claudeEsquecerChave() {
+                if (!confirm('Tirar a sua chave da API deste navegador? Os cartões do Claude param de responder aqui até você colar a chave de novo.')) return;
+                try { localStorage.removeItem('wf-claude-chave'); } catch { /* sem armazenamento */ }
+                this.claudeTemChave = false;
+            },
+            claudeLimpar(b) {
+                if (!confirm('Apagar esta conversa?')) return;
+                b.dados.chat = [];
+                if (this._claudeHist) delete this._claudeHist[b.id];
+            },
+            claudeFala(b, q, t) {
+                if (!Array.isArray(b.dados.chat)) b.dados.chat = [];
+                b.dados.chat.push({ q, t: String(t).slice(0, 6000) });
+                if (b.dados.chat.length > 80) b.dados.chat.splice(0, b.dados.chat.length - 80);
+                this.$nextTick(() => { const el = document.querySelector(`[data-claude-rolar="${b.id}"]`); if (el) el.scrollTop = el.scrollHeight; });
+            },
+            /** Abas da página com nome (cada área guarda as abas de um jeito). */
+            claudeAbas() {
+                const lista = Array.isArray(this.abas) ? this.abas : (this.estado && Array.isArray(this.estado.abas) ? this.estado.abas : []);
+                return lista.map(a => (typeof a === 'string' ? { id: a, nome: a } : { id: a.id, nome: a.nome || a.id }));
+            },
+            claudeResumo(b) {
+                const d = b.dados || {};
+                if (b.tipo === 'texto') return String(d.texto || '').slice(0, 160);
+                if (b.tipo === 'lista') return `${(d.itens || []).length} itens: ` + (d.itens || []).slice(0, 5).map(i => i.t).join('; ');
+                if (b.tipo === 'tabela') return `colunas: ${(d.cab || []).join(', ')} · ${(d.linhas || []).length} linhas`;
+                if (b.tipo === 'editorvid') return `vídeo · ${(d.projeto?.textos || []).length} legendas`;
+                return '';
+            },
+            claudeDescrever(nome, e) {
+                const b = e.id ? this.blocoPorId(e.id) : null;
+                const nomeAba = s => this.claudeAbas().find(a => a.id === s)?.nome || s;
+                const tipos = { texto: 'texto', lista: 'lista', tabela: 'tabela' };
+                if (nome === 'criar_cartao') {
+                    const extra = e.tipo === 'lista' ? ` com ${(e.itens || []).length} itens` : e.tipo === 'tabela' ? ` (${(e.cabecalho || []).length} colunas, ${(e.linhas || []).length} linhas)` : '';
+                    return `Criar ${tipos[e.tipo] || 'cartão'} “${e.titulo}” na aba ${nomeAba(e.aba || this.aba)}${extra}`;
+                }
+                if (nome === 'editar_cartao') {
+                    const campos = ['titulo', 'texto', 'itens', 'cabecalho', 'linhas', 'legendas'].filter(k => e[k] !== undefined)
+                        .map(k => ({ titulo: 'título', cabecalho: 'colunas', legendas: 'legendas do vídeo' }[k] || k));
+                    return `Mudar “${b?.titulo || e.id}”: ${campos.join(', ') || 'nada'}`;
+                }
+                if (nome === 'excluir_cartao') return `Excluir “${b?.titulo || e.id}” (vai para o histórico)`;
+                return nome;
+            },
+            /** Faz o que o Claude pediu. Mudanças só chegam aqui depois da permissão. */
+            claudeExecutar(b, nome, e) {
+                const txt = v => (typeof v === 'string' ? v : '');
+                const alvo = id => {
+                    const x = id && this.blocoPorId(id);
+                    if (!x) throw new Error('Não há cartão com o id ' + id + ' nesta página. Use ler_pagina.');
+                    if (x.tipo === 'claude') throw new Error('O cartão do Claude não pode ser mudado por ele mesmo.');
+                    return x;
+                };
+                const itens = l => (Array.isArray(l) ? l : []).slice(0, 300).map(i => ({ id: uid(), t: txt(i && i.texto).slice(0, 2000), f: !!(i && i.feito) }));
+                const linhasDe = (l, n) => (Array.isArray(l) ? l : []).slice(0, 500).map(r => { const a = (Array.isArray(r) ? r : []).map(c => String(c ?? '').slice(0, 1000)); while (a.length < n) a.push(''); return a.slice(0, n); });
+                switch (nome) {
+                    case 'ler_pagina': {
+                        const abas = this.claudeAbas();
+                        return { aba_aberta: this.aba, abas: abas.map(a => ({ ...a, cartoes: this.estado.blocos.filter(x => x.secao === a.id).slice(0, 80).map(x => ({ id: x.id, tipo: x.tipo, titulo: x.titulo, resumo: this.claudeResumo(x) })) })) };
+                    }
+                    case 'ler_cartao': {
+                        const x = alvo(e.id), d = x.dados || {};
+                        const base = { id: x.id, tipo: x.tipo, titulo: x.titulo, aba: x.secao };
+                        if (x.tipo === 'texto') return { ...base, texto: d.texto || '' };
+                        if (x.tipo === 'lista') return { ...base, itens: (d.itens || []).map(i => ({ texto: i.t, feito: !!i.f })) };
+                        if (x.tipo === 'tabela') return { ...base, cabecalho: d.cab || [], linhas: d.linhas || [] };
+                        if (x.tipo === 'editorvid') return { ...base, duracao: d.dur || 0, legendas: (d.projeto?.textos || []).map(t => ({ texto: t.texto, inicio: t.inicio, duracao: t.dur })) };
+                        return { ...base, aviso: 'Este tipo de cartão só pode ter o título mudado pelo Claude.' };
+                    }
+                    case 'ir_para_aba': {
+                        if (!this.claudeAbas().some(a => a.id === e.aba)) throw new Error('Aba não encontrada: ' + e.aba);
+                        this.aba = e.aba;
+                        return 'Aba aberta.';
+                    }
+                    case 'criar_cartao': {
+                        if (!['texto', 'lista', 'tabela'].includes(e.tipo)) throw new Error('Tipo inválido: use texto, lista ou tabela.');
+                        const sec = e.aba && this.claudeAbas().some(a => a.id === e.aba) ? e.aba : this.aba;
+                        const antes = new Set(this.estado.blocos.map(x => x.id));
+                        this.novoBloco(sec, e.tipo);
+                        const x = this.estado.blocos.find(n => !antes.has(n.id));
+                        if (!x) throw new Error('Não consegui criar o cartão nesta página.');
+                        x.titulo = txt(e.titulo).slice(0, 120) || x.titulo;
+                        if (e.tipo === 'texto') x.dados.texto = txt(e.texto).slice(0, 20000);
+                        if (e.tipo === 'lista') x.dados.itens = itens(e.itens);
+                        if (e.tipo === 'tabela') {
+                            const cab = (Array.isArray(e.cabecalho) && e.cabecalho.length ? e.cabecalho : ['Item', 'Valor']).slice(0, 20).map(c => String(c).slice(0, 200));
+                            x.dados.cab = cab; x.dados.linhas = linhasDe(e.linhas, cab.length);
+                            if (!x.dados.linhas.length) x.dados.linhas = [cab.map(() => '')];
+                        }
+                        if (sec !== this.aba) this.novidades[sec] = true;
+                        return { criado: x.id, aba: sec };
+                    }
+                    case 'editar_cartao': {
+                        const x = alvo(e.id), d = x.dados || (x.dados = {});
+                        if (typeof e.titulo === 'string') x.titulo = e.titulo.slice(0, 120);
+                        if (x.tipo === 'texto' && typeof e.texto === 'string') d.texto = e.texto.slice(0, 20000);
+                        if (x.tipo === 'lista' && e.itens !== undefined) d.itens = itens(e.itens);
+                        if (x.tipo === 'tabela') {
+                            if (Array.isArray(e.cabecalho) && e.cabecalho.length) d.cab = e.cabecalho.slice(0, 20).map(c => String(c).slice(0, 200));
+                            if (e.linhas !== undefined) d.linhas = linhasDe(e.linhas, (d.cab || []).length);
+                            else if (Array.isArray(e.cabecalho)) d.linhas = linhasDe(d.linhas, d.cab.length);
+                        }
+                        if (x.tipo === 'editorvid' && Array.isArray(e.legendas)) {
+                            d.projeto = d.projeto || { v: 1, proporcao: '16:9', altura: 720, fundo: '#000000', midias: {}, videos: [], textos: [], audios: [] };
+                            d.projeto.textos = e.legendas.slice(0, 100).map(l => ({
+                                id: 't' + uid(), texto: txt(l.texto).slice(0, 500), inicio: Math.max(0, Number(l.inicio) || 0), dur: Math.max(0.2, Number(l.duracao) || 2),
+                                tam: 48, cor: '#ffffff', fundo: '', negrito: true, x: 50, y: 85, fade: 0.3,
+                            }));
+                        }
+                        return 'Cartão atualizado.';
+                    }
+                    case 'excluir_cartao': {
+                        const x = alvo(e.id);
+                        const original = window.confirm;
+                        window.confirm = () => true; // a permissão já foi dada no cartão do Claude
+                        try { this.removerBloco(x); } finally { window.confirm = original; }
+                        return 'Cartão excluído (está no histórico).';
+                    }
+                }
+                throw new Error('Ferramenta desconhecida: ' + nome);
+            },
+            claudePermitir(b, sim) {
+                const ui = this.claude(b), p = ui.pendente;
+                if (!p) return;
+                ui.pendente = null;
+                p.responder(sim);
+            },
+            async claudeEnviar(b) {
+                const ui = this.claude(b), texto = ui.entrada.trim();
+                if (!texto || ui.ocupado) return;
+                let chave = '';
+                try { chave = localStorage.getItem('wf-claude-chave') || ''; } catch { /* sem armazenamento */ }
+                if (!chave) { this.claudeTemChave = false; return; }
+                try { await carregarClaude(); } catch { ui.erro = 'Não consegui carregar o Claude. Verifique a conexão.'; return; }
+                this._claudeHist = this._claudeHist || {};
+                const hist = this._claudeHist[b.id] = this._claudeHist[b.id] || [];
+                ui.entrada = ''; ui.erro = ''; ui.ocupado = true;
+                this.claudeFala(b, 'eu', texto);
+                hist.push({ role: 'user', content: texto });
+                const nomePagina = (document.title || '').replace(/^Work Flower\s*·\s*/, '') || 'Work Flower';
+                const sistema = `Você é o Claude dentro do Work Flower, um organizador de vida com quadros de cartões. Está na página "${nomePagina}".
+Você pode ler os cartões desta página e criar, mudar ou excluir cartões de texto, lista e tabela, e as legendas de vídeos. Cada mudança mostra um pedido de permissão ao usuário; se ele recusar, aceite e pergunte o que prefere.
+Antes de mudar algo, use ler_pagina (e ler_cartao quando precisar do conteúdo). Faça só o que foi pedido. Responda em português do Brasil, curto e direto, e diga em uma frase o que mudou.`;
+                try {
+                    const r = await window.WFClaude.conversar({
+                        chave, modelo: b.dados.modelo || CLAUDE_MODELOS[0][0], sistema, ferramentas: CLAUDE_FERRAMENTAS, historico: hist,
+                        aoTexto: t => this.claudeFala(b, 'claude', t),
+                        aoUso: u => { ui.tokens += (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0); },
+                        executar: async u => {
+                            const e = u.input && typeof u.input === 'object' ? u.input : {};
+                            if (!CLAUDE_SO_LEITURA.includes(u.name) && !ui.tudo) {
+                                const desc = this.claudeDescrever(u.name, e);
+                                const sim = await new Promise(responder => { ui.pendente = { desc, responder }; });
+                                if (!sim) { this.claudeFala(b, 'acao', '✕ Recusado: ' + desc); return { erro: 'O usuário recusou esta mudança.' }; }
+                                this.claudeFala(b, 'acao', '✓ ' + desc);
+                            } else if (!CLAUDE_SO_LEITURA.includes(u.name)) {
+                                this.claudeFala(b, 'acao', '✓ ' + this.claudeDescrever(u.name, e));
+                            }
+                            try { return { conteudo: this.claudeExecutar(b, u.name, e) }; } catch (err) { return { erro: err.message }; }
+                        },
+                    });
+                    if (r.fim === 'recusa') this.claudeFala(b, 'erro', 'O Claude não pôde responder a este pedido.');
+                    if (r.fim === 'limite') this.claudeFala(b, 'erro', 'A resposta ficou longa demais e foi cortada.');
+                    if (r.fim === 'voltas') this.claudeFala(b, 'erro', 'Parei depois de muitas ações seguidas. Peça para continuar se quiser.');
+                } catch (err) {
+                    ui.erro = (err && err.msg) || 'Não consegui falar com o Claude.';
+                    if (err && err.chave) this.claudeTemChave = false;
+                    // a pergunta que falhou sai do histórico para não ficar sem resposta
+                    while (hist.length && hist[hist.length - 1].role === 'user' && typeof hist[hist.length - 1].content === 'string') hist.pop();
+                } finally { ui.ocupado = false; ui.pendente = null; }
             },
 
             /* ---------- teclas de atalho (as teclas são definidas na aba Atalhos das configurações) ---------- */
