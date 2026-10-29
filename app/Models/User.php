@@ -23,8 +23,9 @@ class User extends Authenticatable
 
     protected $casts = ['email_verified_at' => 'datetime'];
 
-    // Contas que veem o vídeo curto de divulgação (/video-curto), feito para baixar e postar
-    public const VIDEO_CURTO = ['xexplosion20@gmail.com'];
+    // Contas que veem o vídeo curto de divulgação (/video-curto), feito para baixar e postar.
+    // Vazia: o vídeo já foi baixado e saiu de todas as contas (para reabrir, ponha o e-mail aqui).
+    public const VIDEO_CURTO = [];
 
     public function veVideoCurto(): bool
     {

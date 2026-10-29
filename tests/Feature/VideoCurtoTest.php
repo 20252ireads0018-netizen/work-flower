@@ -10,20 +10,12 @@ class VideoCurtoTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_a_conta_liberada_ve_o_video_e_o_atalho_no_painel(): void
+    public function test_o_video_saiu_de_todas_as_contas(): void
     {
-        $dono = User::factory()->create(['email' => 'XExplosion20@gmail.com']);
+        $dono = User::factory()->create(['email' => 'xexplosion20@gmail.com']);
 
-        $this->actingAs($dono)->get('/video-curto')->assertOk()->assertSee('Baixar MP4');
-        $this->actingAs($dono)->get('/painel')->assertOk()->assertSee('Vídeo curto de divulgação');
-    }
-
-    public function test_outras_contas_nao_veem_o_video(): void
-    {
-        $outro = User::factory()->create(['email' => 'outra@exemplo.com']);
-
-        $this->actingAs($outro)->get('/video-curto')->assertNotFound();
-        $this->actingAs($outro)->get('/painel')->assertOk()->assertDontSee('Vídeo curto de divulgação');
+        $this->actingAs($dono)->get('/video-curto')->assertNotFound();
+        $this->actingAs($dono)->get('/painel')->assertOk()->assertDontSee('Vídeo curto de divulgação');
     }
 
     public function test_visitante_vai_para_o_login(): void
