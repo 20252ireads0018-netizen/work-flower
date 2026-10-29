@@ -114,4 +114,10 @@ class CompartilharController extends Controller
 
         return response()->json(Sincronia::mudancas($area, $dono, (string) $request->query('versao', ''), $request->query('desde')));
     }
+
+    /** GET /sincronia: o que outras pessoas mudaram nos workflows compartilhados (aviso em qualquer página). */
+    public function novidades(Request $request): JsonResponse
+    {
+        return response()->json(['agora' => (int) floor(microtime(true) * 1000), 'novidades' => Sincronia::novidades($request->user())]);
+    }
 }

@@ -308,6 +308,12 @@
       <script src="{{ asset('js/planos.js') }}?v={{ @filemtime(public_path('js/planos.js')) }}"></script>
       <script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
       @if ($wfArea)<script src="{{ asset('js/compartilhar.js') }}?v={{ @filemtime(public_path('js/compartilhar.js')) }}"></script>@endif
+      @auth
+        {{-- aviso discreto quando outra pessoa muda um workflow compartilhado em outra página (js/novidades.js) --}}
+        <meta name="wf-novidades-url" content="{{ route('sincronia.novidades') }}">
+        <meta name="wf-eu" content="{{ auth()->id() }}">
+        <script src="{{ asset('js/novidades.js') }}?v={{ @filemtime(public_path('js/novidades.js')) }}" defer></script>
+      @endauth
     @include('partials.workflows-transfer')
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
@@ -634,6 +640,14 @@
             background: var(--prim); border-color: var(--prim); color: var(--on-prim);
             box-shadow: 0 0 0 4px color-mix(in srgb, var(--prim) 25%, transparent);
         }
+        /* aba com mudança de outra pessoa do workflow que ainda não foi vista (quadro.js, novidades) */
+        .circ.wf-novo .circ-bola { position: relative; border-color: var(--prim-linha); }
+        .circ.wf-novo .circ-bola::after {
+            content: ''; position: absolute; top: 1px; right: 1px; width: .7rem; height: .7rem; border-radius: 9999px;
+            background: var(--prim); border: 2px solid var(--papel); animation: wf-novo-pulso 2s ease-in-out 3;
+        }
+        @keyframes wf-novo-pulso { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--prim) 30%, transparent); } }
+        @media (prefers-reduced-motion: reduce) { .circ.wf-novo .circ-bola::after { animation: none; } }
         /* Rótulos longos quebram com hífen em vez de cortar no meio da palavra */
         .circ-rotulo {
             font-size: .75rem; text-align: center; line-height: 1.15; color: var(--tinta-2); transition: color .15s;

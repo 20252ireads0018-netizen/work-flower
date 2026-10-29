@@ -388,7 +388,7 @@
     <nav class="flex flex-wrap items-start gap-x-5 gap-y-4" aria-label="Abas do Diverso">
         <template x-for="a in estado.abas" :key="a.id">
             <div class="flex flex-col items-center">
-                <button type="button" class="circ" :class="{ 'ativo': aba === a.id }"
+                <button type="button" class="circ" :class="{ 'ativo': aba === a.id, 'wf-novo': novidades[a.id] }"
                         @click="irPara(a.id)" @dblclick="editarAba(a)"
                         :aria-pressed="aba === a.id" :title="a.nome">
                     <span class="circ-bola"><span class="circ-icone" x-html="wfIcone(a.icone)"></span></span>

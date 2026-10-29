@@ -405,9 +405,9 @@
             tiposBloco: [
                 { id: 'texto', nome: 'Campo de texto' }, { id: 'tabela', nome: 'Tabela' },
                 { id: 'lista', nome: 'Lista de itens' }, { id: 'imagem', nome: 'Imagem' },
-                { id: 'mapa', nome: 'Mapa mental (com desenho)' },
+                { id: 'mapa', nome: 'Mapa mental' },
                 { id: 'codigo', nome: 'GitHub / VS Code' },
-                { id: 'tabletop', nome: 'Tabletop (mapa com grade)' },
+                { id: 'tabletop', nome: 'Tabletop' },
             ],
             ttPecas: TT_PECAS, ttFormas: TT_FORMAS, ttFerramentas: TT_FERRAMENTAS,
             uid, num, r1, brl, fmt,

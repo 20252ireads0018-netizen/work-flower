@@ -96,6 +96,38 @@ class CompartilharTest extends TestCase
         $this->actingAs($dono)->getJson('/sincronia/diverso?versao=' . $v1)->assertJson(['versao' => $v2, 'estado' => '{"n":2}']);
     }
 
+    public function test_sincronia_rapida_e_avisos_de_mudanca_em_outra_pagina(): void
+    {
+        $dono = $this->conta('basico');
+        $membro = $this->conta();
+        $this->actingAs($dono)->postJson('/compartilhar/mente', ['email' => $membro->email])->assertOk();
+
+        $v1 = $this->actingAs($dono)->withHeaders(['X-WF-Versao' => ''])
+            ->putJson('/mente/dados/estado', ['valor' => '{"n":1}'])->assertOk()->json('versao');
+        // quem já está na v1 recebe só a versão, sem o estado
+        $this->actingAs($membro)->withHeader('X-WF-Dono', (string) $dono->id)->getJson('/sincronia/mente?versao=' . $v1)
+            ->assertOk()->assertJsonMissingPath('estado')->assertJson(['versao' => $v1]);
+
+        // o convidado muda: o dono vê o estado novo, com o nome de quem mudou
+        $v2 = $this->actingAs($membro)->withHeaders(['X-WF-Dono' => $dono->id, 'X-WF-Versao' => $v1])
+            ->putJson('/mente/dados/estado', ['valor' => '{"n":2}'])->assertOk()->json('versao');
+        $this->actingAs($dono)->getJson('/sincronia/mente?versao=' . $v1)
+            ->assertJson(['versao' => $v2, 'estado' => '{"n":2}', 'por_nome' => $membro->name]);
+
+        // em qualquer página, o dono fica sabendo; o convidado não é avisado da própria mudança
+        $this->actingAs($dono)->getJson('/sincronia')->assertOk()
+            ->assertJsonPath('novidades.0.chave', "mente:{$dono->id}")
+            ->assertJsonPath('novidades.0.por_nome', $membro->name)
+            ->assertJsonPath('novidades.0.meu', true);
+        $this->actingAs($membro)->getJson('/sincronia')->assertOk()->assertJsonCount(0, 'novidades');
+
+        // gravação feita por fora da marca (ex.: importação) não fica escondida pelo caminho rápido
+        $this->travel(5)->seconds();
+        \App\Models\CorpoDado::where(['user_id' => $dono->id, 'chave' => 'mente.estado'])->update(['valor' => '{"n":9}']);
+        $this->actingAs($membro)->withHeader('X-WF-Dono', (string) $dono->id)->getJson('/sincronia/mente?versao=' . $v2)
+            ->assertJson(['estado' => '{"n":9}']);
+    }
+
     public function test_tarefas_do_workflow_compartilhado(): void
     {
         $dono = $this->conta('basico');

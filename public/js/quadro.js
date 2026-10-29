@@ -450,6 +450,8 @@
             larg: 1088, col: 1088, ox: 0, salvo: 'ok', msg: '', zTop: 10, arrastando: null, menuBloco: false, destaque: null, _v: 0, embutido: !!EMBED,
             // pastas: pasta aberta em cada aba (só na tela, não é salvo), cartões selecionados (Ctrl+clique) e o último cartão clicado
             pasta: {}, sel: [], atual: null, alvoPasta: null,
+            // workflow compartilhado: abas com mudanças de outra pessoa que ainda não foram vistas (bolinha no botão)
+            novidades: {},
         };
     }
 
@@ -522,9 +524,28 @@
                 aplicarNoLugar(this.estado, novo);
                 setTimeout(() => { this._silencio = false; }, 0);
             },
+            /** Nome de uma aba desta página (para os avisos). */
+            nomeAba(sec) {
+                const lista = Array.isArray(this.abas) ? this.abas : (this.estado && Array.isArray(this.estado.abas) ? this.estado.abas : []);
+                const a = lista.find(x => (typeof x === 'string' ? x : x.id) === sec);
+                return (a && typeof a === 'object' && a.nome) || sec;
+            },
+            /** Abas em que algo mudou entre dois estados (cartões da aba ou posições). */
+            abasMudadas(antes, depois) {
+                const por = e => {
+                    const m = {};
+                    (e.blocos || []).forEach(b => { (m[b.secao] ??= []).push(b); });
+                    return m;
+                };
+                const a = por(antes), d = por(depois), la = antes.layout || {}, ld = depois.layout || {};
+                const secs = new Set([...Object.keys(a), ...Object.keys(d), ...Object.keys(la), ...Object.keys(ld)]);
+                return [...secs].filter(s => s && (JSON.stringify(a[s] || []) !== JSON.stringify(d[s] || []) || JSON.stringify(la[s] || {}) !== JSON.stringify(ld[s] || {})));
+            },
             /**
-             * Workflow com mais de uma pessoa: a cada 5 s pergunta ao servidor se o estado mudou (e imagens novas).
-             * Mudança dos outros entra direto se não há nada meu esperando para gravar; se houver, a gravação junta.
+             * Workflow com mais de uma pessoa: a cada 2 s pergunta ao servidor se o estado mudou (e imagens novas);
+             * sem mudança o servidor responde sem ler o estado (marca no cache), então a conferência é leve.
+             * Mudança dos outros entra direto na tela se não há nada meu esperando para gravar; se houver, a gravação junta.
+             * Mudança numa aba que não é a aberta: bolinha no botão da aba e um aviso discreto (js/novidades.js).
              */
             prepararSincronia() {
                 if (this._sincPronta || EMBED) return;
@@ -551,15 +572,27 @@
                         });
                         if (typeof j.estado === 'string' && j.versao !== this._versao && this.salvo === 'ok' && !this.arrastando) {
                             let deles; try { deles = JSON.parse(j.estado); } catch { return; }
+                            let antes = {}; try { antes = JSON.parse(JSON.stringify(this.estado)); } catch { /* sem comparação */ }
                             this.aplicarSemGravar(deles);
                             this._versao = j.versao; this._baseTexto = j.estado;
-                            this.aviso('Atualizado com as mudanças de outra pessoa do workflow.');
+                            const outras = this.abasMudadas(antes, deles).filter(s => s !== this.aba);
+                            outras.forEach(s => { this.novidades[s] = true; });
+                            if (outras.length && window.wfAvisoSutil) {
+                                const quem = j.por_nome || 'Outra pessoa';
+                                const s = outras[0];
+                                window.wfAvisoSutil(outras.length === 1
+                                    ? `${quem} mudou a aba ${this.nomeAba(s)}.`
+                                    : `${quem} mudou ${outras.length} abas (${outras.map(x => this.nomeAba(x)).join(', ')}).`,
+                                { rotulo: 'Ver', acao: () => { this.aba = s; }, chave: 'abas' });
+                            }
                         }
                     } catch { /* sem rede: tenta de novo na próxima */ } finally { this._sincOcupado = false; }
                 };
                 const iniciar = () => {
                     if (this._sincT) return;
-                    this._sincT = setInterval(conferir, 5000);
+                    this._sincT = setInterval(conferir, 2000);
+                    // abriu a aba: a bolinha de novidade some
+                    this.$watch('aba', a => { if (this.novidades[a]) delete this.novidades[a]; });
                     document.addEventListener('visibilitychange', () => { if (!document.hidden) conferir(); });
                     setTimeout(conferir, 1500);
                 };
@@ -999,11 +1032,11 @@
                 if (this._pastasProntas) return;
                 this._pastasProntas = true;
                 if (Array.isArray(this.tiposBloco) && !this.tiposBloco.some(t => t.id === 'pasta')) {
-                    this.tiposBloco.push({ id: 'pasta', nome: 'Pasta (guarda outros cartões)' });
+                    this.tiposBloco.push({ id: 'pasta', nome: 'Pasta' });
                 }
                 // editor de imagem com camadas (separado do bloco "Imagem" comum)
                 if (Array.isArray(this.tiposBloco) && !this.tiposBloco.some(t => t.id === 'editorimg')) {
-                    this.tiposBloco.push({ id: 'editorimg', nome: 'Editor de imagem (camadas, estilo Photoshop)' });
+                    this.tiposBloco.push({ id: 'editorimg', nome: 'Editor de imagem' });
                 }
                 if (Array.isArray(this.tiposBloco)) window.WFQuadro.tipos = [...this.tiposBloco.map(t => t.id), 'vivo'];
                 // cada página cria e cola blocos do seu jeito; aqui só se ajusta o resultado

@@ -153,6 +153,9 @@ Route::middleware('auth')->group(function () {
     // o que as outras pessoas do workflow mudaram (o navegador confere a cada poucos segundos)
     Route::get('/sincronia/{area}', [CompartilharController::class, 'sincronia'])
         ->middleware('throttle:120,1')->name('sincronia');
+    // mudanças das outras pessoas em qualquer workflow compartilhado (aviso discreto em outras páginas)
+    Route::get('/sincronia', [CompartilharController::class, 'novidades'])
+        ->middleware('throttle:30,1')->name('sincronia.novidades');
 
     // Biblioteca de blocos (vale para todas as páginas)
     Route::get('/biblioteca', [BibliotecaController::class, 'index'])->name('biblioteca.index');

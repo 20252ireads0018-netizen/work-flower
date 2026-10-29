@@ -883,7 +883,7 @@
 
     window.diversoAbasDiagrama = function () {
         const base = window.diversoAbas();
-        base.tiposBloco = base.tiposBloco.map(t => (t.id === 'mapa' ? { ...t, nome: 'Mapa mental e diagramas (BPMN, ER…)' } : t));
+        base.tiposBloco = base.tiposBloco.map(t => (t.id === 'mapa' ? { ...t, nome: 'Mapa mental e diagramas' } : t));
         return Object.assign(base, metodos());
     };
 })();

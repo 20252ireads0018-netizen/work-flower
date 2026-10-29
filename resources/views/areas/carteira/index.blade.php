@@ -161,7 +161,7 @@
     {{-- Mini cards circulares --}}
     <nav class="flex flex-wrap gap-x-5 gap-y-4" aria-label="Seções de Carteira">
         <template x-for="a in abas" :key="a.id">
-            <button type="button" class="circ" :class="{ 'ativo': aba === a.id }" @click="aba = a.id" :aria-pressed="aba === a.id" :title="a.nome">
+            <button type="button" class="circ" :class="{ 'ativo': aba === a.id, 'wf-novo': novidades[a.id] }" @click="aba = a.id" :aria-pressed="aba === a.id" :title="a.nome">
                 <span class="circ-bola">
                     <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" x-html="a.icone"></svg>
                 </span>
