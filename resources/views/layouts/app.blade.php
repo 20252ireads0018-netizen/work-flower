@@ -65,6 +65,7 @@
     {{-- versão do editor de imagem (carregado só quando alguém abre um cartão "Editor de imagem") --}}
     <meta name="wf-editor-imagem-v" content="{{ @filemtime(public_path('js/editor-imagem.js')) }}">
     <meta name="wf-editor-video-v" content="{{ @filemtime(public_path('js/editor-video.js')) }}">
+    <meta name="wf-estudio-musica-v" content="{{ @filemtime(public_path('js/estudio-musica.js')) }}">
     @if ($wfArea)
         {{-- várias pessoas no mesmo workflow: área aberta, dono (se não for o próprio usuário), versão e sincronia --}}
         <meta name="wf-area" content="{{ $wfArea }}">
@@ -1425,6 +1426,8 @@
             { id: 'novo.documento',  grupo: 'Criar',  nome: 'Novo documento (Mente)',                   padrao: 'Alt+N',        quadro: true },
             { id: 'novo.editorimg',  grupo: 'Criar',  nome: 'Novo editor de imagem (camadas)',           padrao: 'Alt+Q',        quadro: true },
             { id: 'novo.editorvid',  grupo: 'Criar',  nome: 'Novo editor de vídeo',                     padrao: 'Alt+Z',        quadro: true },
+
+            { id: 'novo.musica',     grupo: 'Criar',  nome: 'Novo estúdio de música',                   padrao: 'Alt+S',        quadro: true },
             { id: 'novo.pasta',      grupo: 'Pastas', nome: 'Nova pasta (com os selecionados, se houver)', padrao: 'Alt+P',     quadro: true },
             { id: 'abrirPasta',      grupo: 'Pastas', nome: 'Abrir a pasta (ou o editor de imagem/vídeo) clicado', padrao: 'Alt+U', quadro: true },
             { id: 'fecharPasta',     grupo: 'Pastas', nome: 'Voltar (fechar a pasta aberta)',           padrao: 'Alt+V',        quadro: true },

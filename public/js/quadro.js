@@ -91,6 +91,20 @@
         }
         return editorVideoCarregando;
     }
+    let estudioCarregando = null;
+    function carregarEstudioMusica() {
+        if (window.WFEstudioMusica) return Promise.resolve();
+        if (!estudioCarregando) {
+            estudioCarregando = new Promise((ok, falha) => {
+                const s = document.createElement('script');
+                const v = document.querySelector('meta[name="wf-estudio-musica-v"]')?.content || VERSAO_JS;
+                s.src = BASE_JS + 'estudio-musica.js' + (v ? '?v=' + v : '');
+                s.onload = () => ok(); s.onerror = () => { estudioCarregando = null; falha(new Error('estúdio de música')); };
+                document.head.appendChild(s);
+            });
+        }
+        return estudioCarregando;
+    }
     let claudeCarregando = null;
     function carregarClaude() {
         if (window.WFClaude) return Promise.resolve();
@@ -509,6 +523,8 @@
             novidades: {},
             // cartão "Claude": estado da tela de cada cartão (o que se digita, aguardando, permissão pendente)
             claudeUI: {}, claudeTemChave: false,
+            // cartão "Estúdio de música" que está tocando a prévia (só um por vez)
+            musicaTocando: null,
         };
     }
 
@@ -1099,6 +1115,10 @@
                 if (Array.isArray(this.tiposBloco) && !this.tiposBloco.some(t => t.id === 'editorvid')) {
                     this.tiposBloco.push({ id: 'editorvid', nome: 'Editor de vídeo' });
                 }
+                // estúdio de música no estilo do FL Studio (rack, piano roll e playlist; js/estudio-musica.js)
+                if (Array.isArray(this.tiposBloco) && !this.tiposBloco.some(t => t.id === 'musica')) {
+                    this.tiposBloco.push({ id: 'musica', nome: 'Estúdio de música' });
+                }
                 // conversa com o Claude, que mexe nos cartões desta página (com a chave de API de cada pessoa)
                 if (Array.isArray(this.tiposBloco) && !this.tiposBloco.some(t => t.id === 'claude')) {
                     this.tiposBloco.push({ id: 'claude', nome: 'Claude' });
@@ -1129,6 +1149,7 @@
                     this.novoBloco = dentroDaPasta((sec, tipo, ...resto) => (tipo === 'pasta' ? this.novaPasta(sec)
                         : tipo === 'editorimg' ? this.novoEditorImagem(sec)
                         : tipo === 'editorvid' ? this.novoEditorVideo(sec)
+                        : tipo === 'musica' ? this.novoEstudioMusica(sec)
                         : tipo === 'claude' ? this.novoClaude(sec)
                         : novo.call(this, sec, tipo, ...resto)));
                 }
@@ -1551,6 +1572,65 @@
                 window.WFEditorVideo.assistir({ blocoId: b.id, titulo: b.titulo });
             },
 
+            /* ---------- estúdio de música (js/estudio-musica.js) ----------
+               O projeto inteiro (canais, padrões, notas e playlist) é pequeno e fica em dados.projeto. */
+            novoEstudioMusica(sec) {
+                sec = sec || this.aba;
+                if (!sec) return null;
+                const id = 'b' + uid();
+                const aberta = this.pastaAberta(sec);
+                const { x0 } = this.areaUtil();
+                const bloco = { id, secao: sec, tipo: 'musica', titulo: 'Música', links: [], dados: {} };
+                if (aberta) bloco.pasta = aberta;
+                this.estado.blocos.push(bloco);
+                if (!this.estado.layout[sec]) this.estado.layout[sec] = {};
+                this.estado.layout[sec][id] = { x: snap(x0), y: this.fimDaVista(sec, aberta), w: 420, h: 300, z: ++this.zTop };
+                this.menuBloco = false;
+                this.aviso('Estúdio de música adicionado. Um ritmo de exemplo já está pronto para tocar.');
+                this.$nextTick(() => this.abrirEstudioMusica(this.blocoPorId(id)));
+                return id;
+            },
+            infoEstudioMusica(b) {
+                const p = b && b.dados && b.dados.projeto;
+                if (!p) return 'Vazio. Clique em “Abrir estúdio” para começar.';
+                const d = b.dados.dur || 0, m = Math.floor(d / 60), s = Math.round(d % 60);
+                const n = (p.padroes || []).length;
+                return `${p.bpm || 0} BPM · ${(p.canais || []).length} canais · ${n} ${n === 1 ? 'padrão' : 'padrões'} · ${m}:${String(s).padStart(2, '0')}`;
+            },
+            /** Miniatura do primeiro padrão no cartão: até 6 canais × 16 passos. */
+            gradeEstudioMusica(b) {
+                const p = b && b.dados && b.dados.projeto;
+                if (!p || !Array.isArray(p.canais) || !Array.isArray(p.padroes) || !p.padroes[0]) return [];
+                const pad = p.padroes[0], n = Math.min(16, +p.passos || 16);
+                return p.canais.slice(0, 6).map(c => {
+                    const on = new Set(((pad.notas || {})[c.id] || []).map(x => x.s));
+                    return { id: c.id, nome: c.nome, passos: [...Array(n)].map((_, i) => on.has(i)) };
+                });
+            },
+            async abrirEstudioMusica(b) {
+                if (!b || EMBED) return;
+                try { await carregarEstudioMusica(); } catch { this.aviso('Não consegui carregar o estúdio de música. Verifique a conexão e tente de novo.'); return; }
+                this.musicaTocando = null;
+                const id = b.id;
+                window.WFEstudioMusica.abrir({
+                    blocoId: id,
+                    titulo: b.titulo || 'Música',
+                    projeto: (b.dados && b.dados.projeto) || null,
+                    aoSalvar: async ({ projeto, dur }) => {
+                        const bl = this.blocoPorId(id);
+                        if (!bl) throw new Error('bloco');
+                        bl.dados = { ...(bl.dados || {}), projeto, dur, editado: hoje() };
+                        this.agendar();
+                    },
+                });
+            },
+            async tocarEstudioMusica(b) {
+                if (!b) return;
+                if (!(b.dados && b.dados.projeto)) { this.abrirEstudioMusica(b); return; }
+                try { await carregarEstudioMusica(); } catch { this.aviso('Não consegui carregar o estúdio de música. Verifique a conexão.'); return; }
+                this.musicaTocando = window.WFEstudioMusica.previa(b.id, b.dados.projeto) ? b.id : null;
+            },
+
             /* ---------- cartão Claude (js/claude.js) ----------
                O Claude lê os cartões da página e propõe mudanças; cada mudança espera o "Permitir" do usuário
                (ou "permitir as próximas" nesta conversa). A conversa visível fica em dados.chat. */
@@ -1609,6 +1689,7 @@
                 if (b.tipo === 'texto') return String(d.texto || '').slice(0, 160);
                 if (b.tipo === 'lista') return `${(d.itens || []).length} itens: ` + (d.itens || []).slice(0, 5).map(i => i.t).join('; ');
                 if (b.tipo === 'tabela') return `colunas: ${(d.cab || []).join(', ')} · ${(d.linhas || []).length} linhas`;
+                if (b.tipo === 'musica') return `música · ${d.projeto?.bpm || 0} BPM · ${(d.projeto?.canais || []).map(c => c.nome).join(', ')}`;
                 if (b.tipo === 'editorvid') return `vídeo · ${(d.projeto?.textos || []).length} legendas`;
                 return '';
             },
@@ -1794,7 +1875,8 @@ Antes de mudar algo, use ler_pagina (e ler_cartao quando precisar do conteúdo).
                         if (b.tipo === 'pasta') this.abrirPasta(b);
                         else if (b.tipo === 'editorimg') this.abrirEditorImagem(b);
                         else if (b.tipo === 'editorvid') this.abrirEditorVideo(b);
-                        else this.aviso('O cartão clicado não é uma pasta nem um editor de imagem ou vídeo.');
+                        else if (b.tipo === 'musica') this.abrirEstudioMusica(b);
+                        else this.aviso('O cartão clicado não é uma pasta nem um editor de imagem, vídeo ou música.');
                         break;
                     case 'fecharPasta': if (!this.fecharPasta(sec)) this.aviso('Nenhuma pasta aberta nesta aba.'); break;
                     case 'tirarDaPasta':

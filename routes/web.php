@@ -67,6 +67,13 @@ Route::view('/contato', 'publico.contato')->name('contato');
 // Animação de apresentação (rolagem), aberta pela tela de login. Pública, para visitantes.
 Route::view('/conheca', 'conheca')->name('demo');
 
+// PDF com os motivos para usar o Work Flower, baixado pelos botões da apresentação.
+Route::get('/conheca/motivos.pdf', fn () => response(\App\Support\MotivosPdf::gerar(), 200, [
+    'Content-Type'        => 'application/pdf',
+    'Content-Disposition' => 'attachment; filename="por-que-usar-o-work-flower.pdf"',
+    'Cache-Control'       => 'public, max-age=3600',
+]))->middleware('throttle:30,1')->name('demo.motivos');
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'formLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);

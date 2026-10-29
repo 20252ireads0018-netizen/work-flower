@@ -27,6 +27,10 @@
             <template x-if="b.tipo === 'editorvid'">
                 @include('partials.editor-video-cartao')
             </template>
+            {{-- Estúdio de música (partials/estudio-musica-cartao; estúdio em js/estudio-musica.js) --}}
+            <template x-if="b.tipo === 'musica'">
+                @include('partials.estudio-musica-cartao')
+            </template>
             {{-- Conversa com o Claude, que muda os cartões pedindo permissão (partials/claude-cartao; js/claude.js) --}}
             <template x-if="b.tipo === 'claude'">
                 @include('partials.claude-cartao')

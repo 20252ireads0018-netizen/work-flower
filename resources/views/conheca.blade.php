@@ -314,7 +314,7 @@
                     <svg viewBox="0 0 200 40" class="w-40 h-9" fill="none" stroke="var(--prim-forte)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="d" pathLength="1" style="--s:.48;--e:.64" d="M5 30C20 5 30 5 35 25S50 35 60 15 80 30 100 20 140 28 190 18"/></svg>
                     <p class="text-xs texto-2">Assinatura</p>
                 </div>
-                <span class="btn" data-liga data-s=".66">Exportar PDF</span>
+                <a href="{{ route('demo.motivos') }}" download class="btn" data-liga data-s=".66" title="Baixar o PDF: por que usar o Work Flower">Exportar PDF</a>
             </div>
             <div class="sm:col-span-2 card p-3 flex items-center gap-3 a" style="--s:.72;--e:.82;--dy:12px">
                 <span class="pdf-ico">PDF</span>
@@ -322,7 +322,7 @@
                     <p class="text-sm font-medium truncate">contrato-prestacao.pdf</p>
                     <div class="barra mt-1.5"><span class="k" style="--s:.74;--e:.9;width:calc(var(--k) * 100%)"></span></div>
                 </div>
-                <span class="text-xs link-prim fim" data-liga data-s=".9">Pronto ✓</span>
+                <a href="{{ route('demo.motivos') }}" download class="text-xs link-prim fim" data-liga data-s=".9" title="Baixar o PDF: por que usar o Work Flower">Pronto ✓</a>
             </div>
         </div>
     </section>
@@ -449,6 +449,7 @@
             <div class="flex flex-wrap gap-2 mt-5">
                 <a href="{{ route('registro') }}" class="btn">Criar conta</a>
                 <a href="{{ route('login') }}" class="btn-sec">Já tenho conta</a>
+                <a href="{{ route('demo.motivos') }}" download class="btn-sec">⬇ Por que usar? (PDF)</a>
             </div>
         </div>
         <div class="card p-4 sm:p-5">
@@ -508,10 +509,12 @@
                 @endforeach
 
                 @foreach ($areasPromo as $i => [$nome, $x, $y])
+                    <a href="{{ route('demo.motivos') }}" download style="cursor:pointer"><title>Baixar o PDF: por que usar o Work Flower</title>
                     <g class="a" style="--s:{{ .2 + $i * .05 }};--e:{{ .32 + $i * .05 }};--dy:6px">
                         <rect x="{{ $x - 42 }}" y="{{ $y - 14 }}" width="84" height="28" rx="14" fill="var(--prim)" stroke="none"/>
                         <text x="{{ $x }}" y="{{ $y + 4.5 }}" text-anchor="middle" fill="var(--on-prim)" stroke="none" font-size="13" font-weight="600">{{ $nome }}</text>
                     </g>
+                    </a>
                 @endforeach
 
                 <g class="a" style="--s:.04;--e:.16;--dy:0px">
@@ -534,7 +537,7 @@
             {{-- Celular: o mesmo conteúdo em lista, para o texto continuar legível --}}
             <div class="sm:hidden mt-4 space-y-3 a" style="--s:.15;--e:.3">
                 <div class="flex flex-wrap justify-center gap-1.5">
-                    @foreach ($areasPromo as [$nome])<span class="btn !py-1 !px-3 !text-xs">{{ $nome }}</span>@endforeach
+                    @foreach ($areasPromo as [$nome])<a href="{{ route('demo.motivos') }}" download class="btn !py-1 !px-3 !text-xs" title="Baixar o PDF: por que usar o Work Flower">{{ $nome }}</a>@endforeach
                 </div>
                 <div class="flex flex-wrap justify-center gap-1.5">
                     @foreach ($criadores as [$nome])<span class="tag">{{ $nome }}</span>@endforeach
@@ -545,6 +548,7 @@
             <div class="flex flex-wrap justify-center gap-2 mt-4 a" style="--s:.68;--e:.8;--dy:10px">
                 <a href="{{ route('registro') }}" class="btn">Criar conta grátis</a>
                 <a href="{{ route('login') }}" class="btn-sec">Já tenho conta</a>
+                <a href="{{ route('demo.motivos') }}" download class="btn-sec">⬇ Por que usar? (PDF)</a>
                 <button type="button" id="rever" class="btn-sec">↻ Ver de novo</button>
             </div>
         </div>

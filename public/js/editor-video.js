@@ -653,12 +653,14 @@
         lista.innerHTML = ids.map(id => {
             const m = S.p.midias[id], falta = S.faltando.has(id);
             const icone = m.tipo === 'audio' ? '♪' : m.tipo === 'imagem' ? '🖼' : '🎬';
-            const info = m.tipo === 'imagem' ? `${m.w}×${m.h}` : tempo(m.dur) + (m.w ? ` · ${m.w}×${m.h}` : '');
-            return `<div class="wfv-midia" data-midia="${id}">
-                <div class="mini" style="${m.thumb ? `background-image:url('${m.thumb}')` : ''}">${m.thumb ? '' : icone}</div>
+            const info = m.tipo === 'imagem' ? `${+m.w || 0}×${+m.h || 0}` : tempo(+m.dur || 0) + (m.w ? ` · ${+m.w || 0}×${+m.h || 0}` : '');
+            // a miniatura vem do cartão (pode ter sido editada por outra pessoa): só JPEG/PNG/WebP em base64
+            const thumb = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(m.thumb || '') ? m.thumb : '';
+            return `<div class="wfv-midia" data-midia="${esc(id)}">
+                <div class="mini" style="${thumb ? `background-image:url('${thumb}')` : ''}">${thumb ? '' : icone}</div>
                 <div class="nome"><b title="${esc(m.nome)}">${esc(m.nome)}</b><small class="${falta ? 'falta' : ''}">${falta ? '⚠ não está neste navegador' : info}</small></div>
-                ${falta ? `<button class="wfv-b" data-acao="localizar" data-id="${id}" title="Escolher o arquivo de novo">Localizar</button>`
-                        : `<button class="add" data-acao="adicionar" data-id="${id}" title="Colocar na linha do tempo">＋</button>`}
+                ${falta ? `<button class="wfv-b" data-acao="localizar" data-id="${esc(id)}" title="Escolher o arquivo de novo">Localizar</button>`
+                        : `<button class="add" data-acao="adicionar" data-id="${esc(id)}" title="Colocar na linha do tempo">＋</button>`}
             </div>`;
         }).join('') || '<p class="wfv-dica">Nenhuma mídia ainda.</p>';
     }
@@ -675,7 +677,7 @@
         for (let s = 0; px(s) < largura; s += passo) regua += `<i style="left:${px(s)}px"></i><span style="left:${px(s)}px">${tempo(s).replace(/\.\d$/, '')}</span>`;
         el.querySelector('[data-regua]').innerHTML = regua;
         // clipes
-        const clipe = (tipo, item, ini, dur, rotulo, cls) => `<div class="wfv-clipe ${cls}${S.sel && S.sel.id === item.id ? ' sel' : ''}" data-tipo="${tipo}" data-id="${item.id}"
+        const clipe = (tipo, item, ini, dur, rotulo, cls) => `<div class="wfv-clipe ${cls}${S.sel && S.sel.id === item.id ? ' sel' : ''}" data-tipo="${tipo}" data-id="${esc(item.id)}"
             style="left:${px(ini)}px;width:${Math.max(14, px(dur))}px" title="${esc(rotulo)}">
             <div class="alca e" data-alca="e"></div><span>${esc(rotulo)}</span><div class="alca d" data-alca="d"></div></div>`;
         el.querySelector('[data-faixa="videos"]').innerHTML = sequencia().map(s => {
@@ -753,8 +755,8 @@
 
     /* ---------- propriedades ---------- */
     const faixa = (rot, campo, min, max, passo, valor, suf = '') => `<label><span>${rot}</span>
-        <input type="range" data-campo="${campo}" min="${min}" max="${max}" step="${passo}" value="${valor}"><span class="valor">${valor}${suf}</span></label>`;
-    const numero = (rot, campo, min, passo, valor) => `<label><span>${rot}</span><input type="number" data-campo="${campo}" min="${min}" step="${passo}" value="${valor}"> s</label>`;
+        <input type="range" data-campo="${campo}" min="${min}" max="${max}" step="${passo}" value="${esc(valor)}"><span class="valor">${esc(valor)}${suf}</span></label>`;
+    const numero = (rot, campo, min, passo, valor) => `<label><span>${rot}</span><input type="number" data-campo="${campo}" min="${min}" step="${passo}" value="${esc(valor)}"> s</label>`;
     function desenharProp() {
         const caixa = el.querySelector('[data-prop]'), tit = el.querySelector('[data-prop-titulo]');
         const item = S.sel && itemPor(S.sel.tipo, S.sel.id);
@@ -782,8 +784,8 @@
             caixa.innerHTML = `<textarea data-campo="texto" placeholder="Escreva o título ou a legenda">${esc(item.texto)}</textarea>
                 ${numero('Começa em', 'inicio', 0, 0.1, item.inicio)}${numero('Duração', 'dur', 0.2, 0.1, item.dur)}
                 ${faixa('Tamanho', 'tam', 14, 160, 1, item.tam || 48)}
-                <label><span>Cor</span><input type="color" data-campo="cor" value="${item.cor || '#ffffff'}"></label>
-                <label><span>Faixa atrás</span><input type="checkbox" data-campo="temFundo"${item.fundo ? ' checked' : ''}> <input type="color" data-campo="fundo" value="${item.fundo || '#000000'}"></label>
+                <label><span>Cor</span><input type="color" data-campo="cor" value="${/^#[0-9a-f]{6}$/i.test(item.cor || '') ? item.cor : '#ffffff'}"></label>
+                <label><span>Faixa atrás</span><input type="checkbox" data-campo="temFundo"${item.fundo ? ' checked' : ''}> <input type="color" data-campo="fundo" value="${/^#[0-9a-f]{6}$/i.test(item.fundo || '') ? item.fundo : '#000000'}"></label>
                 <label><span>Negrito</span><input type="checkbox" data-campo="negrito"${item.negrito !== false ? ' checked' : ''}></label>
                 ${faixa('Posição X', 'x', 5, 95, 1, item.x ?? 50, '%')}${faixa('Posição Y', 'y', 5, 95, 1, item.y ?? 85, '%')}
                 ${faixa('Aparecer suave', 'fade', 0, 2, 0.1, item.fade ?? 0.3, 's')}

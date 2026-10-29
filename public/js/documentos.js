@@ -395,7 +395,7 @@
                 if (!/^data:image\//.test(s.src || '')) return '';
                 const w = Math.min(100, Math.max(10, num(s.largura) || 60));
                 const r = s.arred === 'circulo' ? '50%' : `${Math.min(40, num(s.arred))}px`;
-                return `<div style="text-align:${s.alin || 'center'};margin:.6em 0;break-inside:avoid"><img src="${esc(s.src)}" alt="${esc(s.legenda || '')}" style="width:${w}%;max-width:100%;height:auto;border-radius:${r}"/>`
+                return `<div style="text-align:${['left', 'center', 'right', 'justify'].includes(s.alin) ? s.alin : 'center'};margin:.6em 0;break-inside:avoid"><img src="${esc(s.src)}" alt="${esc(s.legenda || '')}" style="width:${w}%;max-width:100%;height:auto;border-radius:${r}"/>`
                     + (s.legenda ? `<div style="font-size:.82em;opacity:.7;margin-top:4px">${esc(s.legenda)}</div>` : '') + '</div>';
             }
             case 'divisor': {
