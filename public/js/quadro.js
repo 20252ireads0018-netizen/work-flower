@@ -77,6 +77,20 @@
         }
         return editorCarregando;
     }
+    let editorVideoCarregando = null;
+    function carregarEditorVideo() {
+        if (window.WFEditorVideo) return Promise.resolve();
+        if (!editorVideoCarregando) {
+            editorVideoCarregando = new Promise((ok, falha) => {
+                const s = document.createElement('script');
+                const v = document.querySelector('meta[name="wf-editor-video-v"]')?.content || VERSAO_JS;
+                s.src = BASE_JS + 'editor-video.js' + (v ? '?v=' + v : '');
+                s.onload = () => ok(); s.onerror = () => { editorVideoCarregando = null; falha(new Error('editor de vídeo')); };
+                document.head.appendChild(s);
+            });
+        }
+        return editorVideoCarregando;
+    }
 
     const SEG = /^[A-Za-z0-9._-]{1,60}$/;
     const EMBED = (() => {
@@ -1038,6 +1052,10 @@
                 if (Array.isArray(this.tiposBloco) && !this.tiposBloco.some(t => t.id === 'editorimg')) {
                     this.tiposBloco.push({ id: 'editorimg', nome: 'Editor de imagem' });
                 }
+                // editor de vídeo (linha do tempo, cortes, textos e música; js/editor-video.js)
+                if (Array.isArray(this.tiposBloco) && !this.tiposBloco.some(t => t.id === 'editorvid')) {
+                    this.tiposBloco.push({ id: 'editorvid', nome: 'Editor de vídeo' });
+                }
                 if (Array.isArray(this.tiposBloco)) window.WFQuadro.tipos = [...this.tiposBloco.map(t => t.id), 'vivo'];
                 // cada página cria e cola blocos do seu jeito; aqui só se ajusta o resultado
                 const dentroDaPasta = fn => (...args) => {
@@ -1063,6 +1081,7 @@
                 if (typeof novo === 'function') {
                     this.novoBloco = dentroDaPasta((sec, tipo, ...resto) => (tipo === 'pasta' ? this.novaPasta(sec)
                         : tipo === 'editorimg' ? this.novoEditorImagem(sec)
+                        : tipo === 'editorvid' ? this.novoEditorVideo(sec)
                         : novo.call(this, sec, tipo, ...resto)));
                 }
                 if (typeof colar === 'function') {
@@ -1434,6 +1453,56 @@
                 });
             },
 
+            /* ---------- editor de vídeo (js/editor-video.js) ----------
+               Os arquivos de vídeo ficam no navegador de quem editou; o cartão guarda o projeto (dados.projeto)
+               e uma capa (imagens[b.id]). */
+            novoEditorVideo(sec) {
+                sec = sec || this.aba;
+                if (!sec) return null;
+                const id = 'b' + uid();
+                const aberta = this.pastaAberta(sec);
+                const { x0 } = this.areaUtil();
+                const bloco = { id, secao: sec, tipo: 'editorvid', titulo: 'Vídeo', links: [], dados: {} };
+                if (aberta) bloco.pasta = aberta;
+                this.estado.blocos.push(bloco);
+                if (!this.estado.layout[sec]) this.estado.layout[sec] = {};
+                this.estado.layout[sec][id] = { x: snap(x0), y: this.fimDaVista(sec, aberta), w: 420, h: 320, z: ++this.zTop };
+                this.menuBloco = false;
+                this.aviso('Editor de vídeo adicionado. Importe vídeos, fotos ou músicas para começar.');
+                this.$nextTick(() => this.abrirEditorVideo(this.blocoPorId(id)));
+                return id;
+            },
+            infoEditorVideo(b) {
+                const d = (b && b.dados) || {};
+                if (!d.projeto) return 'Vazio. Clique em “Editar” para começar.';
+                const n = (d.projeto.videos || []).length;
+                const m = Math.floor((d.dur || 0) / 60), s = Math.round((d.dur || 0) % 60);
+                return `${m}:${String(s).padStart(2, '0')} · ${n} ${n === 1 ? 'clipe' : 'clipes'} · ${d.projeto.proporcao || '16:9'}`;
+            },
+            async abrirEditorVideo(b) {
+                if (!b || EMBED) return;
+                try { await carregarEditorVideo(); } catch { this.aviso('Não consegui carregar o editor de vídeo. Verifique a conexão e tente de novo.'); return; }
+                const id = b.id;
+                window.WFEditorVideo.abrir({
+                    blocoId: id,
+                    titulo: b.titulo || 'Vídeo',
+                    projeto: (b.dados && b.dados.projeto) || null,
+                    aoSalvar: async ({ projeto, capa, dur }) => {
+                        const bl = this.blocoPorId(id);
+                        if (!bl) throw new Error('bloco');
+                        if (capa) { await enviar(`${this.cfg.url}/img.${id}`, JSON.stringify(capa)); this.imagens[id] = capa; }
+                        bl.dados = { ...(bl.dados || {}), projeto, dur, editado: hoje() };
+                        this.agendar();
+                        this.aviso('Vídeo salvo no cartão.');
+                    },
+                });
+            },
+            async assistirVideo(b) {
+                if (!b) return;
+                try { await carregarEditorVideo(); } catch { this.aviso('Não consegui carregar o player. Verifique a conexão.'); return; }
+                window.WFEditorVideo.assistir({ blocoId: b.id, titulo: b.titulo });
+            },
+
             /* ---------- teclas de atalho (as teclas são definidas na aba Atalhos das configurações) ---------- */
             /** Cartão em que os atalhos agem: o último clicado, se ainda estiver na tela. */
             cartaoAtual() {
@@ -1471,7 +1540,8 @@
                         if (!precisa()) break;
                         if (b.tipo === 'pasta') this.abrirPasta(b);
                         else if (b.tipo === 'editorimg') this.abrirEditorImagem(b);
-                        else this.aviso('O cartão clicado não é uma pasta nem um editor de imagem.');
+                        else if (b.tipo === 'editorvid') this.abrirEditorVideo(b);
+                        else this.aviso('O cartão clicado não é uma pasta nem um editor de imagem ou vídeo.');
                         break;
                     case 'fecharPasta': if (!this.fecharPasta(sec)) this.aviso('Nenhuma pasta aberta nesta aba.'); break;
                     case 'tirarDaPasta':

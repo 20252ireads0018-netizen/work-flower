@@ -23,6 +23,10 @@
             <template x-if="b.tipo === 'editorimg'">
                 @include('partials.editor-imagem-cartao')
             </template>
+            {{-- Editor de vídeo (partials/editor-video-cartao; editor em js/editor-video.js) --}}
+            <template x-if="b.tipo === 'editorvid'">
+                @include('partials.editor-video-cartao')
+            </template>
 
             <template x-if="b.tipo === 'texto'">
                 <div class="h-full flex flex-col gap-2">
