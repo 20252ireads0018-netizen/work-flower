@@ -23,6 +23,14 @@ class User extends Authenticatable
 
     protected $casts = ['email_verified_at' => 'datetime'];
 
+    // Contas que veem o vídeo curto de divulgação (/video-curto), feito para baixar e postar
+    public const VIDEO_CURTO = ['xexplosion20@gmail.com'];
+
+    public function veVideoCurto(): bool
+    {
+        return in_array(mb_strtolower(trim((string) $this->email)), self::VIDEO_CURTO, true);
+    }
+
     public function tarefas(): HasMany
     {
         return $this->hasMany(Tarefa::class);

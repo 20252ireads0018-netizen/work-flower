@@ -85,6 +85,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/sair', [AuthController::class, 'logout'])->name('logout');
     
     Route::get('/painel', [PainelController::class, 'index'])->name('painel');
+
+    // Vídeo curto vertical de divulgação: só para as contas em User::VIDEO_CURTO (as outras recebem 404)
+    Route::get('/video-curto', function () {
+        abort_unless(auth()->user()->veVideoCurto(), 404);
+
+        return view('video-curto');
+    })->name('video.curto');
     Route::put('/tema', [TemaController::class, 'update'])->name('tema.update');
 
     // Contador de downloads do botão de baixar dos cartões (limite do plano gratuito)

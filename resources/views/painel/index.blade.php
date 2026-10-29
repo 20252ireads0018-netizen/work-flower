@@ -14,6 +14,14 @@
     $porArea = $lista->groupBy('area');
 @endphp
 
+@if (auth()->user()->veVideoCurto())
+    <a href="{{ route('video.curto') }}" class="card flex items-center gap-3 p-3 mb-6 text-sm hover:opacity-90">
+        <span class="text-xl" aria-hidden="true">🎬</span>
+        <span><b>Vídeo curto de divulgação</b> <span class="texto-2">· vertical, 30 s, para baixar e postar (só você vê)</span></span>
+        <span class="ml-auto link-prim">Abrir →</span>
+    </a>
+@endif
+
 <div class="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_minmax(0,36rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,40rem)_minmax(0,1fr)]">
 
     {{-- Tarefas gerais: recolhível, arrastável (desktop) e separada por área --}}
