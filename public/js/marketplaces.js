@@ -317,7 +317,7 @@
                 });
             },
             async cadastrarCusto(a) {
-                const v = numBR(prompt(`Custo do SKU ${a.sku} (R$):`, ''));
+                const v = numBR(prompt(a.sku === a.externo_id ? `Custo do anúncio ${a.titulo} (R$):` : `Custo do SKU ${a.sku} (R$):`, ''));
                 if (v === null) return;
                 await this.tarefa(async () => {
                     await this.pedir('PUT', '/produtos', { produtos: [{ sku: a.sku, nome: a.titulo, custo: v }] });

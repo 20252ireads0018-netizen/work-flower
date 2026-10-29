@@ -144,6 +144,10 @@ class Marketplaces
                     continue;
                 }
                 $campos = collect($a)->only(['sku', 'titulo', 'preco', 'estoque', 'status', 'tipo', 'tarifa_venda', 'link', 'imagem'])->all();
+                // anúncio sem SKU no marketplace: o próprio código do anúncio vira o SKU, para dar para cadastrar o custo dele
+                if (blank($campos['sku'] ?? null)) {
+                    $campos['sku'] = $a['externo_id'];
+                }
                 $campos['dados'] = array_merge($existente?->dados ?? [], $a['dados'] ?? []);
                 $campos['sincronizado_em'] = $agora;
                 if ($existente) {

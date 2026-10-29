@@ -108,11 +108,12 @@ class MarketplacesTest extends TestCase
             'api.mercadolibre.com/oauth/token' => Http::response(['access_token' => 'AT', 'refresh_token' => 'RT', 'expires_in' => 21600, 'user_id' => 99]),
             'api.mercadolibre.com/users/me' => Http::response(['id' => 99, 'nickname' => 'LOJA_TESTE', 'site_id' => 'MLB']),
             'api.mercadolibre.com/users/99/items/search*' => Http::sequence()
-                ->push(['results' => ['MLB1', 'MLB2'], 'scroll_id' => 's1'])
+                ->push(['results' => ['MLB1', 'MLB2', 'MLB3'], 'scroll_id' => 's1'])
                 ->push(['results' => [], 'scroll_id' => 's1']),
             'api.mercadolibre.com/items?*' => Http::response([
                 ['code' => 200, 'body' => ['id' => 'MLB1', 'title' => 'Caneca', 'price' => 50, 'available_quantity' => 10, 'status' => 'active', 'listing_type_id' => 'gold_special', 'category_id' => 'MLB1', 'permalink' => 'https://x', 'seller_custom_field' => 'CAN-1', 'attributes' => []]],
                 ['code' => 200, 'body' => ['id' => 'MLB2', 'title' => 'Garrafa', 'price' => 120, 'available_quantity' => 0, 'status' => 'paused', 'listing_type_id' => 'gold_pro', 'attributes' => [['id' => 'SELLER_SKU', 'value_name' => 'GAR-1']], 'variations' => []]],
+                ['code' => 200, 'body' => ['id' => 'MLB3', 'title' => 'Sem SKU', 'price' => 30, 'available_quantity' => 2, 'status' => 'active', 'listing_type_id' => 'gold_special', 'attributes' => []]],
             ]),
             'api.mercadolibre.com/sites/MLB/listing_prices*' => Http::response(['sale_fee_amount' => 13.75]),
             'api.mercadolibre.com/orders/search*' => Http::response(['results' => [[
@@ -134,6 +135,8 @@ class MarketplacesTest extends TestCase
 
         $a = MktAnuncio::where('externo_id', 'MLB2')->firstOrFail();
         $this->assertSame(['GAR-1', 'pausado', 'Premium'], [$a->sku, $a->status, $a->tipo]);
+        // sem SKU no Mercado Livre: o código do anúncio vira o SKU (para cadastrar o custo dele)
+        $this->assertSame('MLB3', MktAnuncio::where('externo_id', 'MLB3')->value('sku'));
         $this->assertSame(13.75, MktAnuncio::where('externo_id', 'MLB1')->value('tarifa_venda') + 0.0);
         $this->assertSame(27.5, MktPedido::firstOrFail()->tarifas);
 

@@ -228,7 +228,7 @@
                             <td><input type="checkbox" x-model="selAnuncios[a.id]" :aria-label="'Marcar ' + a.titulo"></td>
                             <td class="max-w-[22rem]">
                                 <div class="truncate" :title="a.titulo"><a x-show="a.link" :href="a.link" target="_blank" rel="noopener" class="hover:underline" x-text="a.titulo"></a><span x-show="!a.link" x-text="a.titulo"></span></div>
-                                <div class="text-xs texto-2"><span x-text="a.sku ? 'SKU ' + a.sku : 'sem SKU'"></span> · <span x-text="a.externo_id"></span><span x-show="a.tipo" x-text="' · ' + a.tipo"></span></div>
+                                <div class="text-xs texto-2"><span x-text="a.sku && a.sku !== a.externo_id ? 'SKU ' + a.sku + ' · ' + a.externo_id : a.externo_id + ' (sem SKU: o custo fica neste anúncio)'"></span><span x-show="a.tipo" x-text="' · ' + a.tipo"></span></div>
                             </td>
                             <td class="text-xs"><span class="mk-canal" :style="'--c:' + cor(conta(a.conta_id)?.canal)" x-text="conta(a.conta_id)?.nome"></span></td>
                             <td class="num" x-text="dinheiro(a.preco)"></td>
