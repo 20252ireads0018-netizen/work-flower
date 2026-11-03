@@ -846,13 +846,14 @@
             },
             imprimirDoc(b) {
                 const d = b.dados, w = window.open('', '_blank');
+                const cor = /^#[0-9a-f]{3,8}$/i.test(String(d.cor || '')) ? d.cor : '#1b1f24'; // vai dentro do <style>: nada além de uma cor
                 if (!w) { this.aviso('Permita pop-ups para imprimir.'); return; }
                 const secs = d.secoes.map((s, i) => `<section class="${i === 0 && d.layout === 'faixa' ? 'cab' : ''}"><h2>${esc(s.t)}</h2><p>${esc(s.texto).replace(/\n/g, '<br>')}</p></section>`).join('');
                 w.document.write(`<!doctype html><html lang="pt-BR"><title>${esc(b.titulo)}</title><style>
                     body{font-family:${FONTES[d.fonte]};color:#1b1f24;margin:2cm;line-height:1.5}
-                    h2{font-size:1rem;margin:0 0 .25rem;border-bottom:2px solid ${d.cor};padding-bottom:.15rem}
+                    h2{font-size:1rem;margin:0 0 .25rem;border-bottom:2px solid ${cor};padding-bottom:.15rem}
                     section{break-inside:avoid;margin-bottom:1rem}p{margin:0}
-                    .cab{background:${d.cor};color:#fff;padding:1rem;border-radius:6px}.cab h2{border-color:#fff3;font-size:1.5rem}
+                    .cab{background:${cor};color:#fff;padding:1rem;border-radius:6px}.cab h2{border-color:#fff3;font-size:1.5rem}
                     main{${d.layout === 'duas' ? 'columns:2;column-gap:1.5cm' : ''}}
                     </style><main>${secs}</main><script>onload=()=>print()<\/script></html>`);
                 w.document.close();

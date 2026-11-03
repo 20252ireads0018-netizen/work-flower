@@ -53,15 +53,18 @@ class Compartilhar
     /** true se $membroId pode abrir a área $area do dono agora. */
     public static function podeAcessar(int $membroId, int $donoId, string $area): bool
     {
-        if ($membroId === $donoId) {
-            return true;
-        }
+        return $membroId === $donoId || self::donoSeTemAcesso($membroId, $donoId, $area) !== null;
+    }
+
+    /** O dono, se o convidado $membroId pode abrir a área dele agora; null se não pode. */
+    private static function donoSeTemAcesso(int $membroId, int $donoId, string $area): ?User
+    {
         if (! WorkflowMembro::where(['dono_id' => $donoId, 'membro_id' => $membroId, 'area' => $area])->exists()) {
-            return false;
+            return null;
         }
         $dono = User::find($donoId);
 
-        return $dono && in_array($membroId, self::convidadosAtivos($dono), true);
+        return $dono && in_array($membroId, self::convidadosAtivos($dono), true) ? $dono : null;
     }
 
     /** Id do dono pedido na requisição (ou null = o próprio usuário). */
@@ -90,11 +93,12 @@ class Compartilhar
             return $usuario->id;
         }
 
-        abort_unless(self::podeAcessar($usuario->id, $pedido, $area), 403,
+        $dono = self::donoSeTemAcesso($usuario->id, $pedido, $area);
+        abort_unless($dono, 403,
             'Você não tem (ou não tem mais) acesso a este workflow. O dono pode ter removido você ou mudado de plano.');
 
         $request->attributes->set('wf_dono', $pedido);
-        $request->attributes->set('wf_dono_nome', (string) (User::whereKey($pedido)->value('name') ?? 'Outra conta'));
+        $request->attributes->set('wf_dono_nome', (string) ($dono->name ?? 'Outra conta'));
 
         return $pedido;
     }

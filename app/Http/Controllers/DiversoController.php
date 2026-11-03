@@ -22,14 +22,15 @@ class DiversoController extends Controller
     {
         $id = Compartilhar::dono($request, self::SLUG);
         $tarefas = Tarefa::daArea($id, self::SLUG)->get();
+        $dados = static::dados($id);
 
         return view('areas.diverso.index', [
             'slug'         => self::SLUG,
             'area'         => Tarefa::AREAS[self::SLUG],
             'tarefas'      => $tarefas,
             'tarefasJs'    => $tarefas->map(fn ($t) => ['id' => $t->id, 'titulo' => $t->titulo, 'status' => $t->status])->values(),
-            'diversoDados' => static::dados($id),
-            'wfVersao'      => Sincronia::versaoAtual(self::SLUG, $id),
+            'diversoDados' => $dados,
+            'wfVersao'      => Sincronia::versao($dados['estado'] ?? null),
             'wfSincronizar' => Compartilhar::temOutrasPessoas($id, self::SLUG, $request->user()->id),
         ]);
     }

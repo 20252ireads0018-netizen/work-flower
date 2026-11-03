@@ -104,15 +104,9 @@ class Ambiente
     /** Tudo o que a página precisa para montar o fundo e o tocador. */
     public static function paraPagina(int $donoId, string $area, ?string $setor = null): array
     {
-        $o = self::opcoes($donoId, $area, $setor);
         $img = CorpoDado::where('user_id', $donoId)->where('chave', self::chave($area, $setor) . '.img')->first(['id', 'updated_at']);
-        $o['fundo']['imagem'] = (bool) $img;
-        $o['fundo']['versao'] = $img?->updated_at?->timestamp ?? 0;
-        $audio = self::caminhoAudio($donoId, $area, $setor);
-        $o['musica']['arquivo'] = (bool) $audio;
-        $o['musica']['versao'] = $audio ? Storage::disk('local')->lastModified($audio) : 0;
 
-        return $o;
+        return self::montar(self::opcoes($donoId, $area, $setor), $img, self::arquivosAudio($donoId), $donoId, $area, $setor);
     }
 
     /** Ambiente de cada setor que tem algo próprio, pelo id da aba. */
@@ -120,23 +114,51 @@ class Ambiente
     {
         $saida = [];
         $linhas = CorpoDado::where('user_id', $donoId)->where('chave', 'like', "amb.{$area}.s.%")
-            ->where('chave', 'not like', '%.img')->limit(200)->get(['valor']);
+            ->where('chave', 'not like', '%.img')->limit(200)->get(['chave', 'valor']);
+        if ($linhas->isEmpty()) {
+            return $saida;
+        }
+        // imagens e áudios de todas as abas de uma vez (antes: 1 consulta e até 7 conferências de arquivo por aba)
+        $imagens = CorpoDado::where('user_id', $donoId)->where('chave', 'like', "amb.{$area}.s.%.img")
+            ->get(['id', 'chave', 'updated_at'])->keyBy('chave');
+        $arquivos = self::arquivosAudio($donoId);
         foreach ($linhas as $l) {
-            $setor = self::setor(json_decode((string) $l->valor, true)['setor'] ?? null);
-            if ($setor !== null) {
-                $saida[$setor] = self::paraPagina($donoId, $area, $setor);
+            $salvo = json_decode((string) $l->valor, true);
+            $setor = self::setor(is_array($salvo) ? ($salvo['setor'] ?? null) : null);
+            if ($setor === null) {
+                continue;
             }
+            // a linha é a do setor (a chave sai do id dele): as opções vêm dela, sem ler de novo
+            $o = $l->chave === self::chave($area, $setor) ? self::conferir($salvo, true) : self::opcoes($donoId, $area, $setor);
+            $saida[$setor] = self::montar($o, $imagens->get(self::chave($area, $setor) . '.img'), $arquivos, $donoId, $area, $setor);
         }
 
         return $saida;
     }
 
-    /** Caminho do áudio gravado (ou null). */
-    public static function caminhoAudio(int $donoId, string $area, ?string $setor = null): ?string
+    private static function montar(array $o, ?CorpoDado $img, array $arquivos, int $donoId, string $area, ?string $setor): array
+    {
+        $o['fundo']['imagem'] = (bool) $img;
+        $o['fundo']['versao'] = $img?->updated_at?->timestamp ?? 0;
+        $audio = self::caminhoAudio($donoId, $area, $setor, $arquivos);
+        $o['musica']['arquivo'] = (bool) $audio;
+        $o['musica']['versao'] = $audio ? Storage::disk('local')->lastModified($audio) : 0;
+
+        return $o;
+    }
+
+    /** Arquivos de áudio do dono (uma listagem da pasta, em vez de conferir cada nome possível). */
+    private static function arquivosAudio(int $donoId): array
+    {
+        return array_flip(Storage::disk('local')->files("ambiente/{$donoId}"));
+    }
+
+    /** Caminho do áudio gravado (ou null). $arquivos: listagem já feita da pasta do dono. */
+    public static function caminhoAudio(int $donoId, string $area, ?string $setor = null, ?array $arquivos = null): ?string
     {
         foreach (self::AUDIO_EXT as $ext) {
             $p = "ambiente/{$donoId}/" . self::base($area, $setor) . ".{$ext}";
-            if (Storage::disk('local')->exists($p)) {
+            if ($arquivos !== null ? isset($arquivos[$p]) : Storage::disk('local')->exists($p)) {
                 return $p;
             }
         }

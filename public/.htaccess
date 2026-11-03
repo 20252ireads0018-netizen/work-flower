@@ -5,6 +5,10 @@
 
     RewriteEngine On
 
+    # Arquivos que nunca devem sair pelo navegador: ocultos (.env, .git…), cópias e restos de edição
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+    RewriteRule \.(bak|old|orig|swp|sql|sqlite|log|env|ini|sh|zip|tar|gz)$ - [F,L,NC]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]

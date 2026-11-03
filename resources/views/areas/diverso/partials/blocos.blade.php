@@ -2382,7 +2382,7 @@
                                                @change="const f = $event.target.files[0]; $event.target.value = '';
                                                         if (f) { erro = ''; Promise.resolve(lerImagem(b, f)).catch(e => erro = (e && e.message) || 'Não foi possível salvar a imagem.') }">
                                     </label>
-                                    <a class="btn-sec" :href="imagens[b.id]" download="imagem.png" title="Baixar a imagem atual">Baixar</a>
+                                    <a class="btn-sec" :href="/^data:image\//.test(imagens[b.id] || '') ? imagens[b.id] : '#'" download="imagem.png" title="Baixar a imagem atual">Baixar</a>
                                 </div>
                                 <img :src="imagens[b.id]" :alt="b.titulo"
                                      class="block w-full h-auto rounded-lg"

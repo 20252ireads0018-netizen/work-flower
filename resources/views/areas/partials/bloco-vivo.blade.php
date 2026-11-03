@@ -7,7 +7,7 @@
                     :style="arrastando ? 'pointer-events:none' : ''"></iframe>
         </template>
         <p class="text-xs texto-2">
-            Cartão ativo · <a :href="b.dados.pagina" class="link-prim" x-text="'abrir ' + (b.dados.pagina || '').replace('/areas/', '')"></a>
+            Cartão ativo · <a :href="/^\/areas\/[a-z]+$/.test(b.dados.pagina || '') ? b.dados.pagina : '#'" class="link-prim" x-text="'abrir ' + (b.dados.pagina || '').replace('/areas/', '')"></a>
         </p>
     </div>
 </template>

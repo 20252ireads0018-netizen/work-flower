@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * A CSP não restringe scripts: as páginas usam Alpine (avaliação de expressões), scripts inline, AdSense e CDNs
  * do editor de código. Ela fecha o que não quebra nada: quem pode pôr o site num iframe (clickjacking),
- * plugins (<object>/<embed>) e a troca da base dos links (<base>).
+ * plugins (<object>/<embed>), a troca da base dos links (<base>) e formulários que enviam para outro site.
  */
 class CabecalhosSeguranca
 {
@@ -25,10 +25,10 @@ class CabecalhosSeguranca
         $resposta = $next($request);
         $h = $resposta->headers;
 
-        $csp = "frame-ancestors 'self'; object-src 'none'; base-uri 'self'";
+        $csp = "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'";
         if ($request->secure()) {
             $csp .= '; upgrade-insecure-requests';
-            $h->set('Strict-Transport-Security', 'max-age=15552000');
+            $h->set('Strict-Transport-Security', 'max-age=31536000');
         }
         // só em páginas HTML: num PDF servido pelo site, object-src 'none' pode travar o leitor de PDF do navegador
         $html = str_contains((string) $h->get('Content-Type'), 'text/html');
@@ -40,6 +40,7 @@ class CabecalhosSeguranca
         $h->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $h->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), hid=()');
         $h->set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+        $h->set('X-Permitted-Cross-Domain-Policies', 'none');
         $h->remove('X-Powered-By');
         if (function_exists('header_remove')) {
             @header_remove('X-Powered-By');

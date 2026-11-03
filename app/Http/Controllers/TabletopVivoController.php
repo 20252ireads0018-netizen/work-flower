@@ -17,6 +17,7 @@ class TabletopVivoController extends Controller
     private const MAX = ['peca' => 300, 'des' => 1500];         // itens por sala
     private const MAX_BYTES = ['peca' => 4000, 'des' => 80000];  // JSON de cada item
     private const MAX_IMGS = 60;
+    private const MAX_SALAS = 20;         // salas em uso por conta
     private const MAX_OPS = 300;          // igual a LOTE no JS
     private const HIST = 500;             // ops guardadas; mais antigas são podadas
     private const POR_RESPOSTA = 200;     // lotes por consulta (o resto vai em `mais`)
@@ -33,6 +34,11 @@ class TabletopVivoController extends Controller
             'titulo' => 'nullable|string|max:80',
             'dados' => 'required|array',
         ]);
+
+        // salas usadas na última semana por conta (as paradas não contam: sem o agendador, elas não somem sozinhas)
+        if (TabletopSala::where('user_id', $r->user()->id)->where('ultima_atividade', '>=', now()->subDays(7))->count() >= self::MAX_SALAS) {
+            return response()->json(['message' => 'Você já tem ' . self::MAX_SALAS . ' salas ao vivo em uso. Encerre uma antes de abrir outra.'], 422);
+        }
 
         $sala = DB::transaction(function () use ($in, $r) {
             $dados = $in['dados'];

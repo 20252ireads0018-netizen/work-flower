@@ -20,6 +20,9 @@ class MenteController extends Controller
 {
     private const PREFIXO = 'mente.';
 
+    /** Livros com PDF guardado por conta (cada um vai até 40 MB). */
+    private const MAX_PDFS = 300;
+
     /** Dados salvos do usuário, sem o prefixo (estado, img.xxx). Usado pela view. */
     public static function dados(int $usuarioId): Collection
     {
@@ -48,6 +51,12 @@ class MenteController extends Controller
     public function enviarPdf(Request $request, string $id): JsonResponse
     {
         $request->validate(['pdf' => ['required', 'file', 'mimes:pdf', 'max:40960']]); // 40 MB
+
+        // limite de livros com PDF por conta (trocar o PDF de um livro que já tem continua valendo)
+        $disco = Storage::disk('local');
+        if (! $disco->exists($this->pasta($request) . '/' . $id . '.pdf') && count($disco->files($this->pasta($request))) >= self::MAX_PDFS) {
+            return response()->json(['message' => 'Limite de ' . self::MAX_PDFS . ' PDFs atingido. Remova o PDF de algum livro para enviar outro.'], 422);
+        }
 
         $request->file('pdf')->storeAs($this->pasta($request), $id . '.pdf', 'local');
 

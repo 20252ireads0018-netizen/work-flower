@@ -446,10 +446,18 @@
                 if (i >= 0) p.anexos.splice(i, 1);
             },
             async abrirAnexo(a) {
-                if (a.tipo === 'link') { window.open(a.url, '_blank', 'noopener'); return; }
-                const blob = await (await fetch(a.data)).blob();
+                if (a.tipo === 'link') {
+                    // só http(s): um anexo vindo de outra pessoa ou de arquivo importado não pode ser javascript:
+                    if (/^https?:\/\//i.test(String(a.url || ''))) window.open(a.url, '_blank', 'noopener');
+                    return;
+                }
+                if (!/^data:/i.test(String(a.data || ''))) return;
+                const bruto = await (await fetch(a.data)).blob();
+                // abre na aba só o que é PDF de verdade; o resto é baixado (um data:text/html aberto rodaria script no site)
+                const pdf = a.mime === 'application/pdf' && /^data:application\/pdf[;,]/i.test(a.data);
+                const blob = new Blob([await bruto.arrayBuffer()], { type: pdf ? 'application/pdf' : 'application/octet-stream' });
                 const url = URL.createObjectURL(blob);
-                if (a.mime === 'application/pdf') window.open(url, '_blank');
+                if (pdf) window.open(url, '_blank');
                 else { const l = document.createElement('a'); l.href = url; l.download = a.nome; l.click(); }
                 setTimeout(() => URL.revokeObjectURL(url), 60000);
             },

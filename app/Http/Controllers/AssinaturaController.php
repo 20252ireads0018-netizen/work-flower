@@ -49,10 +49,11 @@ class AssinaturaController extends Controller
         }
 
         // Já há um Pix em aberto deste plano e deste valor? Reaproveita (cada clique não cria um pedido novo).
-        // Pedidos em aberto de outro plano ou valor ficam cancelados.
+        // Pedidos de outro plano ou valor ainda sem "Já paguei" ficam cancelados; os que a pessoa já disse que pagou
+        // continuam esperando a conferência (abrir um link não pode apagar um pagamento feito).
         $aberto = PixPagamento::where('user_id', $usuario->id)->whereIn('status', PixPagamento::ABERTOS)->latest('id')->get();
         $mesmo  = $aberto->first(fn ($p) => $p->plano_slug === $plano->slug && (float) $p->valor === (float) $plano->price);
-        $aberto->reject(fn ($p) => $mesmo && $p->is($mesmo))->each(fn ($p) => $p->forceFill(['status' => 'cancelado'])->save());
+        $aberto->reject(fn ($p) => ($mesmo && $p->is($mesmo)) || $p->status !== 'aguardando')->each(fn ($p) => $p->forceFill(['status' => 'cancelado'])->save());
 
         $pagamento = $mesmo ?? PixPagamento::create([
             'user_id'    => $usuario->id,

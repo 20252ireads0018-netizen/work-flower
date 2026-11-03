@@ -39,6 +39,10 @@ class WorkflowTransferController extends Controller
     /** Chaves de corpo_dados que NÃO pertencem à área Corpo. */
     private const PREFIXOS_FORA_DO_CORPO = ['mente.', 'fundo', 'biblioteca', 'preferencias'];
 
+    /** Chaves da conta que moram em corpo_dados (ambiente, contador de downloads): o Corpo não exporta, não apaga e
+     *  ignora na importação (arquivos antigos podem trazer, e não devem passar por cima). */
+    private const CHAVES_DA_CONTA_NO_CORPO = ['amb.', 'downloads_feitos'];
+
     private const MAX_LINHAS_POR_AREA = 5000;
     private const MAX_VALOR           = 8000000;           // mesmo limite do MenteController
     private const MAX_PDF_EXPORTA     = 20 * 1024 * 1024;  // soma dos PDFs que vão no arquivo
@@ -234,6 +238,9 @@ class WorkflowTransferController extends Controller
                         $this->falha("Há um registro de {$nomeArea} com nome não permitido.");
                     }
                 }
+                foreach (self::CHAVES_DA_CONTA_NO_CORPO as $daConta) {
+                    if (strpos($chave, $daConta) === 0) continue 2;
+                }
             }
 
             if (isset($vistas[$chave])) continue;
@@ -297,7 +304,7 @@ class WorkflowTransferController extends Controller
 
         if ($area === 'corpo') {
             return $q->where(function ($sub) {
-                foreach (self::PREFIXOS_FORA_DO_CORPO as $prefixo) {
+                foreach ([...self::PREFIXOS_FORA_DO_CORPO, ...self::CHAVES_DA_CONTA_NO_CORPO] as $prefixo) {
                     $sub->where('chave', 'not like', $prefixo . '%');
                 }
             });

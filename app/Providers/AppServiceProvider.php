@@ -4,6 +4,9 @@ namespace App\Providers;
 
 use App\Services\Payments\AsaasGateway;
 use App\Services\Payments\PaymentGateway;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -21,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Gravação automática dos quadros (estado, imagens, tarefas): folgado para quem usa de verdade
+        // (o navegador junta as mudanças antes de gravar), mas segura um script enchendo o banco.
+        RateLimiter::for('gravar', fn (Request $request) => Limit::perMinute(300)->by($request->user()?->id ?: $request->ip()));
     }
 }

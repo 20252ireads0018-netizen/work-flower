@@ -36,7 +36,7 @@ class CarteiraController extends Controller
             'tarefas'   => $tarefas,
             'tarefasJs' => $tarefasJs,
             'dados'     => $dados,
-            'wfVersao'      => Sincronia::versaoAtual(self::SLUG, $donoId),
+            'wfVersao'      => Sincronia::versao($dados['estado'] ?? null),
             'wfSincronizar' => Compartilhar::temOutrasPessoas($donoId, self::SLUG, $user->id),
         ]);
     }
@@ -69,7 +69,12 @@ class CarteiraController extends Controller
 
         $saida = [];
         foreach ($tickers as $t) {
-            $preco = Cache::remember("cotacao.$t", 300, fn () => $this->buscarPreco($t));
+            // falha também fica guardada (como 0, por 2 minutos): códigos inventados não viram uma chamada externa cada
+            $preco = Cache::get("cotacao.$t");
+            if ($preco === null) {
+                $preco = $this->buscarPreco($t) ?? 0.0;
+                Cache::put("cotacao.$t", $preco, $preco ? 300 : 120);
+            }
             if ($preco) {
                 $saida[$t] = $preco;
             }

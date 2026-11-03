@@ -34,7 +34,10 @@ class AreaController extends Controller
         }
 
         if ($area === 'corpo') {
-            $dados['corpoDados'] = CorpoDado::where('user_id', $usuarioId)->pluck('valor', 'chave');
+            // o corpo.js só lê "estado" e "img.*"; a mesma tabela guarda PDFs da Mente, fundos e preferências
+            $dados['corpoDados'] = CorpoDado::where('user_id', $usuarioId)
+                ->where(fn ($q) => $q->where('chave', 'estado')->orWhere('chave', 'like', 'img.%'))
+                ->pluck('valor', 'chave');
         }
 
         // A área Mente guarda estado, imagens e PDFs (ver MenteController).
@@ -44,7 +47,8 @@ class AreaController extends Controller
 
         // várias pessoas no mesmo workflow: versão do estado e se o navegador deve conferir mudanças dos outros
         if (in_array($area, ['corpo', 'mente'], true)) {
-            $dados['wfVersao'] = Sincronia::versaoAtual($area, $usuarioId);
+            // o estado já veio do banco acima: a versão sai dele, sem ler de novo
+            $dados['wfVersao'] = Sincronia::versao(($area === 'corpo' ? $dados['corpoDados'] : $dados['menteDados'])['estado'] ?? null);
             $dados['wfSincronizar'] = Compartilhar::temOutrasPessoas($usuarioId, $area, $request->user()->id);
         }
 

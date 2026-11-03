@@ -183,15 +183,29 @@ class Sincronia
         foreach (\App\Models\WorkflowMembro::where('dono_id', $eu->id)->distinct()->pluck('area') as $area) {
             $pares[] = [$area, $eu->id, $eu->name];
         }
-        foreach (\App\Models\WorkflowMembro::with('dono:id,name')->where('membro_id', $eu->id)->get() as $m) {
-            if (Compartilhar::podeAcessar($eu->id, $m->dono_id, $m->area)) {
-                $pares[] = [$m->area, $m->dono_id, (string) $m->dono?->name];
+        // mesma regra do Compartilhar::podeAcessar, mas com os convidados ativos calculados uma vez por dono
+        $ativos = [];
+        foreach (\App\Models\WorkflowMembro::with('dono')->where('membro_id', $eu->id)->get() as $m) {
+            if (! $m->dono) {
+                continue;
+            }
+            $ativos[$m->dono_id] ??= $m->dono_id === $eu->id || in_array($eu->id, Compartilhar::convidadosAtivos($m->dono), true);
+            if ($ativos[$m->dono_id]) {
+                $pares[] = [$m->area, $m->dono_id, (string) $m->dono->name];
             }
         }
 
+        // todas as marcas numa leitura só do cache
+        $chaves = array_map(fn ($p) => self::chaveMarca($p[0], $p[1]), $pares);
+        try {
+            $marcas = $chaves ? Cache::many($chaves) : [];
+        } catch (\Throwable) {
+            $marcas = [];
+        }
+
         $saida = [];
-        foreach ($pares as [$area, $dono, $donoNome]) {
-            $m = self::marca($area, $dono);
+        foreach ($pares as $i => [$area, $dono, $donoNome]) {
+            $m = is_array($marcas[$chaves[$i]] ?? null) ? $marcas[$chaves[$i]] : null;
             if (! $m || empty($m['em']) || ($m['por'] ?? null) === $eu->id) {
                 continue;
             }

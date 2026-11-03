@@ -59,7 +59,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/pagamento/pix/{pix}/paguei', [AssinaturaController::class, 'paguei'])
         ->whereNumber('pix')->middleware('throttle:20,1')->name('pix.paguei');
     Route::post('/pagamento/pix/{pix}/cancelar', [AssinaturaController::class, 'cancelar'])
-        ->whereNumber('pix')->name('pix.cancelar');
+        ->whereNumber('pix')->middleware('throttle:20,1')->name('pix.cancelar');
     Route::middleware(\App\Http\Middleware\SoAdmin::class)->group(function () {
         Route::get('/admin/pix', [\App\Http\Controllers\PixAdminController::class, 'index'])->name('pix.admin');
         Route::post('/admin/pix/config', [\App\Http\Controllers\PixAdminController::class, 'config'])->name('pix.admin.config');
@@ -83,7 +83,7 @@ Route::middleware('auth')->group(function () {
 
         return view('anuncios.' . $slug);
     })->where('slug', '[a-z-]+')->middleware(\App\Http\Middleware\SoAdmin::class)->name('anuncios.ver');
-    Route::put('/tema', [TemaController::class, 'update'])->name('tema.update');
+    Route::put('/tema', [TemaController::class, 'update'])->middleware('throttle:30,1')->name('tema.update');
 
     // Contador de downloads do botão de baixar dos cartões (limite do plano gratuito)
     Route::post('/downloads/registrar', [DownloadController::class, 'registrar'])
@@ -91,11 +91,11 @@ Route::middleware('auth')->group(function () {
 
     // Carteira: precisa vir ANTES da rota genérica /areas/{area}
     Route::get('/areas/carteira', [CarteiraController::class, 'show'])->name('areas.carteira');
-    Route::get('/carteira/cotacao', [CarteiraController::class, 'cotacao'])->name('carteira.cotacao');
+    Route::get('/carteira/cotacao', [CarteiraController::class, 'cotacao'])->middleware('throttle:30,1')->name('carteira.cotacao');
     Route::put('/carteira/dados/{chave}', [CarteiraController::class, 'salvar'])
-        ->where('chave', '[A-Za-z0-9._-]{1,60}')->name('carteira.dados.salvar');
+        ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('carteira.dados.salvar');
     Route::delete('/carteira/dados/{chave}', [CarteiraController::class, 'remover'])
-        ->where('chave', '[A-Za-z0-9._-]{1,60}')->name('carteira.dados.remover');
+        ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('carteira.dados.remover');
 
     // Carteira › Marketplaces (Mercado Livre, Shopee, Amazon). Limite de contas vem do plano do dono.
     Route::prefix('/carteira/marketplaces')->name('carteira.mkt')->group(function () {
@@ -106,13 +106,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/retorno/{canal}', [MarketplaceController::class, 'retorno'])
             ->whereIn('canal', ['mercadolivre', 'shopee', 'amazon'])->middleware('throttle:20,1')->name('.retorno');
         Route::post('/contas/demo', [MarketplaceController::class, 'demo'])->middleware('throttle:20,1')->name('.demo');
-        Route::patch('/contas', [MarketplaceController::class, 'editarContas'])->name('.contas.editar');
-        Route::delete('/contas', [MarketplaceController::class, 'removerContas'])->name('.contas.remover');
+        Route::patch('/contas', [MarketplaceController::class, 'editarContas'])->middleware('throttle:60,1')->name('.contas.editar');
+        Route::delete('/contas', [MarketplaceController::class, 'removerContas'])->middleware('throttle:60,1')->name('.contas.remover');
         Route::post('/sincronizar', [MarketplaceController::class, 'sincronizar'])->middleware('throttle:30,1')->name('.sincronizar');
-        Route::put('/produtos', [MarketplaceController::class, 'salvarProdutos'])->name('.produtos.salvar');
-        Route::delete('/produtos', [MarketplaceController::class, 'removerProdutos'])->name('.produtos.remover');
+        Route::put('/produtos', [MarketplaceController::class, 'salvarProdutos'])->middleware('throttle:60,1')->name('.produtos.salvar');
+        Route::delete('/produtos', [MarketplaceController::class, 'removerProdutos'])->middleware('throttle:60,1')->name('.produtos.remover');
         Route::post('/anuncios/acao', [MarketplaceController::class, 'acaoAnuncios'])->middleware('throttle:60,1')->name('.anuncios.acao');
-        Route::patch('/anuncios', [MarketplaceController::class, 'editarAnuncios'])->name('.anuncios.editar');
+        Route::patch('/anuncios', [MarketplaceController::class, 'editarAnuncios'])->middleware('throttle:60,1')->name('.anuncios.editar');
     });
 
     // Diverso: precisa vir ANTES da rota genérica /areas/{area}
@@ -122,18 +122,18 @@ Route::middleware('auth')->group(function () {
     Route::get('/areas/{area}', [AreaController::class, 'show'])
         ->whereIn('area', array_keys(Tarefa::AREAS))->name('areas.show');
     Route::post('/areas/{area}/tarefas', [AreaController::class, 'store'])
-        ->whereIn('area', array_keys(Tarefa::AREAS))->name('areas.tarefas.store');
+        ->whereIn('area', array_keys(Tarefa::AREAS))->middleware('throttle:60,1')->name('areas.tarefas.store');
 
-    Route::put('/tarefas/{tarefa}', [TarefaController::class, 'update'])->name('tarefas.update');
-    Route::delete('/tarefas/{tarefa}', [TarefaController::class, 'destroy'])->name('tarefas.destroy');
+    Route::put('/tarefas/{tarefa}', [TarefaController::class, 'update'])->middleware('throttle:gravar')->name('tarefas.update');
+    Route::delete('/tarefas/{tarefa}', [TarefaController::class, 'destroy'])->middleware('throttle:gravar')->name('tarefas.destroy');
 
     // Dados da área Corpo (treinos, dieta, água, calorias, blocos livres, layout, imagens)
     Route::put('/corpo/dados/{chave}', [CorpoController::class, 'salvar'])
-        ->where('chave', '[A-Za-z0-9._-]{1,60}')->name('corpo.dados.salvar');
+        ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('corpo.dados.salvar');
     Route::delete('/corpo/dados/{chave}', [CorpoController::class, 'remover'])
-        ->where('chave', '[A-Za-z0-9._-]{1,60}')->name('corpo.dados.remover');
+        ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('corpo.dados.remover');
 
-    Route::put('/fundo', [FundoController::class, 'salvar'])->name('fundo.salvar');
+    Route::put('/fundo', [FundoController::class, 'salvar'])->middleware('throttle:30,1')->name('fundo.salvar');
 
     // Preferências da conta: teclas de atalho, organização automática dos cartões, tutorial visto
     Route::put('/preferencias', [PreferenciasController::class, 'salvar'])
@@ -154,7 +154,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/imagem', [\App\Http\Controllers\AmbienteController::class, 'imagem'])->name('imagem');
         Route::get('/audio', [\App\Http\Controllers\AmbienteController::class, 'audio'])->name('audio');
         Route::post('/audio', [\App\Http\Controllers\AmbienteController::class, 'enviarAudio'])->middleware('throttle:10,1')->name('audio.enviar');
-        Route::delete('/audio', [\App\Http\Controllers\AmbienteController::class, 'removerAudio'])->name('audio.remover');
+        Route::delete('/audio', [\App\Http\Controllers\AmbienteController::class, 'removerAudio'])->middleware('throttle:30,1')->name('audio.remover');
     });
 
     // Workflows compartilhados: convidar pessoas para uma área (limite de pessoas vem do plano do dono)
@@ -162,9 +162,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/compartilhar/{area}', [CompartilharController::class, 'adicionar'])
         ->middleware('throttle:20,1')->name('compartilhar.adicionar');
     Route::delete('/compartilhar/{area}/sair/{dono}', [CompartilharController::class, 'sair'])
-        ->whereNumber('dono')->name('compartilhar.sair');
+        ->whereNumber('dono')->middleware('throttle:20,1')->name('compartilhar.sair');
     Route::delete('/compartilhar/{area}/{membro}', [CompartilharController::class, 'remover'])
-        ->whereNumber('membro')->name('compartilhar.remover');
+        ->whereNumber('membro')->middleware('throttle:20,1')->name('compartilhar.remover');
     // o que as outras pessoas do workflow mudaram (o navegador confere a cada poucos segundos)
     Route::get('/sincronia/{area}', [CompartilharController::class, 'sincronia'])
         ->middleware('throttle:120,1')->name('sincronia');
@@ -174,7 +174,7 @@ Route::middleware('auth')->group(function () {
 
     // Biblioteca de blocos (vale para todas as páginas)
     Route::get('/biblioteca', [BibliotecaController::class, 'index'])->name('biblioteca.index');
-    Route::put('/biblioteca', [BibliotecaController::class, 'salvar'])->name('biblioteca.salvar');
+    Route::put('/biblioteca', [BibliotecaController::class, 'salvar'])->middleware('throttle:60,1')->name('biblioteca.salvar');
 
     // Importar e exportar workflows (arquivo .workflower.json, serve para levar para outra conta)
     Route::prefix('workflows')->name('workflows.')->group(function () {
@@ -188,24 +188,28 @@ Route::middleware('auth')->group(function () {
 Route::middleware('auth')->prefix('mente')->name('mente.')->group(function () {
     // Estado geral e imagens (chave: "estado" ou "img.{id}")
     Route::put('/dados/{chave}', [MenteController::class, 'salvar'])
-        ->where('chave', '[A-Za-z0-9._-]+')
+        ->where('chave', '[A-Za-z0-9._-]{1,90}')
+        ->middleware('throttle:gravar')
         ->name('salvar');
 
     Route::delete('/dados/{chave}', [MenteController::class, 'apagar'])
-        ->where('chave', '[A-Za-z0-9._-]+')
+        ->where('chave', '[A-Za-z0-9._-]{1,90}')
+        ->middleware('throttle:gravar')
         ->name('apagar');
 
     // PDFs dos livros
     Route::post('/pdf/{id}', [MenteController::class, 'enviarPdf'])
-        ->where('id', '[A-Za-z0-9_-]+')
+        ->where('id', '[A-Za-z0-9_-]{1,80}')
+        ->middleware('throttle:20,1')
         ->name('pdf.enviar');
 
     Route::get('/pdf/{id}', [MenteController::class, 'pdf'])
-        ->where('id', '[A-Za-z0-9_-]+')
+        ->where('id', '[A-Za-z0-9_-]{1,80}')
         ->name('pdf.ver');
 
     Route::delete('/pdf/{id}', [MenteController::class, 'removerPdf'])
-        ->where('id', '[A-Za-z0-9_-]+')
+        ->where('id', '[A-Za-z0-9_-]{1,80}')
+        ->middleware('throttle:60,1')
         ->name('pdf.remover');
 });
 
@@ -213,10 +217,12 @@ Route::middleware('auth')->prefix('mente')->name('mente.')->group(function () {
 Route::middleware('auth')->prefix('diverso')->name('diverso.')->group(function () {
     Route::put('/dados/{chave}', [DiversoController::class, 'salvar'])
         ->where('chave', '[A-Za-z0-9._-]{1,60}')
+        ->middleware('throttle:gravar')
         ->name('salvar');
 
     Route::delete('/dados/{chave}', [DiversoController::class, 'apagar'])
         ->where('chave', '[A-Za-z0-9._-]{1,60}')
+        ->middleware('throttle:gravar')
         ->name('apagar');
 });
 

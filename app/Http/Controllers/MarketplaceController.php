@@ -83,6 +83,9 @@ class MarketplaceController extends Controller
                 'tarifas' => $p->tarifas, 'itens' => $p->itens ?? [],
             ]);
 
+        // anúncios por conta e por SKU contados uma vez só (antes: uma volta na lista inteira para cada conta e produto)
+        $porConta = $anuncios->countBy('conta_id');
+        $porSkuN = $anuncios->countBy('sku');
         $limite = $dono ? Planos::limite(Planos::slugDe($dono), 'marketplaces') : 1;
 
         return response()->json([
@@ -96,11 +99,11 @@ class MarketplaceController extends Controller
                 'nome' => $c->nome, 'externo_id' => $c->externo_id, 'demo' => $c->demo, 'ativa' => $c->ativa,
                 'erro' => $c->erro, 'sincronizado_em' => $c->sincronizado_em?->toIso8601String(),
                 'regras' => (object) ($c->regras ?? []), 'regras_efetivas' => $regras[$c->id],
-                'anuncios' => $anuncios->where('conta_id', $c->id)->count(),
+                'anuncios' => $porConta[$c->id] ?? 0,
             ])->values(),
             'produtos' => $produtos->map(fn ($p) => [
                 'id' => $p->id, 'sku' => $p->sku, 'nome' => $p->nome, 'custo' => $p->custo, 'custo_extra' => $p->custo_extra,
-                'anuncios' => $anuncios->where('sku', $p->sku)->count(),
+                'anuncios' => $porSkuN[$p->sku] ?? 0,
             ])->values(),
             'anuncios' => $anuncios->values(),
             'pedidos' => $pedidos->values(),

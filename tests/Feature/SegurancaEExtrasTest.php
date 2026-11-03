@@ -68,7 +68,7 @@ class SegurancaEExtrasTest extends TestCase
             ->assertHeader('X-Frame-Options', 'SAMEORIGIN')
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
-            ->assertHeader('Content-Security-Policy', "frame-ancestors 'self'; object-src 'none'; base-uri 'self'")
+            ->assertHeader('Content-Security-Policy', "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'")
             ->assertHeaderMissing('Strict-Transport-Security');
 
         // fora do HTML (PDF) não vai CSP, para não atrapalhar o leitor de PDF do navegador
@@ -78,7 +78,7 @@ class SegurancaEExtrasTest extends TestCase
     public function test_em_https_o_cookie_de_sessao_e_secure_e_vai_hsts(): void
     {
         $r = $this->get('https://localhost/login')->assertOk()
-            ->assertHeader('Strict-Transport-Security', 'max-age=15552000');
+            ->assertHeader('Strict-Transport-Security', 'max-age=31536000');
         $this->assertStringContainsString('upgrade-insecure-requests', $r->headers->get('Content-Security-Policy'));
 
         $cookie = collect($r->headers->getCookies())->first(fn ($c) => $c->getName() === config('session.cookie'));
