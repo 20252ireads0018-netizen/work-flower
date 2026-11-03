@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Api\PlanController;
 use App\Http\Controllers\Api\SubscriptionController;
-use App\Http\Controllers\Webhooks\AsaasWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('api')->group(function () {
@@ -20,7 +19,6 @@ Route::prefix('api')->group(function () {
         // Route::delete('subscription', [SubscriptionController::class, 'destroy']);
     });
 
-    // Webhook do Asaas: grupo "api" (sem sessão e sem CSRF), protegido pelo token do header.
-    Route::post('webhooks/asaas', AsaasWebhookController::class)->middleware('api');
+    // O webhook do Asaas saiu: os planos agora são pagos por Pix direto na chave (ver AssinaturaController).
 });
 

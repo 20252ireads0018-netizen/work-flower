@@ -828,6 +828,12 @@
                                 Reclamações (admin)
                                 @if ($rqAbertas)<span class="ml-auto text-xs px-2 rounded-full" style="background: var(--prim); color: var(--on-prim)">{{ $rqAbertas }}</span>@endif
                             </a>
+                            @php try { $pixAvisados = \App\Models\PixPagamento::where('status', 'informado')->count(); } catch (\Throwable $e) { $pixAvisados = 0; } @endphp
+                            <a href="{{ route('pix.admin') }}" class="menu-item" role="menuitem">
+                                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 9-9 9-9-9z"/><path d="M8.5 12h7"/></svg>
+                                Pagamentos Pix (admin)
+                                @if ($pixAvisados)<span class="ml-auto text-xs px-2 rounded-full" style="background: var(--prim); color: var(--on-prim)">{{ $pixAvisados }}</span>@endif
+                            </a>
                         @endif
                         @if (\App\Support\Anuncios::podeVer(auth()->user()))
                             <a href="{{ route('anuncios.index') }}" class="menu-item" role="menuitem">

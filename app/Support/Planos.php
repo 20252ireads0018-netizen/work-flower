@@ -132,7 +132,7 @@ class Planos
                     // plano pago vencido (além da tolerância) volta para o gratuito
                     $expira = $usuario->plano_expira_em ?? null;
                     if ($slug !== self::PADRAO && $expira
-                        && Carbon::parse($expira)->addDays((int) config('asaas.grace_days', 3))->isPast()) {
+                        && Carbon::parse($expira)->addDays((int) config('pix.grace_days', 3))->isPast()) {
                         return self::PADRAO;
                     }
 

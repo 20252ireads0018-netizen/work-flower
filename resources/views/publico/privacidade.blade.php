@@ -67,7 +67,7 @@
     <h2 class="titulo text-xl pt-4">6. Compartilhamento com terceiros</h2>
     <p>Compartilhamos dados apenas quando necessário para operar o serviço:</p>
     <ul class="list-disc pl-6 space-y-1.5">
-        <li><strong>Pagamentos:</strong> a cobrança dos planos pagos é feita por um provedor de pagamentos (Asaas), que trata os dados necessários para a transação segundo a sua própria política.</li>
+        <li><strong>Pagamentos:</strong> os planos pagos são pagos por Pix direto na conta do Work Flower. Guardamos só o valor, o plano, a data e, se você informar, o nome de quem pagou, para conferir o pagamento no extrato. Os dados bancários do Pix ficam com o seu banco.</li>
         <li><strong>Hospedagem e infraestrutura:</strong> os dados ficam armazenados em servidores de um provedor de hospedagem contratado por nós.</li>
         <li><strong>Publicidade:</strong> o Google AdSense, conforme descrito acima.</li>
         <li><strong>Obrigação legal:</strong> autoridades, quando houver ordem legal ou judicial.</li>

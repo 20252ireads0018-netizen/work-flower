@@ -23,7 +23,16 @@
     }
 
     $planos    = collect($planos);
-    $planoAtual = auth()->check() ? Planos::slugDe(auth()->user()) : null;
+    // "Plano atual" é o que a pessoa paga (o teste grátis não conta, senão ninguém em teste assinaria);
+    // perto do fim do mês pago o botão vira "Renovar".
+    $planoAtual = auth()->check() ? Planos::slugPago(auth()->user()) : null;
+    $renovavel  = auth()->check() && \App\Support\Pix::podeRenovar(auth()->user());
+    $pixAberto  = null;
+    if (auth()->check()) {
+        try {
+            $pixAberto = \App\Models\PixPagamento::where('user_id', auth()->id())->whereIn('status', ['aguardando', 'informado', 'recusado'])->latest('id')->first();
+        } catch (\Throwable $e) { report($e); }
+    }
     $emBreve   = ['pro', 'premium'];                 // Coming soon
     $destaque  = $planos->contains('slug', 'basico') ? 'basico' : null;
 
@@ -80,6 +89,14 @@
         <div class="card p-4 mb-6 text-sm" role="alert">{{ session('erro') }}</div>
     @endif
 
+    @if ($pixAberto)
+        <a href="{{ route('pix.ver', $pixAberto) }}" class="card p-4 mb-6 text-sm flex flex-wrap items-center gap-2" role="status">
+            <b>Pix do plano {{ Planos::nome($pixAberto->plano_slug) }} · R$ {{ number_format((float) $pixAberto->valor, 2, ',', '.') }}</b>
+            <span class="texto-2">{{ ['aguardando' => 'esperando o pagamento', 'informado' => 'pagamento em conferência', 'recusado' => 'não encontramos o pagamento'][$pixAberto->status] }}</span>
+            <span class="ml-auto underline">Abrir</span>
+        </a>
+    @endif
+
     @if ($planos->isEmpty())
         <div class="card p-8 text-center">
             <p class="titulo text-xl">Nenhum plano disponível no momento</p>
@@ -90,7 +107,8 @@
             @foreach ($planos as $plano)
                 @php
                     $breve      = in_array($plano->slug, $emBreve, true);
-                    $ehAtual    = $planoAtual === $plano->slug;
+                    $ehAtual    = $planoAtual === $plano->slug && ! ($renovavel && (float) $plano->price > 0);
+                    $renovar    = $planoAtual === $plano->slug && ! $ehAtual;
                     $ehDestaque = $destaque && $plano->slug === $destaque;
                     $gratis     = (float) $plano->price <= 0;
                     $preco      = number_format((float) $plano->price, 2, ',', '.');
@@ -158,14 +176,14 @@
                            href="{{ $gratis ? $urlAssinar . '?plano=' . $plano->slug : route('assinar', $plano->slug) }}"
                            class="{{ $ehDestaque ? 'btn' : 'btn-sec' }} mt-7 w-full"
                            aria-label="{{ $gratis ? 'Começar no plano' : 'Assinar o plano' }} {{ $plano->name }}">
-                            {{ $gratis ? 'Começar grátis' : 'Assinar ' . $plano->name }}
+                            {{ $gratis ? 'Começar grátis' : ($renovar ? 'Renovar com Pix' : 'Assinar com Pix') }}
                         </a>
                     @endif
                 </article>
             @endforeach
         </div>
 
-        <p class="texto-2 text-xs mt-6 text-center">Valores em reais, cobrados mensalmente. Os planos Pró e Premium chegam em breve.</p>
+        <p class="texto-2 text-xs mt-6 text-center">Valores em reais, por mês, pagos por Pix. Os planos Pró e Premium chegam em breve.</p>
     @endif
 </div>
 @endsection

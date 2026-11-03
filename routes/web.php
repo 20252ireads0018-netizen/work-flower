@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\AssinaturaController;
-use App\Http\Controllers\Webhooks\AsaasWebhookController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BibliotecaController;
 use App\Http\Controllers\CorpoController;
@@ -42,16 +41,6 @@ Route::get('/diag-rotas', function () {
     ]);
 });
 
-// Webhook do Asaas (sem login e sem CSRF; a autenticação é o token no header "asaas-access-token")
-Route::post('/webhooks/asaas', AsaasWebhookController::class)
-    ->withoutMiddleware([
-        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
-        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
-        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class, // nome do CSRF no Laravel 13
-    ])
-    ->middleware('throttle:120,1')
-    ->name('webhooks.asaas');
-
 // Páginas públicas (abrem para qualquer pessoa, logada ou não).
 // A raiz mostra a página inicial para visitantes e leva quem está logado ao painel.
 Route::get('/', function () {
@@ -82,13 +71,24 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-    Route::get('/assinar/{slug}/dados', [AssinaturaController::class, 'dados'])
-        ->where('slug', '[a-z0-9-]+')->name('assinar.dados');
-    Route::post('/assinar/{slug}/dados', [AssinaturaController::class, 'salvarDados'])
-        ->where('slug', '[a-z0-9-]+')->name('assinar.dados.salvar');
     Route::view('/planos', 'planos')->name('planos');
+
+    // Pagamento dos planos: Pix direto na chave da administração, confirmado à mão em /admin/pix
     Route::get('/assinar/{slug}', [AssinaturaController::class, 'assinar'])
-        ->where('slug', '[a-z0-9-]+')->name('assinar');
+        ->where('slug', '[a-z0-9-]+')->middleware('throttle:20,1')->name('assinar');
+    Route::get('/pagamento/pix/{pix}', [AssinaturaController::class, 'ver'])->whereNumber('pix')->name('pix.ver');
+    Route::post('/pagamento/pix/{pix}/paguei', [AssinaturaController::class, 'paguei'])
+        ->whereNumber('pix')->middleware('throttle:20,1')->name('pix.paguei');
+    Route::post('/pagamento/pix/{pix}/cancelar', [AssinaturaController::class, 'cancelar'])
+        ->whereNumber('pix')->name('pix.cancelar');
+    Route::middleware(\App\Http\Middleware\SoAdmin::class)->group(function () {
+        Route::get('/admin/pix', [\App\Http\Controllers\PixAdminController::class, 'index'])->name('pix.admin');
+        Route::post('/admin/pix/config', [\App\Http\Controllers\PixAdminController::class, 'config'])->name('pix.admin.config');
+        Route::post('/admin/pix/{pix}/confirmar', [\App\Http\Controllers\PixAdminController::class, 'confirmar'])
+            ->whereNumber('pix')->name('pix.admin.confirmar');
+        Route::post('/admin/pix/{pix}/recusar', [\App\Http\Controllers\PixAdminController::class, 'recusar'])
+            ->whereNumber('pix')->name('pix.admin.recusar');
+    });
     Route::post('/sair', [AuthController::class, 'logout'])->name('logout');
     
     Route::get('/painel', [PainelController::class, 'index'])->name('painel');

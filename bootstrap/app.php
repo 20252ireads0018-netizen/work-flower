@@ -22,14 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // cabeçalhos de segurança e cookie de sessão "Secure" em HTTPS (antes do StartSession)
         $middleware->prepend(\App\Http\Middleware\CabecalhosSeguranca::class);
-
-        // Webhooks do Asaas chegam sem sessão: a autenticação é o token no header "asaas-access-token".
-        // No Laravel 13 o CSRF do grupo "web" é o PreventRequestForgery, então o withoutMiddleware
-        // antigo (VerifyCsrfToken/ValidateCsrfToken) não excluía nada e o Asaas recebia 419.
-        $middleware->validateCsrfTokens(except: [
-            'webhooks/asaas',
-            'api/webhooks/asaas',
-        ]);
+
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

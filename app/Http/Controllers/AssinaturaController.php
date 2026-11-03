@@ -2,20 +2,24 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\AsaasCliente;
-use App\Support\Documento;
+use App\Models\PixPagamento;
+use App\Support\Pix;
 use App\Support\Planos;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
-/** "Assinar" na tela de planos: cria a assinatura no Asaas e manda o usuário para a tela de pagamento. */
+/**
+ * "Assinar" na tela de planos: gera um Pix com o valor do plano para a chave da administração.
+ * A pessoa paga, avisa que pagou e a administração confirma em /admin/pix (PixAdminController),
+ * o que libera o plano por um mês.
+ */
 class AssinaturaController extends Controller
 {
-    public function assinar(Request $request, string $slug, AsaasCliente $asaas): RedirectResponse
+    public function assinar(Request $request, string $slug): RedirectResponse
     {
-        $voltar  = config('asaas.redirect_unsubscribed', '/planos');
+        $voltar  = route('planos');
         $usuario = $request->user();
 
         if (in_array($slug, ['pro', 'premium'], true)) {
@@ -27,114 +31,74 @@ class AssinaturaController extends Controller
             return redirect($voltar)->with('erro', 'Plano indisponível para assinatura.');
         }
 
-        // Compara com o plano que o usuário REALMENTE paga. O plano liberado pelo teste de
-        // 30 dias (Planos::slugDe) não conta, senão quem está no teste não conseguiria assinar.
-        if (Planos::slugPago($usuario) === $plano->slug) {
-            return redirect($voltar)->with('erro', 'Você já está neste plano.');
+        // Compara com o plano que o usuário REALMENTE paga (o teste de 30 dias não conta).
+        // No mesmo plano, só deixa pagar de novo perto do fim do mês pago (renovação).
+        if (Planos::slugPago($usuario) === $plano->slug && ! Pix::podeRenovar($usuario)) {
+            return redirect($voltar)->with('erro', 'Você já está neste plano. A renovação abre 7 dias antes do fim do mês pago.');
         }
 
-        // O Asaas exige CPF/CNPJ válido do cliente. Sem ele, pede na tela de dados e volta aqui.
-        $documento = Documento::limpar($usuario->cpf_cnpj ?? $usuario->cpf ?? null);
-        if (! Documento::valido($documento)) {
-            return redirect()->route('assinar.dados', $plano->slug);
+        if (! Pix::pronto()) {
+            return redirect($voltar)->with('erro', 'O pagamento por Pix ainda não está disponível. Tente de novo mais tarde.');
         }
 
-        try {
-            // Já existe uma assinatura deste usuário no Asaas? Antes, cada clique em "Assinar" criava
-            // outra assinatura (e outra cobrança mensal). Agora: mesmo plano com fatura em aberto
-            // reaproveita a fatura; plano diferente (ou sem fatura) encerra a antiga antes de criar a nova.
-            $referencia = "user:{$usuario->id}:plano:{$plano->slug}";
-            $anteriorId = $usuario->asaas_subscription_id ?? null;
-            if ($anteriorId) {
-                $anterior = $asaas->buscarAssinatura($anteriorId);
-                $ativa    = $anterior && empty($anterior['deleted']) && ($anterior['status'] ?? '') === 'ACTIVE';
+        // Já há um Pix em aberto deste plano e deste valor? Reaproveita (cada clique não cria um pedido novo).
+        // Pedidos em aberto de outro plano ou valor ficam cancelados.
+        $aberto = PixPagamento::where('user_id', $usuario->id)->whereIn('status', PixPagamento::ABERTOS)->latest('id')->get();
+        $mesmo  = $aberto->first(fn ($p) => $p->plano_slug === $plano->slug && (float) $p->valor === (float) $plano->price);
+        $aberto->reject(fn ($p) => $mesmo && $p->is($mesmo))->each(fn ($p) => $p->forceFill(['status' => 'cancelado'])->save());
 
-                if ($ativa && ($anterior['externalReference'] ?? '') === $referencia) {
-                    $aberta = $asaas->linkCobrancaAberta($anteriorId);
-                    if ($aberta) {
-                        return self::paraAsaas($aberta, $voltar);
-                    }
-                }
-
-                if ($ativa) {
-                    $asaas->cancelarAssinatura($anteriorId);
-                }
-            }
-
-            $cliente = $asaas->cliente(
-                $usuario->name,
-                $usuario->email,
-                $documento,
-            );
-
-            $assinatura = $asaas->assinatura(
-                $cliente,
-                (float) $plano->price,
-                "Work Flower · plano {$plano->name}",
-                $referencia, // o webhook usa isto para liberar o plano
-                (int) ($plano->trial_days ?? 0),
-            );
-
-            // o webhook também reconhece o usuário por este id
-            DB::table('users')->where('id', $usuario->id)->update(['asaas_subscription_id' => $assinatura['id']]);
-
-            $link = $asaas->linkPagamento($assinatura['id']);
-        } catch (\Throwable $e) {
-            report($e); // o detalhe vai para o log; a pessoa não vê mensagens internas da API
-
-            return redirect($voltar)->with('erro', 'Não foi possível abrir o pagamento agora. Tente de novo em alguns minutos.');
-        }
-
-        if (! $link) {
-            return redirect($voltar)->with('erro', 'A cobrança ainda está sendo gerada. Tente novamente em instantes.');
-        }
-
-        return self::paraAsaas($link, $voltar);
-    }
-
-    /** Só redireciona para páginas do próprio Asaas (o link vem da API, mas não custa conferir). */
-    private static function paraAsaas(string $link, string $voltar): RedirectResponse
-    {
-        $host = strtolower((string) parse_url($link, PHP_URL_HOST));
-        if (parse_url($link, PHP_URL_SCHEME) !== 'https' || ! preg_match('/(^|\.)asaas\.com$/', $host)) {
-            report(new \RuntimeException('Link de pagamento fora do Asaas: ' . $link));
-
-            return redirect($voltar)->with('erro', 'Não foi possível abrir o pagamento agora. Tente de novo em alguns minutos.');
-        }
-
-        return redirect()->away($link);
-    }
-
-    /** Tela que pede o CPF/CNPJ antes de abrir o pagamento. */
-    public function dados(Request $request, string $slug): View|RedirectResponse
-    {
-        $plano = DB::table('plans')->where('slug', $slug)->where('active', 1)->first();
-        if (! $plano || (float) $plano->price <= 0 || in_array($slug, ['pro', 'premium'], true)) {
-            return redirect(config('asaas.redirect_unsubscribed', '/planos'))->with('erro', 'Plano indisponível para assinatura.');
-        }
-
-        $atual = $request->user()->cpf_cnpj ?? $request->user()->cpf ?? '';
-
-        return view('assinatura.dados', ['plano' => $plano, 'documento' => $atual]);
-    }
-
-    /** Guarda o CPF/CNPJ e segue direto para o pagamento. */
-    public function salvarDados(Request $request, string $slug): RedirectResponse
-    {
-        $request->validate([
-            'cpf_cnpj' => ['required', 'string', 'max:20', function ($atributo, $valor, $falhar) {
-                if (! Documento::valido($valor)) {
-                    $falhar('Informe um CPF ou CNPJ válido.');
-                }
-            }],
-        ], [
-            'cpf_cnpj.required' => 'Informe seu CPF ou CNPJ.',
+        $pagamento = $mesmo ?? PixPagamento::create([
+            'user_id'    => $usuario->id,
+            'plano_slug' => $plano->slug,
+            'valor'      => $plano->price,
+            'txid'       => Pix::novoTxid(),
+            'status'     => 'aguardando',
         ]);
 
-        DB::table('users')->where('id', $request->user()->id)->update([
-            'cpf_cnpj' => Documento::limpar($request->input('cpf_cnpj')),
-        ]);
+        return redirect()->route('pix.ver', $pagamento);
+    }
 
-        return redirect()->route('assinar', $slug);
+    /** Tela com o QR Code e o "copia e cola". Só a própria pessoa vê o pedido dela. */
+    public function ver(Request $request, PixPagamento $pix): View
+    {
+        abort_unless($pix->user_id === $request->user()->id, 404);
+
+        $plano = DB::table('plans')->where('slug', $pix->plano_slug)->first();
+
+        return view('assinatura.pix', [
+            'pix'    => $pix,
+            'plano'  => $plano,
+            'codigo' => $pix->aberto() && Pix::pronto() ? Pix::copiaECola((float) $pix->valor, $pix->txid) : null,
+            'cfg'    => Pix::config(),
+        ]);
+    }
+
+    /** "Já paguei": avisa a administração, que confere o extrato e confirma. */
+    public function paguei(Request $request, PixPagamento $pix): RedirectResponse
+    {
+        abort_unless($pix->user_id === $request->user()->id, 404);
+
+        $dados = $request->validate(['pagador' => ['nullable', 'string', 'max:120']]);
+
+        if ($pix->status === 'aguardando') {
+            $pix->status       = 'informado';
+            $pix->pagador      = trim((string) ($dados['pagador'] ?? '')) ?: null;
+            $pix->informado_em = now();
+            $pix->save();
+        }
+
+        return redirect()->route('pix.ver', $pix)->with('ok', 'Obrigado! Assim que o pagamento for conferido, seu plano é liberado.');
+    }
+
+    /** Desiste do Pix em aberto. */
+    public function cancelar(Request $request, PixPagamento $pix): RedirectResponse
+    {
+        abort_unless($pix->user_id === $request->user()->id, 404);
+
+        if ($pix->status === 'aguardando') {
+            $pix->forceFill(['status' => 'cancelado'])->save();
+        }
+
+        return redirect()->route('planos');
     }
 }
