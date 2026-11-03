@@ -52,6 +52,53 @@
     $wfArea     = request()->attributes->get('wf_area');
     $wfDono     = request()->attributes->get('wf_dono');
     $wfDonoNome = request()->attributes->get('wf_dono_nome');
+
+    // Ambiente do workflow aberto (ver App\Support\Ambiente): fundo próprio troca o fundo geral nesta página
+    $papelCor = $fundoIni['cor'];
+    $wfAmb = null;
+    $wfAmbUrls = [];
+    $wfAmbExtra = [];
+    if ($usuario && $wfArea && in_array($wfArea, \App\Support\Ambiente::AREAS, true)) {
+        $wfAmbDono = (int) ($wfDono ?: $usuario->id);
+        $wfAmb = \App\Support\Ambiente::paraPagina($wfAmbDono, $wfArea);
+        $deQ = $wfDono ? '&de=' . (int) $wfDono : '';
+        $wfAmbUrls = [
+            'salvar'  => route('ambiente.salvar', $wfArea),
+            'imagem'  => route('ambiente.imagem', $wfArea) . '?v=' . $wfAmb['fundo']['versao'] . $deQ,
+            'audio'   => route('ambiente.audio', $wfArea) . '?v=' . $wfAmb['musica']['versao'] . $deQ,
+            'enviar'  => route('ambiente.audio.enviar', $wfArea),
+            'remover' => route('ambiente.audio.remover', $wfArea),
+            // sem parâmetros: o ambiente.js monta ?setor=…&v=…&de=… para cada aba
+            'baseImagem' => route('ambiente.imagem', $wfArea),
+            'baseAudio'  => route('ambiente.audio', $wfArea),
+        ];
+        // cada aba (setor) pode ter fundo e música próprios; o fundo geral da conta vale quando a área não tem o seu
+        $wfAmbExtra = [
+            'setores'  => \App\Support\Ambiente::setoresDaPagina($wfAmbDono, $wfArea),
+            'de'       => $wfDono ? (int) $wfDono : null,
+            'nomeArea' => \App\Models\Tarefa::AREAS[$wfArea]['nome'] ?? ucfirst($wfArea),
+            'geral'    => [
+                'cor'       => $fundoIni['cor'],
+                'imagem'    => $fundoIni['imagem'] ? $fundoUrl . '?v=' . $fundoIni['versao'] : null,
+                'ajuste'    => $fundoIni['ajuste'],
+                'escurecer' => $fundoIni['escurecer'],
+                'desfoque'  => $fundoIni['desfoque'],
+            ],
+        ];
+        $af = $wfAmb['fundo'];
+        if ($af['proprio']) {
+            $papelCor = $af['cor'];
+            $fundoEstiloImg = $af['imagem']
+                ? "background-image:url('{$wfAmbUrls['imagem']}');"
+                    . 'background-size:' . ($af['ajuste'] === 'repeat' ? 'auto' : $af['ajuste']) . ';'
+                    . 'background-repeat:' . ($af['ajuste'] === 'repeat' ? 'repeat' : 'no-repeat') . ';'
+                    . ($af['desfoque'] ? "filter:blur({$af['desfoque']}px);inset:-40px;" : '')
+                : 'display:none;';
+            $fundoEstiloVeu = $af['imagem']
+                ? "background:color-mix(in srgb, var(--papel) {$af['escurecer']}%, transparent);"
+                : 'display:none;';
+        }
+    }
 @endphp
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -306,9 +353,11 @@
     @endif
 
     <script src="{{ asset('js/biblioteca.js') }}?v={{ @filemtime(public_path('js/biblioteca.js')) }}"></script>
+    <script src="{{ asset('js/menu-contexto.js') }}?v={{ @filemtime(public_path('js/menu-contexto.js')) }}" defer></script>
     <script src="{{ asset('js/lixeira.js') }}?v={{ @filemtime(public_path('js/lixeira.js')) }}"></script>
       <script src="{{ asset('js/planos.js') }}?v={{ @filemtime(public_path('js/planos.js')) }}"></script>
       <script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
+      @if ($wfAmb)<script src="{{ asset('js/ambiente.js') }}?v={{ @filemtime(public_path('js/ambiente.js')) }}" defer></script>@endif
       @if ($wfArea)<script src="{{ asset('js/compartilhar.js') }}?v={{ @filemtime(public_path('js/compartilhar.js')) }}"></script>@endif
       @auth
         {{-- aviso discreto quando outra pessoa muda um workflow compartilhado em outra página (js/novidades.js) --}}
@@ -317,8 +366,15 @@
         <script src="{{ asset('js/novidades.js') }}?v={{ @filemtime(public_path('js/novidades.js')) }}" defer></script>
       @endauth
     @include('partials.workflows-transfer')
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    {{-- Tailwind já gerado (public/css/tailwind.css, Tailwind 3.4 sem configuração, lendo as views e os JS).
+         Antes vinha do CDN de desenvolvimento, que baixava ~400 KB e montava o CSS no navegador a cada página.
+         Para gerar de novo depois de usar classes novas: npx tailwindcss@3.4.17 -i entrada.css -o public/css/tailwind.css --minify
+         (content: resources/views/**/*.blade.php, public/js/**/*.js, app/**/*.php). Só no ambiente local, ?twcdn compara com o CDN. --}}
+    @if (app()->environment('local') && request()->has('twcdn'))
+        <script src="https://cdn.tailwindcss.com"></script>
+    @endif
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js" defer></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -349,8 +405,8 @@
             --seg-d: env(safe-area-inset-right, 0px);
             --seg-b: env(safe-area-inset-bottom, 0px);
         }
-        @if ($fundoIni['cor'])
-        :root { --papel: {{ $fundoIni['cor'] }}; }
+        @if ($papelCor)
+        :root { --papel: {{ $papelCor }}; }
         @endif
 
         [x-cloak] { display: none !important; }
@@ -679,6 +735,10 @@
             .flor-giro { animation: none; }
         }
     </style>
+    {{-- no fim do head, como o CDN fazia: as classes do Tailwind vencem os estilos acima (.rotulo + flex, etc.) --}}
+    @unless (app()->environment('local') && request()->has('twcdn'))
+        <link rel="stylesheet" href="{{ asset('css/tailwind.css') }}?v={{ @filemtime(public_path('css/tailwind.css')) }}">
+    @endunless
 </head>
 <body>
 
@@ -686,6 +746,9 @@
     {{-- Camadas do fundo personalizado (ficam atrás de tudo) --}}
     <div id="fundo-img" aria-hidden="true" style="{{ $fundoEstiloImg }}"></div>
     <div id="fundo-veu" aria-hidden="true" style="{{ $fundoEstiloVeu }}"></div>
+    @if ($wfAmb)
+        @include('partials.ambiente', ['amb' => $wfAmb, 'ambUrls' => $wfAmbUrls, 'ambArea' => $wfArea, 'ambEdita' => ! $wfDono, 'ambExtra' => $wfAmbExtra])
+    @endif
 
     <header class="cab-bg sticky top-0 z-30" x-data="{ menu: false }">
         <div class="max-w-6xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4">
@@ -733,11 +796,45 @@
                             Importar / exportar
                         </button>
 
+                        @if ($wfAmb && ! $wfDono)
+                            {{-- fundo próprio (imagem ou GIF) e música (áudio ou YouTube) só desta área: partials/ambiente --}}
+                            <button type="button" class="menu-item" role="menuitem" @click="aberto = false; $dispatch('abrir-ambiente')">
+                                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>
+                                Fundo e música
+                            </button>
+                        @endif
+
                         <a href="{{ \Illuminate\Support\Facades\Route::has('planos') ? route('planos') : url('/planos') }}"
                            class="menu-item" role="menuitem" style="color: var(--prim-forte); font-weight: 600;">
                             <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"/></svg>
                             Torne-se Pró
                         </a>
+
+                        @php
+                            // respostas novas do "Reclame aqui" e, para a administração, mensagens abertas
+                            try {
+                                $rqNovas = \App\Models\Reclamacao::where('user_id', auth()->id())->where('resposta_vista', false)->count();
+                                $rqAbertas = auth()->user()->eAdmin() ? \App\Models\Reclamacao::where('status', 'aberta')->count() : 0;
+                            } catch (\Throwable $e) { $rqNovas = 0; $rqAbertas = 0; }
+                        @endphp
+                        <a href="{{ route('reclame.index', ['de' => url()->current()]) }}" class="menu-item" role="menuitem">
+                            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 8v3m0 2.5v.5"/></svg>
+                            Reclame aqui
+                            @if ($rqNovas)<span class="ml-auto text-xs px-2 rounded-full" style="background: var(--prim); color: var(--on-prim)">{{ $rqNovas }} nova{{ $rqNovas > 1 ? 's' : '' }}</span>@endif
+                        </a>
+                        @if (auth()->user()->eAdmin())
+                            <a href="{{ route('reclame.admin') }}" class="menu-item" role="menuitem">
+                                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4v5c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V7z"/></svg>
+                                Reclamações (admin)
+                                @if ($rqAbertas)<span class="ml-auto text-xs px-2 rounded-full" style="background: var(--prim); color: var(--on-prim)">{{ $rqAbertas }}</span>@endif
+                            </a>
+                        @endif
+                        @if (\App\Support\Anuncios::podeVer(auth()->user()))
+                            <a href="{{ route('anuncios.index') }}" class="menu-item" role="menuitem">
+                                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M10.5 9.5v5l4-2.5z"/></svg>
+                                Animações de anúncio (só você)
+                            </a>
+                        @endif
 
                         <div class="menu-sep" role="separator"></div>
 

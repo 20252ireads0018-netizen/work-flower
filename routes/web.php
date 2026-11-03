@@ -93,12 +93,17 @@ Route::middleware('auth')->group(function () {
     
     Route::get('/painel', [PainelController::class, 'index'])->name('painel');
 
-    // Vídeo curto vertical de divulgação: só para as contas em User::VIDEO_CURTO (as outras recebem 404)
-    Route::get('/video-curto', function () {
-        abort_unless(auth()->user()->veVideoCurto(), 404);
+    // Animações curtas (9:16) para anúncios, com download em MP4: só as contas em Anuncios::CONTAS; as outras recebem 404
+    Route::get('/admin/anuncios', function () {
+        abort_unless(\App\Support\Anuncios::podeVer(auth()->user()), 404);
 
-        return view('video-curto');
-    })->name('video.curto');
+        return view('anuncios.index');
+    })->middleware(\App\Http\Middleware\SoAdmin::class)->name('anuncios.index');
+    Route::get('/admin/anuncios/{slug}', function (string $slug) {
+        abort_unless(\App\Support\Anuncios::podeVer(auth()->user()) && isset(\App\Support\Anuncios::LISTA[$slug]), 404);
+
+        return view('anuncios.' . $slug);
+    })->where('slug', '[a-z-]+')->middleware(\App\Http\Middleware\SoAdmin::class)->name('anuncios.ver');
     Route::put('/tema', [TemaController::class, 'update'])->name('tema.update');
 
     // Contador de downloads do botão de baixar dos cartões (limite do plano gratuito)
@@ -155,6 +160,23 @@ Route::middleware('auth')->group(function () {
     Route::put('/preferencias', [PreferenciasController::class, 'salvar'])
         ->middleware('throttle:60,1')->name('preferencias.salvar');
     Route::get('/fundo/imagem', [FundoController::class, 'imagem'])->name('fundo.imagem');
+
+    // Reclame aqui: cada pessoa vê só as próprias mensagens; a administração (SoAdmin) responde em /admin/reclamacoes
+    Route::get('/reclame-aqui', [\App\Http\Controllers\ReclamacaoController::class, 'index'])->name('reclame.index');
+    Route::post('/reclame-aqui', [\App\Http\Controllers\ReclamacaoController::class, 'enviar'])->middleware('throttle:20,1')->name('reclame.enviar');
+    Route::get('/admin/reclamacoes', [\App\Http\Controllers\ReclamacaoController::class, 'admin'])
+        ->middleware(\App\Http\Middleware\SoAdmin::class)->name('reclame.admin');
+    Route::post('/admin/reclamacoes/{reclamacao}', [\App\Http\Controllers\ReclamacaoController::class, 'responder'])
+        ->whereNumber('reclamacao')->middleware(\App\Http\Middleware\SoAdmin::class)->name('reclame.responder');
+
+    // Ambiente de cada workflow e de cada aba dele (?setor=): fundo próprio e música (arquivo ou YouTube). Só o dono muda.
+    Route::prefix('/ambiente/{area}')->whereIn('area', \App\Support\Ambiente::AREAS)->name('ambiente.')->group(function () {
+        Route::put('/', [\App\Http\Controllers\AmbienteController::class, 'salvar'])->middleware('throttle:30,1')->name('salvar');
+        Route::get('/imagem', [\App\Http\Controllers\AmbienteController::class, 'imagem'])->name('imagem');
+        Route::get('/audio', [\App\Http\Controllers\AmbienteController::class, 'audio'])->name('audio');
+        Route::post('/audio', [\App\Http\Controllers\AmbienteController::class, 'enviarAudio'])->middleware('throttle:10,1')->name('audio.enviar');
+        Route::delete('/audio', [\App\Http\Controllers\AmbienteController::class, 'removerAudio'])->name('audio.remover');
+    });
 
     // Workflows compartilhados: convidar pessoas para uma área (limite de pessoas vem do plano do dono)
     Route::get('/compartilhar/{area}', [CompartilharController::class, 'index'])->name('compartilhar.index');

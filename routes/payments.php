@@ -13,9 +13,11 @@ Route::prefix('api')->group(function () {
     // (Se usar Sanctum com token, troque ['web', 'auth'] por 'auth:sanctum'.)
     Route::middleware(['web', 'auth'])->group(function () {
         Route::get('subscription', [SubscriptionController::class, 'show']);
-        Route::post('subscription', [SubscriptionController::class, 'store'])->middleware('throttle:10,1');
-        Route::delete('subscription', [SubscriptionController::class, 'destroy']);
         Route::get('subscription/payments', [SubscriptionController::class, 'payments']);
+        // POST/DELETE desligados: a tela de planos assina por AssinaturaController (/assinar/{slug}) e nenhuma tela
+        // usa esta API. Ligados, deixavam criar assinaturas no Asaas para planos "em breve" e encher a conta de clientes.
+        // Route::post('subscription', [SubscriptionController::class, 'store'])->middleware('throttle:10,1');
+        // Route::delete('subscription', [SubscriptionController::class, 'destroy']);
     });
 
     // Webhook do Asaas: grupo "api" (sem sessão e sem CSRF), protegido pelo token do header.

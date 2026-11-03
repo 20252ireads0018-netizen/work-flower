@@ -29,7 +29,30 @@
                 border: 1px dashed var(--linha); border-radius: .5rem;
             }
             /* pastas */
-            .wf-pasta { display: flex; flex-direction: column; gap: .6rem; height: 100%; min-height: 0; }
+            .wf-pasta { --pc: var(--wc, var(--prim)); display: flex; flex-direction: column; gap: .55rem; height: 100%; min-height: 0; }
+            /* desenho da pasta: aba e fundo atrás, folhas no meio, frente que abre ao passar o mouse */
+            .wf-pasta-capa { position: relative; flex: none; height: 7.25rem; width: 100%; padding: 0; border: 0; background: none;
+                             cursor: pointer; perspective: 700px; border-radius: .75rem; }
+            .wf-pasta-capa:focus-visible { outline: 2px solid var(--pc); outline-offset: 3px; }
+            .wf-pasta-aba { position: absolute; left: 6%; top: .35rem; width: 36%; height: 1.5rem; border-radius: .55rem .9rem 0 0;
+                            background: color-mix(in srgb, var(--pc) 72%, #000); }
+            .wf-pasta-fundo { position: absolute; left: 4%; right: 4%; top: 1.3rem; bottom: .3rem; border-radius: .2rem .7rem .7rem .7rem;
+                              background: color-mix(in srgb, var(--pc) 68%, #000); }
+            .wf-pasta-papeis span { position: absolute; bottom: 1.1rem; left: calc(14% + var(--i) * 25%); width: 30%; height: 4.9rem;
+                                    display: grid; place-items: start center; padding-top: .45rem; font-size: 1.05rem; border-radius: .4rem;
+                                    background: #f5f7fa; color: #1f2937; box-shadow: 0 2px 6px rgba(0,0,0,.25);
+                                    transform: rotate(calc((var(--i) - 1) * 5deg)); transition: transform .25s ease; }
+            .wf-pasta-frente { position: absolute; left: 4%; right: 4%; bottom: .3rem; height: 60%; display: flex; align-items: flex-end;
+                               justify-content: flex-end; gap: .35rem; padding: 0 1rem .55rem; border-radius: .35rem .35rem .7rem .7rem;
+                               background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 92%, #fff), var(--pc));
+                               box-shadow: 0 -1px 0 rgba(255,255,255,.25) inset, 0 6px 14px rgba(0,0,0,.25);
+                               color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.45); transform-origin: 50% 100%; transition: transform .25s ease; }
+            .wf-pasta-frente b { font-size: 1.9rem; line-height: 1; font-weight: 800; }
+            .wf-pasta-frente span { font-size: .8rem; font-weight: 600; opacity: .95; }
+            .wf-pasta-capa:hover .wf-pasta-frente, .wf-pasta-capa:focus-visible .wf-pasta-frente { transform: rotateX(-22deg); }
+            .wf-pasta-capa:hover .wf-pasta-papeis span { transform: translateY(-.55rem) rotate(calc((var(--i) - 1) * 7deg)); }
+            @media (prefers-reduced-motion: reduce) { .wf-pasta-frente, .wf-pasta-papeis span { transition: none; } }
+            .wf-pasta-rodape { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
             .wf-pasta-topo { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
             .wf-pasta-ico { font-size: 1.9rem; line-height: 1; }
             .wf-pasta-info { flex: 1; min-width: 6rem; font-size: .8rem; color: var(--tinta-2); }
@@ -37,8 +60,8 @@
                               grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); overflow: auto; min-height: 0; }
             .wf-pasta-lista button { width: 100%; display: flex; align-items: center; gap: .45rem; text-align: left;
                                      padding: .4rem .55rem; border-radius: .5rem; border: 1px solid var(--linha);
-                                     background: color-mix(in srgb, var(--prim) 6%, transparent); font-size: .8rem; }
-            .wf-pasta-lista button:hover { border-color: var(--prim); }
+                                     background: color-mix(in srgb, var(--pc) 9%, transparent); font-size: .8rem; }
+            .wf-pasta-lista button:hover { border-color: var(--pc); }
             .wf-pasta-lista span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .wf-pasta-vazia { font-size: .8rem; color: var(--tinta-2); border: 1px dashed var(--linha); border-radius: .5rem;
                               padding: .75rem; text-align: center; }
@@ -187,6 +210,7 @@
     }
 
     const PALETA = ['#2f6fc7', '#2dd4bf', '#a78bfa', '#fb923c', '#f472b6', '#f2c230', '#94a3b8', '#4ade80'];
+    const NOMES_COR = { '#2f6fc7': 'Azul', '#2dd4bf': 'Turquesa', '#a78bfa': 'Lilás', '#fb923c': 'Laranja', '#f472b6': 'Rosa', '#f2c230': 'Amarelo', '#94a3b8': 'Cinza', '#4ade80': 'Verde' };
     const MM = { w: 188, h: 38 }; // tamanho de um nó do mapa mental
 
     async function enviar(url, texto, metodo = 'PUT') {
@@ -1104,6 +1128,7 @@
             prepararPastas() {
                 if (this._pastasProntas) return;
                 this._pastasProntas = true;
+                this.prepararMenuContexto();
                 if (Array.isArray(this.tiposBloco) && !this.tiposBloco.some(t => t.id === 'pasta')) {
                     this.tiposBloco.push({ id: 'pasta', nome: 'Pasta' });
                 }
@@ -1402,6 +1427,73 @@
             /* ---------- seleção (Ctrl+clique) ---------- */
             alternarSel(id) {
                 this.sel = this.sel.includes(id) ? this.sel.filter(x => x !== id) : [...this.sel, id];
+            },
+            /* ---------- clique direito nos cartões e no quadro (js/menu-contexto.js) ----------
+               Cartão: abrir, duplicar, tela cheia, pasta, cor, biblioteca, excluir. Vazio do quadro: criar um
+               cartão ali mesmo. Campos de texto, links e editores com menu próprio ficam com o menu deles;
+               Shift + clique direito mostra o menu do navegador. */
+            prepararMenuContexto() {
+                if (EMBED || this._menuCtx) return;
+                this._menuCtx = true;
+                document.addEventListener('contextmenu', e => {
+                    if (e.defaultPrevented || e.shiftKey || !window.WFMenuCtx || !this.aba) return;
+                    const t = e.target;
+                    if (!t.closest || t.closest('input, textarea, select, a[href], [contenteditable="true"], [contenteditable=""], .wf-amb, .wf-ctx')) return;
+                    const item = t.closest('.wf-item[data-bid]');
+                    if (item) {
+                        const b = this.blocoPorId(item.dataset.bid);
+                        if (b && b.secao === this.aba) this.menuCartao(e, b, item);
+                        return;
+                    }
+                    const quadro = t.closest('.wf-quadro');
+                    if (quadro && !this.empilhado()) this.menuQuadro(e, quadro);
+                });
+            },
+            menuCartao(e, b, el) {
+                const sec = b.secao;
+                const abrivel = { pasta: () => this.abrirPasta(b), editorimg: () => this.abrirEditorImagem(b), editorvid: () => this.abrirEditorVideo(b), musica: () => this.abrirEstudioMusica(b) }[b.tipo];
+                const pastas = this.blocosDe(sec).filter(x => x.tipo === 'pasta' && x.id !== b.id && x.id !== b.pasta);
+                const cor = this.rect(sec, b.id).cor;
+                WFMenuCtx.abrir(e, [
+                    { titulo: (b.titulo || '').trim().slice(0, 40) || 'Cartão' },
+                    abrivel ? { rotulo: b.tipo === 'pasta' ? 'Abrir a pasta' : 'Abrir o editor', icone: '↗', acao: abrivel } : null,
+                    { rotulo: 'Duplicar', icone: '⧉', desativado: b.tipo === 'pasta', acao: () => this.duplicarBloco(b) },
+                    { rotulo: 'Tela cheia', icone: '⛶', acao: () => window.WFTelaCheia && window.WFTelaCheia.alternar(el) },
+                    { rotulo: 'Guardar em pasta', icone: '📁', sub: [
+                        ...pastas.map(p => ({ rotulo: (p.titulo || 'Pasta').trim(), icone: '📁', acao: () => this.moverParaPasta(sec, [b.id], p.id) })),
+                        pastas.length ? '-' : null,
+                        { rotulo: 'Nova pasta com este cartão', icone: '+', acao: () => this.novaPasta(sec, [b.id]) },
+                    ].filter(Boolean) },
+                    b.pasta ? { rotulo: 'Tirar da pasta', icone: '⤴', acao: () => this.moverParaPasta(sec, [b.id]) } : null,
+                    { rotulo: 'Cor do cartão', icone: '●', sub: PALETA.map(c => ({ rotulo: NOMES_COR[c] || c, cor: c, marcado: cor === c, acao: () => { this.setCor(sec, b.id, c); this.agendar(); } })) },
+                    b.tipo !== 'pasta' ? { rotulo: 'Salvar na biblioteca', icone: '★', acao: () => this.guardarBloco(b) } : null,
+                    { rotulo: this.sel.includes(b.id) ? 'Tirar da seleção' : 'Selecionar', icone: '▣', acao: () => { this.sel = this.sel.includes(b.id) ? this.sel.filter(x => x !== b.id) : [...this.sel, b.id]; } },
+                    '-',
+                    { rotulo: 'Excluir', icone: '🗑', perigo: true, acao: () => this.removerBloco(b) },
+                ]);
+            },
+            menuQuadro(e, quadro) {
+                const sec = this.aba, r = quadro.getBoundingClientRect();
+                const x = snap(e.clientX - r.left - (this.ox || 0)), y = snap(Math.max(0, e.clientY - r.top));
+                const criar = tipo => {
+                    // nem todo tipo devolve o id do cartão novo: descobre comparando antes e depois
+                    const antes = new Set(this.estado.blocos.map(b => b.id));
+                    this.novoBloco(sec, tipo);
+                    const novo = this.estado.blocos.find(b => !antes.has(b.id));
+                    const l = novo && this.estado.layout[sec] && this.estado.layout[sec][novo.id];
+                    if (!l) return;
+                    l.x = clamp(x, -(this.ox || 0), Math.max(0, (this.larg || 1088) - (this.ox || 0) - Math.min(l.w, this.larg || l.w)));
+                    l.y = y;
+                    this.agendar();
+                };
+                WFMenuCtx.abrir(e, [
+                    { titulo: 'Novo cartão aqui' },
+                    ...(this.tiposBloco || []).map(t => ({ rotulo: t.nome, icone: '+', acao: () => criar(t.id) })),
+                    '-',
+                    { rotulo: 'Reorganizar os cartões', icone: '⤢', acao: () => this.reorganizar() },
+                    { rotulo: 'Selecionar todos', icone: '▣', acao: () => this.selecionarTodos(sec) },
+                    this.pastaAberta(sec) ? { rotulo: 'Fechar a pasta', icone: '⤴', acao: () => this.fecharPasta(sec) } : null,
+                ]);
             },
             selecionarTodos(sec) {
                 this.sel = this.blocosDe(sec || this.aba).map(b => b.id);

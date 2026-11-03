@@ -489,8 +489,8 @@
             <div class="wfm-sec wfm-ajuda">
                 <h3>Como usar</h3>
                 <b>Channel rack:</b> clique nos passos para acender as batidas (Shift+clique dá ênfase). Clique no nome do canal para editar no piano roll; duplo clique renomeia.<br>
-                <b>Piano roll:</b> clique para pôr uma nota e arraste para alongar; arraste a nota para mover; toque nela (ou botão direito) para apagar.<br>
-                <b>Playlist:</b> clique num compasso vazio para pôr o padrão escolhido; arraste para mover; duplo clique ou botão direito apaga.<br>
+                <b>Piano roll:</b> clique para pôr uma nota e arraste para alongar; arraste a nota para mover; toque nela para apagar; o botão direito abre mais opções.<br>
+                <b>Playlist:</b> clique num compasso vazio para pôr o padrão escolhido; arraste para mover; duplo clique apaga; o botão direito abre mais opções.<br>
                 <b>Teclado:</b> espaço toca/para; Z S X D C V… tocam notas no canal escolhido.
             </div>
         </aside>
@@ -893,7 +893,8 @@
             }
         });
         const tela = el.querySelector('[data-tela]');
-        tela.addEventListener('contextmenu', e => e.preventDefault());
+        tela.addEventListener('contextmenu', e => { e.preventDefault(); if (window.WFMenuCtx && S) (S.aba === 'piano' ? menuPiano(e) : menuPlaylist(e)); });
+        el.querySelector('[data-canais]').addEventListener('contextmenu', e => { const c = S && canalDe(e.target); if (c && window.WFMenuCtx) menuCanal(e, c); });
         tela.addEventListener('pointerdown', e => (S.aba === 'piano' ? pianoDown(e) : playlistDown(e)));
         tela.addEventListener('pointermove', e => { if (S && S.arraste) (S.aba === 'piano' ? pianoMove(e) : playlistMove(e)); });
         const solta = () => {
@@ -1032,8 +1033,8 @@
         if (x < KW) { previaNota(S.p, c, m); return; }
         const pad = padrao(S.p, S.padraoId), notas = pad.notas[c.id] || (pad.notas[c.id] = []);
         const hit = notas.find(n => n.n === m && sf >= n.s && sf < n.s + n.d);
+        if (e.button === 2) { if (hit && !window.WFMenuCtx) apagarNota(hit, true); return; } // com o menu, o clique direito abre as opções
         e.currentTarget.setPointerCapture(e.pointerId);
-        if (e.button === 2) { if (hit) apagarNota(hit, true); return; }
         mudou();
         if (hit) {
             S.arraste = sf > hit.s + hit.d - .35 && hit.d * medidas().cw > 12
@@ -1090,8 +1091,8 @@
             return;
         }
         const hit = clipeEm(f, c);
+        if (e.button === 2) { if (hit && !window.WFMenuCtx) { mudou(); S.p.playlist = S.p.playlist.filter(x => x !== hit); desenharTela(); } return; }
         e.currentTarget.setPointerCapture(e.pointerId);
-        if (e.button === 2) { if (hit) { mudou(); S.p.playlist = S.p.playlist.filter(x => x !== hit); desenharTela(); } return; }
         if (hit) { mudou(); S.arraste = { tipo: 'clipe', clipe: hit, off: c - hit.c, moveu: false }; return; }
         if (!cabe(f, c)) return;
         mudou();
@@ -1112,6 +1113,104 @@
     function crescerPlaylist() {
         const fim = fimMusica(S.p) / 16;
         if (fim > S.p.compassos - 2) S.p.compassos = Math.min(128, S.p.compassos + 8);
+    }
+
+    /* ---------- clique direito (js/menu-contexto.js) ---------- */
+    const DURACOES = [[1, '1/16'], [2, '1/8'], [4, '1/4'], [8, '1/2'], [16, '1 compasso']];
+    function menuCanal(e, c) {
+        const pad = padrao(S.p, S.padraoId), base = INSTRUMENTOS[c.inst].base;
+        const preencher = cada => () => {
+            mudou();
+            const resto = (pad.notas[c.id] || []).filter(n => n.n !== base);
+            pad.notas[c.id] = resto.concat([...Array(Math.ceil(S.p.passos / cada))].map((_, i) => ({ s: i * cada, n: base, d: 1, v: .8 })));
+            desenharRack(); desenharTela();
+        };
+        WFMenuCtx.abrir(e, [
+            { titulo: c.nome },
+            { rotulo: 'Editar no piano roll', icone: '🎹', acao: () => { S.canalId = c.id; S.aba = 'piano'; desenharRack(); desenharAbas(); desenharTela(); rolarParaNota(); } },
+            { rotulo: 'Renomear', icone: '✎', acao: () => { const nome = prompt('Nome do canal:', c.nome); if (nome && nome.trim()) { mudou(); c.nome = nome.trim().slice(0, 30); desenharRack(); desenharAbas(); } } },
+            { rotulo: 'Instrumento', icone: '♪', sub: Object.entries(INSTRUMENTOS).map(([k, i]) => ({ rotulo: i.nome, marcado: k === c.inst, acao: () => {
+                mudou();
+                const antes = INSTRUMENTOS[c.inst];
+                S.p.padroes.forEach(x => (x.notas[c.id] || []).forEach(n => { if (n.n === antes.base) n.n = i.base; }));
+                c.inst = k; desenharRack(); desenharTela(); previaNota(S.p, c, i.base);
+            } })) },
+            { rotulo: c.mudo ? 'Ligar o som' : 'Silenciar (mudo)', icone: '●', acao: () => { mudou(); c.mudo = !c.mudo; if (!c.mudo) c.solo = false; aplicarSom(); desenharRack(); } },
+            { rotulo: c.solo ? 'Tirar o solo' : 'Solo', icone: 'S', acao: () => { mudou(); c.solo = !c.solo; aplicarSom(); desenharRack(); } },
+            { rotulo: 'Preencher batidas', icone: '▦', sub: [[4, 'A cada tempo (4 passos)'], [2, 'A cada 2 passos'], [1, 'Todos os passos']].map(([n, r]) => ({ rotulo: r, acao: preencher(n) })) },
+            { rotulo: 'Duplicar o canal', icone: '⧉', acao: () => {
+                mudou();
+                const novo = { ...c, id: uid(), nome: (c.nome + ' 2').slice(0, 30), solo: false };
+                S.p.canais.splice(S.p.canais.indexOf(c) + 1, 0, novo);
+                S.p.padroes.forEach(x => { if (x.notas[c.id]) x.notas[novo.id] = JSON.parse(JSON.stringify(x.notas[c.id])); });
+                desenharRack();
+            } },
+            { rotulo: 'Limpar as notas neste padrão', icone: '⌫', acao: () => { mudou(); delete pad.notas[c.id]; desenharRack(); desenharTela(); } },
+            '-',
+            { rotulo: 'Tirar o canal', icone: '🗑', perigo: true, acao: () => {
+                if (!confirm(`Tirar o canal “${c.nome}” e as notas dele de todos os padrões?`)) return;
+                mudou();
+                S.p.canais = S.p.canais.filter(x => x !== c);
+                S.p.padroes.forEach(x => delete x.notas[c.id]);
+                if (S.canalId === c.id) S.canalId = S.p.canais[0]?.id || null;
+                desenharRack(); desenharAbas(); desenharTela();
+            } },
+        ]);
+    }
+    function menuPiano(e) {
+        const c = S.p.canais.find(x => x.id === S.canalId);
+        if (!c) return;
+        const { x, sf, m } = posPiano(e);
+        if (x < KW) return;
+        const pad = padrao(S.p, S.padraoId), notas = pad.notas[c.id] || (pad.notas[c.id] = []);
+        const hit = notas.find(n => n.n === m && sf >= n.s && sf < n.s + n.d);
+        const redesenhar = () => { desenharRack(); desenharTela(); };
+        if (!hit) {
+            const s = clamp(Math.floor(sf), 0, S.p.passos - 1);
+            WFMenuCtx.abrir(e, [
+                { titulo: c.nome + ' · ' + nomeNota(m) },
+                ...DURACOES.map(([d, r]) => ({ rotulo: 'Pôr nota de ' + r, icone: '+', acao: () => { mudou(); notas.push({ s, n: m, d: Math.min(d, S.p.passos - s), v: .8 }); S.dur = d; previaNota(S.p, c, m); redesenhar(); } })),
+                '-',
+                { rotulo: 'Ouvir ' + nomeNota(m), icone: '▶', acao: () => previaNota(S.p, c, m) },
+                { rotulo: 'Limpar o canal neste padrão', icone: '⌫', desativado: !notas.length, acao: () => { mudou(); delete pad.notas[c.id]; redesenhar(); } },
+            ]);
+            return;
+        }
+        WFMenuCtx.abrir(e, [
+            { titulo: nomeNota(hit.n) + ' · passo ' + (hit.s + 1) },
+            { rotulo: 'Duplicar ao lado', icone: '⧉', desativado: hit.s + hit.d * 2 > S.p.passos, acao: () => { mudou(); notas.push({ ...hit, s: hit.s + hit.d }); redesenhar(); } },
+            { rotulo: 'Força', icone: '◐', sub: [[.45, 'Suave'], [.8, 'Normal'], [1, 'Forte']].map(([v, r]) => ({ rotulo: r, marcado: Math.abs((hit.v ?? .8) - v) < .05, acao: () => { mudou(); hit.v = v; redesenhar(); previaNota(S.p, c, hit.n, v); } })) },
+            { rotulo: 'Duração', icone: '↔', sub: DURACOES.map(([d, r]) => ({ rotulo: r, marcado: hit.d === d, desativado: hit.s + d > S.p.passos, acao: () => { mudou(); hit.d = d; redesenhar(); } })) },
+            { rotulo: 'Subir uma oitava', icone: '⬆', desativado: hit.n + 12 > NOTA_MAX, acao: () => { mudou(); hit.n += 12; redesenhar(); previaNota(S.p, c, hit.n); } },
+            { rotulo: 'Descer uma oitava', icone: '⬇', desativado: hit.n - 12 < NOTA_MIN, acao: () => { mudou(); hit.n -= 12; redesenhar(); previaNota(S.p, c, hit.n); } },
+            '-',
+            { rotulo: 'Apagar a nota', icone: '🗑', perigo: true, acao: () => apagarNota(hit, true) },
+        ]);
+    }
+    function menuPlaylist(e) {
+        const { f, c, y } = posPlaylist(e);
+        if (y < PL_TOPO) return;
+        const hit = clipeEm(f, c), len = compassosPadrao(S.p);
+        const por = p => () => { if (!cabe(f, c)) { aviso('Não cabe aqui: já tem um clipe nesse trecho da faixa.'); return; } mudou(); S.p.playlist.push({ id: uid(), f, c, p }); crescerPlaylist(); desenharTela(); };
+        if (!hit) {
+            WFMenuCtx.abrir(e, [
+                { titulo: 'Faixa ' + (f + 1) + ' · compasso ' + (c + 1) },
+                ...S.p.padroes.map(x => ({ rotulo: 'Pôr “' + x.nome + '” aqui', cor: x.cor, acao: por(x.id) })),
+                '-',
+                { rotulo: 'Tocar daqui', icone: '▶', desativado: !S.p.playlist.length, acao: () => { S.modo = 'musica'; iniciar(S.p, 'musica', S.padraoId, 'estudio', Math.min(c * 16, Math.max(0, fimMusica(S.p) - 1))); desenharTopo(); } },
+            ]);
+            return;
+        }
+        const pad = padrao(S.p, hit.p);
+        WFMenuCtx.abrir(e, [
+            { titulo: pad.nome + ' · compasso ' + (hit.c + 1) },
+            { rotulo: 'Editar este padrão', icone: '🎹', acao: () => { escolherPadrao(hit.p); S.aba = 'piano'; desenharAbas(); desenharTela(); rolarParaNota(); } },
+            { rotulo: 'Duplicar ao lado', icone: '⧉', desativado: !cabe(hit.f, hit.c + len), acao: () => { mudou(); S.p.playlist.push({ id: uid(), f: hit.f, c: hit.c + len, p: hit.p }); crescerPlaylist(); desenharTela(); } },
+            { rotulo: 'Trocar o padrão', icone: '⇄', sub: S.p.padroes.map(x => ({ rotulo: x.nome, cor: x.cor, marcado: x.id === hit.p, acao: () => { mudou(); hit.p = x.id; desenharTela(); } })) },
+            { rotulo: 'Tocar daqui', icone: '▶', acao: () => { S.modo = 'musica'; iniciar(S.p, 'musica', S.padraoId, 'estudio', hit.c * 16); desenharTopo(); } },
+            '-',
+            { rotulo: 'Apagar o clipe', icone: '🗑', perigo: true, acao: () => { mudou(); S.p.playlist = S.p.playlist.filter(x => x !== hit); desenharTela(); } },
+        ]);
     }
 
     /* ---------- prévia no cartão (sem abrir o estúdio) ---------- */

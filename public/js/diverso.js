@@ -421,6 +421,9 @@
                 this.estado.blocos.forEach(b => { if (b.tipo === 'tabletop' && normalizarTabletop(b.dados)) reparou = true; });
                 this.zTop = this.maiorZ();
                 this.$watch('estado', () => { this.agendar(); this.vivoAlterou?.(); });
+                // avisa o ambiente (partials/ambiente) de qual setor está aberto: cada aba pode ter fundo e música próprios
+                const avisarSetor = () => { const a = (this.estado.abas).find(x => x.id === this.aba); window.wfSetorAtual = { id: this.aba || '', nome: a ? a.nome : '' }; window.dispatchEvent(new CustomEvent('wf-setor', { detail: window.wfSetorAtual })); };
+                this.$watch('aba', avisarSetor); avisarSetor();
                 this.initQuadro();
                 this.vivoIniciarTudo?.();
                 const urgente = () => { if (this.salvo === 'pendente') this.gravarEstado(); };

@@ -12,6 +12,7 @@
     const palco = document.getElementById('palco'), escala = document.getElementById('escala'), moldura = document.getElementById('moldura');
     const cenas = [...palco.querySelectorAll('.cena')].map(el => ({ el, de: +el.dataset.de, ate: +el.dataset.ate, itens: [...el.querySelectorAll('[data-a]')], nums: [...el.querySelectorAll('[data-num]')] }));
     const DUR = Math.max(...cenas.map(c => c.ate));
+    const ARQUIVO = palco.dataset.arquivo || 'work-flower-video-curto'; // nome do arquivo baixado (data-arquivo no palco)
 
     const clamp = x => Math.min(1, Math.max(0, x));
     const sai = x => 1 - Math.pow(1 - x, 3);                                        // easeOutCubic
@@ -188,8 +189,8 @@
                 if (erro) throw erro;
                 muxer.finalize();
                 enc.close();
-                baixarArquivo(new Blob([muxer.target.buffer], { type: 'video/mp4' }), 'work-flower-video-curto.mp4');
-                avisar('Pronto: work-flower-video-curto.mp4 (1080×1920, 30 fps, sem áudio).');
+                baixarArquivo(new Blob([muxer.target.buffer], { type: 'video/mp4' }), ARQUIVO + '.mp4');
+                avisar('Pronto: ' + ARQUIVO + '.mp4 (1080×1920, 30 fps, sem áudio).');
             } else {
                 // sem WebCodecs: grava em tempo real com MediaRecorder (WebM)
                 const tipo = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(x => window.MediaRecorder && MediaRecorder.isTypeSupported(x));
@@ -208,8 +209,8 @@
                     if (i % 6 === 0) avisar(`Gravando (WebM) quadro ${i + 1} de ${total}…`, i / total);
                 }
                 rec.stop(); await fim;
-                baixarArquivo(new Blob(partes, { type: 'video/webm' }), 'work-flower-video-curto.webm');
-                avisar('Pronto: work-flower-video-curto.webm (este navegador não grava MP4).');
+                baixarArquivo(new Blob(partes, { type: 'video/webm' }), ARQUIVO + '.webm');
+                avisar('Pronto: ' + ARQUIVO + '.webm (este navegador não grava MP4).');
             }
         } catch (e) {
             avisar('Não consegui gravar: ' + (e && e.message || e));

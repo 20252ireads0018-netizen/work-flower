@@ -151,6 +151,9 @@
                 const guardada = sessionStorage.getItem('carteira.aba');
                 this.aba = this.abas.some(a => a.id === guardada) ? guardada : 'carteira';
                 this.$watch('aba', v => { sessionStorage.setItem('carteira.aba', v); this.menuBloco = false; });
+                // avisa o ambiente (partials/ambiente) de qual setor está aberto: cada aba pode ter fundo e música próprios
+                const avisarSetor = () => { const a = (this.abas).find(x => x.id === this.aba); window.wfSetorAtual = { id: this.aba || '', nome: a ? a.nome : '' }; window.dispatchEvent(new CustomEvent('wf-setor', { detail: window.wfSetorAtual })); };
+                this.$watch('aba', avisarSetor); avisarSetor();
                 this.zTop = this.maiorZ();
                 this.ln.conta = this.estado.contas[0]?.id || '';
                 this.$watch('estado', () => this.agendar());

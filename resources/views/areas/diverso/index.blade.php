@@ -241,6 +241,11 @@
     /* ===== Diagramas (mapa mental, BPMN, fluxograma, ER/UML) — usado com diagrama.js ===== */
     .wf-dd { display: flex; flex-direction: column; gap: .5rem; min-height: 0; }
     .wf-dd .wf-mapa-col { min-height: 16rem; border: 1px solid var(--linha); border-radius: .5rem; background: var(--superficie); }
+    /* topo do mapa: quando a página ou o cartão rolam, ele desce junto (translateY em diagrama.js) e ganha fundo próprio */
+    .wf-dd-topo { display: flex; flex-direction: column; gap: .5rem; position: relative; z-index: 5; will-change: transform; }
+    .wf-dd-topo.fixa { background: var(--superficie-2, var(--superficie)); padding: .4rem; margin: -.4rem; border-radius: .5rem;
+        box-shadow: 0 8px 20px rgba(0,0,0,.28); border: 1px solid var(--linha); }
+    .wf-dd-topo.fixa .wf-dd-dica { display: none; }
     .wf-dd-barra { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
     .wf-dd-barra .btn-sec, .wf-dd-painel .btn-sec { padding: .2rem .55rem; font-size: .75rem; cursor: pointer; }
     .wf-dd-barra .btn-sec:disabled { opacity: .45; cursor: default; }

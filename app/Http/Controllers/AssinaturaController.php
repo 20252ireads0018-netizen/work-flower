@@ -52,7 +52,7 @@ class AssinaturaController extends Controller
                 if ($ativa && ($anterior['externalReference'] ?? '') === $referencia) {
                     $aberta = $asaas->linkCobrancaAberta($anteriorId);
                     if ($aberta) {
-                        return redirect()->away($aberta);
+                        return self::paraAsaas($aberta, $voltar);
                     }
                 }
 
@@ -80,13 +80,26 @@ class AssinaturaController extends Controller
 
             $link = $asaas->linkPagamento($assinatura['id']);
         } catch (\Throwable $e) {
-            report($e);
+            report($e); // o detalhe vai para o log; a pessoa não vê mensagens internas da API
 
-            return redirect($voltar)->with('erro', 'Não foi possível abrir o pagamento agora: ' . $e->getMessage());
+            return redirect($voltar)->with('erro', 'Não foi possível abrir o pagamento agora. Tente de novo em alguns minutos.');
         }
 
         if (! $link) {
             return redirect($voltar)->with('erro', 'A cobrança ainda está sendo gerada. Tente novamente em instantes.');
+        }
+
+        return self::paraAsaas($link, $voltar);
+    }
+
+    /** Só redireciona para páginas do próprio Asaas (o link vem da API, mas não custa conferir). */
+    private static function paraAsaas(string $link, string $voltar): RedirectResponse
+    {
+        $host = strtolower((string) parse_url($link, PHP_URL_HOST));
+        if (parse_url($link, PHP_URL_SCHEME) !== 'https' || ! preg_match('/(^|\.)asaas\.com$/', $host)) {
+            report(new \RuntimeException('Link de pagamento fora do Asaas: ' . $link));
+
+            return redirect($voltar)->with('erro', 'Não foi possível abrir o pagamento agora. Tente de novo em alguns minutos.');
         }
 
         return redirect()->away($link);

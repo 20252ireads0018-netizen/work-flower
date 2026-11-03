@@ -9,6 +9,8 @@
     const { uid, num, r1 } = Q.util;
     const PALETA = Q.PALETA || ['#38bdf8', '#4ade80', '#f87171', '#fbbf24', '#a78bfa', '#f472b6'];
     const COR_OK = /^#[0-9a-fA-F]{6}$/;
+    const NOMES_COR = { '#2f6fc7': 'Azul', '#2dd4bf': 'Turquesa', '#a78bfa': 'Lilás', '#fb923c': 'Laranja', '#f472b6': 'Rosa', '#f2c230': 'Amarelo',
+        '#94a3b8': 'Cinza', '#4ade80': 'Verde', '#38bdf8': 'Azul-claro', '#f87171': 'Vermelho', '#fbbf24': 'Âmbar' };
     const limitar = (v, a, b) => Math.min(Math.max(v, a), b);
     const corOk = (c, pad = '#a78bfa') => (COR_OK.test(c || '') ? c : pad);
     const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
@@ -588,6 +590,56 @@
             },
             ddDesligarPai(b, n) { if (!n || !n.pai) return; this.ddGravar(b); n.pai = null; },
 
+            /* ---------- clique direito (js/menu-contexto.js) ----------
+               Num elemento: editar, filho, duplicar, cor, forma, ordem, excluir. No vazio: criar elemento ali mesmo. */
+            ddMenu(e, b) {
+                if (!window.WFMenuCtx || this.pen(b).on) return;
+                const lona = e.currentTarget, d = this.dd(b);
+                const [px, py] = this.ddXY(lona, e, d.z);
+                const n = this.ddNoEm(b, px, py);
+                const criarAqui = forma => {
+                    if ((b.dados.nos || []).length >= MAX_NOS) { this.aviso(`Limite de ${MAX_NOS} elementos neste diagrama.`); return; }
+                    const def = F[forma];
+                    this.ddGravar(b);
+                    const novo = this.ddNovoNo(forma, this.ddSnapV(b, px - def.w / 2), this.ddSnapV(b, py - def.h / 2));
+                    b.dados.nos.push(novo);
+                    d.sel = [novo.id]; d.selLig = null; d.ultima = forma;
+                    if (forma !== 'raia') d.edit = novo.id;
+                };
+                const formas = GRUPOS.map(g => ({ rotulo: g.grupo, sub: g.itens.map(it => ({ rotulo: it.nome, acao: () => criarAqui(it.id) })) }));
+                if (!n) {
+                    const ultima = F[d.ultima] && d.ultima !== 'raia' ? d.ultima : 'mapa';
+                    WFMenuCtx.abrir(e, [
+                        { rotulo: 'Novo ' + (F[ultima].nome || 'elemento').toLowerCase() + ' aqui', icone: '+', acao: () => criarAqui(ultima) },
+                        { rotulo: 'Outro elemento aqui', icone: '◇', sub: formas },
+                        '-',
+                        { rotulo: 'Desfazer', icone: '↶', atalho: 'Ctrl+Z', desativado: !d.hist.length, acao: () => this.ddDesfazer(b) },
+                        { rotulo: 'Refazer', icone: '↷', atalho: 'Ctrl+Shift+Z', desativado: !d.refaz.length, acao: () => this.ddRefazer(b) },
+                        { rotulo: 'Selecionar tudo', icone: '▣', acao: () => { d.sel = (b.dados.nos || []).map(x => x.id); d.selLig = null; } },
+                        { rotulo: 'Ajustar à janela', icone: '⤢', acao: () => this.ddAjustar(b, { target: lona }) },
+                        '-',
+                        { rotulo: 'Exportar PNG', icone: '⬇', acao: () => this.ddExportar(b, 'png') },
+                        { rotulo: 'Exportar SVG', icone: '⬇', acao: () => this.ddExportar(b, 'svg') },
+                    ]);
+                    return;
+                }
+                if (!d.sel.includes(n.id)) { d.sel = [n.id]; d.selLig = null; }
+                const varios = d.sel.length > 1;
+                WFMenuCtx.abrir(e, [
+                    { titulo: varios ? d.sel.length + ' elementos' : (String(n.t || '').trim().slice(0, 40) || 'Elemento') },
+                    { rotulo: 'Editar texto', icone: '✎', atalho: 'Enter', desativado: varios, acao: () => this.ddEditar(b, n) },
+                    { rotulo: 'Novo filho ligado', icone: '↳', atalho: 'Tab', desativado: varios || geo(n).f === 'raia', acao: () => this.ddFilho(b, n) },
+                    { rotulo: 'Duplicar', icone: '⧉', atalho: 'Ctrl+D', acao: () => this.ddDuplicar(b) },
+                    { rotulo: 'Cor', icone: '●', sub: PALETA.map(c => ({ rotulo: NOMES_COR[c.toLowerCase()] || c, cor: c, marcado: n.cor === c, acao: () => this.ddCor(b, c) })) },
+                    { rotulo: 'Trocar a forma', icone: '◇', desativado: varios, sub: GRUPOS.map(g => ({ rotulo: g.grupo, sub: g.itens.map(it => ({ rotulo: it.nome, marcado: n.forma === it.id, acao: () => this.ddMudarForma(b, n, it.id) })) })) },
+                    { rotulo: 'Trazer para a frente', icone: '⬆', acao: () => this.ddOrdem(b, 'frente') },
+                    { rotulo: 'Enviar para trás', icone: '⬇', acao: () => this.ddOrdem(b, 'tras') },
+                    n.pai ? { rotulo: 'Soltar do nó pai', icone: '✂', desativado: varios, acao: () => this.ddDesligarPai(b, n) } : null,
+                    '-',
+                    { rotulo: varios ? 'Excluir os selecionados' : 'Excluir', icone: '🗑', atalho: 'Delete', perigo: true, acao: () => this.ddRemoverSel(b) },
+                ]);
+            },
+
             /* ---------- edição de texto ---------- */
             ddEditar(b, n) { const d = this.dd(b); d.sel = [n.id]; d.selLig = null; d.edit = n.id; },
             ddFimEdit(b, n) { const d = this.dd(b); if (d.edit === (n && n.id)) d.edit = null; },
@@ -886,4 +938,32 @@
         base.tiposBloco = base.tiposBloco.map(t => (t.id === 'mapa' ? { ...t, nome: 'Mapa mental e diagramas' } : t));
         return Object.assign(base, metodos());
     };
+
+    /* ---------- topo do mapa acompanha a rolagem ----------
+       Quando a página (ou o corpo do cartão) rola e o começo do mapa sai da tela, o topo com as opções
+       ([data-dd-topo]) desce junto, sem passar do fim do mapa. Usa translateY porque o cartão corta o
+       que vaza (overflow) e isso impede o position: sticky. */
+    function acompanharTopo() {
+        const cab = document.querySelector('header.cab-bg');
+        const limite = cab ? Math.max(0, cab.getBoundingClientRect().bottom) : 0;
+        document.querySelectorAll('[data-dd-topo]').forEach(t => {
+            const dd = t.closest('[data-dd]');
+            if (!dd || !t.offsetParent) return;
+            const corpo = t.closest('.wf-corpo');
+            const atual = parseFloat(t.dataset.desl || '0');
+            const r = t.getBoundingClientRect();
+            const natural = r.top - atual;
+            const visivel = Math.max(limite, corpo ? corpo.getBoundingClientRect().top : limite) + 6;
+            const max = Math.max(0, dd.getBoundingClientRect().bottom - r.height - 48 - natural);
+            const desl = Math.round(Math.min(max, Math.max(0, visivel - natural)));
+            if (desl === atual) return;
+            t.dataset.desl = String(desl);
+            t.style.transform = desl ? `translateY(${desl}px)` : '';
+            t.classList.toggle('fixa', desl > 0);
+        });
+    }
+    let quadroPedido = 0;
+    const agendarTopo = () => { if (!quadroPedido) quadroPedido = requestAnimationFrame(() => { quadroPedido = 0; acompanharTopo(); }); };
+    addEventListener('scroll', agendarTopo, { passive: true, capture: true });
+    addEventListener('resize', agendarTopo, { passive: true });
 })();

@@ -33,7 +33,7 @@ class FundoController extends Controller
         $usuarioId = $request->user()->id;
 
         if (! empty($dados['imagem'])) {
-            $this->conferirImagem($dados['imagem']);
+            self::validarImagem($dados['imagem']);
 
             CorpoDado::updateOrCreate(
                 ['user_id' => $usuarioId, 'chave' => 'fundo.img'],
@@ -70,14 +70,7 @@ class FundoController extends Controller
             ->first();
 
         abort_if(! $linha, 404);
-
-        $pos = strpos($linha->valor, ';base64,');
-        abort_if($pos === false, 404);
-
-        $tipo = substr($linha->valor, 5, $pos - 5); // "image/jpeg"
-        $bin  = base64_decode(substr($linha->valor, $pos + 8), true);
-
-        abort_if($bin === false || ! in_array($tipo, self::TIPOS, true), 404);
+        [$tipo, $bin] = self::decodificar($linha->valor);
 
         return response($bin, 200, [
             'Content-Type'           => $tipo,
@@ -86,8 +79,20 @@ class FundoController extends Controller
         ]);
     }
 
+    /** Tipo e bytes de uma imagem guardada como data URL (404 se estiver estragada). Também usado pelo fundo de cada workflow. */
+    public static function decodificar(string $valor): array
+    {
+        $pos = strpos($valor, ';base64,');
+        abort_if($pos === false, 404);
+        $tipo = substr($valor, 5, $pos - 5); // "image/jpeg"
+        $bin  = base64_decode(substr($valor, $pos + 8), true);
+        abort_if($bin === false || ! in_array($tipo, self::TIPOS, true), 404);
+
+        return [$tipo, $bin];
+    }
+
     /** Só aceita JPG, PNG, WebP ou GIF e confere se o conteúdo é mesmo uma imagem. */
-    private function conferirImagem(string $url): void
+    public static function validarImagem(string $url): void
     {
         $erro = ValidationException::withMessages(['imagem' => 'Use uma imagem JPG, PNG, WebP ou GIF.']);
 

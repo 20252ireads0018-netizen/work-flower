@@ -2407,6 +2407,10 @@
                 <template x-if="b.tipo === 'mapa'">
                     <div class="wf-dd h-full" data-dd x-init="dd(b)">
 
+                        {{-- Topo do mapa (botão de recolher + barras + propriedades): acompanha a rolagem da página e do
+                             cartão, para as opções ficarem à mão mesmo longe do começo do mapa (diagrama.js, acompanharTopo) --}}
+                        <div class="wf-dd-topo" data-dd-topo>
+
                         {{-- Recolher / mostrar todas as opções: libera a tela para ver o diagrama inteiro.
                              O estado fica direto em b.dados.opcoes (false = recolhidas), sem depender de funções externas. --}}
                         <div class="wf-dd-barra">
@@ -2594,13 +2598,14 @@
                         <p class="wf-dd-dica">Duplo clique no vazio cria um elemento · arraste a bolinha de um elemento selecionado até outro (ou até o vazio) para ligar · Tab cria um filho · Enter edita o texto · Ctrl+Z desfaz · Ctrl+roda do mouse dá zoom</p>
 
                         </div>{{-- fim das opções recolhíveis --}}
+                        </div>{{-- fim do topo que acompanha a rolagem --}}
 
                         {{-- Tela --}}
                         <div class="wf-mapa-col">
                             <div :style="`width:${mmTam(b).w * dd(b).z}px;height:${mmTam(b).h * dd(b).z}px;`">
                                 <div class="wf-dd-lona" :class="{ 'grade': dd(b).grade }" tabindex="0" role="application" aria-label="Área do diagrama"
                                      :style="`width:${mmTam(b).w}px;height:${mmTam(b).h}px;transform:scale(${dd(b).z});transform-origin:0 0;`"
-                                     @pointerdown="ddLonaDown($event, b)" @dblclick="ddLonaDbl($event, b)"
+                                     @pointerdown="ddLonaDown($event, b)" @dblclick="ddLonaDbl($event, b)" @contextmenu="ddMenu($event, b)"
                                      @keydown="ddTecla($event, b)" @wheel="ddWheel($event, b)">
 
                                     {{-- Ligações (pai→filho dos mapas e conectores) --}}

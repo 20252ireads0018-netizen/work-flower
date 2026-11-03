@@ -192,6 +192,9 @@
                 const guardada = sessionStorage.getItem('mente.aba');
                 this.aba = this.abas.some(a => a.id === guardada) ? guardada : 'tarefas';
                 this.$watch('aba', v => { sessionStorage.setItem('mente.aba', v); this.menuBloco = false; });
+                // avisa o ambiente (partials/ambiente) de qual setor está aberto: cada aba pode ter fundo e música próprios
+                const avisarSetor = () => { const a = (this.abas).find(x => x.id === this.aba); window.wfSetorAtual = { id: this.aba || '', nome: a ? a.nome : '' }; window.dispatchEvent(new CustomEvent('wf-setor', { detail: window.wfSetorAtual })); };
+                this.$watch('aba', avisarSetor); avisarSetor();
                 // ao voltar para Livros, o painel de leitura perde a rolagem: volta para a página atual
                 this.$watch('aba', v => {
                     if (v === 'livros' && pdfDoc) this.$nextTick(() => requestAnimationFrame(() => this.rolarPara(this.leitor.pg)));
