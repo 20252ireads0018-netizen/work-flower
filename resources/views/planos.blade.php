@@ -109,6 +109,8 @@
                     $breve      = in_array($plano->slug, $emBreve, true);
                     $ehAtual    = $planoAtual === $plano->slug && ! ($renovavel && (float) $plano->price > 0);
                     $renovar    = $planoAtual === $plano->slug && ! $ehAtual;
+                    $ordemPl    = array_flip(Planos::slugs());
+                    $incluido   = $planoAtual && ($ordemPl[$planoAtual] ?? 0) > ($ordemPl[$plano->slug] ?? 0);
                     $ehDestaque = $destaque && $plano->slug === $destaque;
                     $gratis     = (float) $plano->price <= 0;
                     $preco      = number_format((float) $plano->price, 2, ',', '.');
@@ -171,6 +173,9 @@
                     @elseif ($ehAtual)
                         <span data-plano-assinar aria-disabled="true"
                               class="btn-sec mt-7 w-full text-center pointer-events-none opacity-60">Plano atual</span>
+                    @elseif ($incluido)
+                        <span data-plano-assinar aria-disabled="true"
+                              class="btn-sec mt-7 w-full text-center pointer-events-none opacity-60">Incluído no seu plano</span>
                     @else
                         <a data-plano-assinar
                            href="{{ $gratis ? $urlAssinar . '?plano=' . $plano->slug : route('assinar', $plano->slug) }}"

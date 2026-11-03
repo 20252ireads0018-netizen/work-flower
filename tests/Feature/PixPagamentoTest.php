@@ -133,6 +133,37 @@ class PixPagamentoTest extends TestCase
         $this->assertSame($fim->copy()->addMonthNoOverflow()->endOfDay()->format('Y-m-d H:i:s'), (string) $u->fresh()->plano_expira_em);
     }
 
+    public function test_quem_paga_plano_maior_nao_compra_o_menor(): void
+    {
+        $this->configurar();
+        $u = User::factory()->create(['plano_slug' => 'premium', 'plano_expira_em' => now()->addYear()]);
+
+        $this->actingAs($u)->get('/assinar/basico')->assertRedirect(route('planos'))->assertSessionHas('erro');
+        $this->assertSame(0, PixPagamento::count());
+        $this->actingAs($u)->get('/planos')->assertOk()->assertSee('Incluído no seu plano');
+    }
+
+    public function test_nao_encontrado_pode_ser_avisado_de_novo_e_confirmado(): void
+    {
+        $this->configurar();
+        $u = User::factory()->create();
+        $this->actingAs($u)->get('/assinar/basico');
+        $p = PixPagamento::sole();
+        $admin = User::factory()->create(['email' => self::ADMIN]);
+
+        $this->actingAs($admin)->post(route('pix.admin.recusar', $p), ['observacao' => 'Não caiu ainda']);
+        $this->assertSame('recusado', $p->fresh()->status);
+
+        $this->actingAs($u)->get(route('pix.ver', $p))->assertOk()->assertSee('Não caiu ainda')->assertSee($p->txid);
+        $this->actingAs($u)->post(route('pix.paguei', $p))->assertRedirect();
+        $this->assertSame('informado', $p->fresh()->status);
+
+        // dois "Confirmar" seguidos liberam um mês só
+        $this->actingAs($admin)->post(route('pix.admin.confirmar', $p));
+        $this->assertNull(Pix::liberar($p->fresh()));
+        $this->assertSame(now()->addMonthNoOverflow()->endOfDay()->format('Y-m-d H:i:s'), (string) $u->fresh()->plano_expira_em);
+    }
+
     public function test_admin_salva_e_valida_a_chave(): void
     {
         $admin = User::factory()->create(['email' => self::ADMIN]);

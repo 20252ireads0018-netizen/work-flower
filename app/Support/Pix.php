@@ -165,9 +165,15 @@ class Pix
      * Confirma o pagamento e libera o plano por um mês. Se a pessoa já tem o mesmo plano pago
      * até mais tarde (renovação antecipada), o mês é somado ao fim do período atual.
      */
-    public static function liberar(PixPagamento $p): Carbon
+    public static function liberar(PixPagamento $p): ?Carbon
     {
         return DB::transaction(function () use ($p) {
+            // trava o pedido e confere de novo: dois cliques em "Confirmar" não somam dois meses
+            $p = PixPagamento::whereKey($p->getKey())->lockForUpdate()->first();
+            if (! $p || $p->status === 'confirmado' || $p->status === 'cancelado') {
+                return null;
+            }
+
             $usuario = DB::table('users')->where('id', $p->user_id)->lockForUpdate()->first();
 
             $base = now();

@@ -14,7 +14,7 @@ class PixAdminController extends Controller
 {
     public function index(Request $request): View
     {
-        $status = $request->query('status');
+        $status = is_string($s = $request->query('status')) ? $s : null; // ?status[]=x chega como array
         $status = isset(PixPagamento::STATUS[$status]) ? $status : null;
 
         $lista = PixPagamento::with('user')
@@ -45,6 +45,10 @@ class PixAdminController extends Controller
         if ($erro = Pix::erroChave($dados['tipo'], $dados['chave'])) {
             return back()->withErrors(['chave' => $erro])->withInput();
         }
+        // no QR Code o nome vai sem acentos e só com letras, números e espaços: precisa sobrar alguma coisa
+        if (! preg_match('/[A-Za-z0-9]/', \Illuminate\Support\Str::ascii($dados['nome']))) {
+            return back()->withErrors(['nome' => 'Use o nome do titular com letras.'])->withInput();
+        }
 
         Pix::salvarConfig($dados);
 
@@ -58,6 +62,9 @@ class PixAdminController extends Controller
         }
 
         $ate = Pix::liberar($pix);
+        if (! $ate) {
+            return back()->with('ok', 'Este pagamento já foi tratado.');
+        }
 
         return back()->with('ok', "Plano liberado para {$pix->user?->name} até " . $ate->format('d/m/Y') . '.');
     }

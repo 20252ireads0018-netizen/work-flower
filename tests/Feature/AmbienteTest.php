@@ -135,6 +135,18 @@ class AmbienteTest extends TestCase
         $this->actingAs($u)->putJson('/ambiente/diverso?setor=aba_k3j9x.2', $this->corpo())->assertOk()->assertJsonPath('setor', 'aba_k3j9x.2');
     }
 
+    public function test_limite_de_abas_com_ambiente_proprio(): void
+    {
+        $u = User::factory()->create();
+        for ($i = 1; $i < 60; $i++) {
+            Ambiente::gravar($u->id, 'diverso', "aba{$i}", Ambiente::opcoes($u->id, 'diverso', "aba{$i}"));
+        }
+        $this->actingAs($u)->putJson('/ambiente/diverso?setor=aba60', $this->corpo())->assertOk();
+        $this->actingAs($u)->putJson('/ambiente/diverso?setor=aba61', $this->corpo())->assertStatus(422)->assertJsonValidationErrors('setor');
+        // aba que já tem ambiente continua podendo mudar
+        $this->actingAs($u)->putJson('/ambiente/diverso?setor=aba60', $this->corpo())->assertOk();
+    }
+
     public function test_convidado_nao_muda_o_ambiente_da_aba(): void
     {
         $dono = User::factory()->create(['plano_slug' => 'premium', 'plano_expira_em' => now()->addMonth()]);

@@ -33,8 +33,15 @@ class AssinaturaController extends Controller
 
         // Compara com o plano que o usuário REALMENTE paga (o teste de 30 dias não conta).
         // No mesmo plano, só deixa pagar de novo perto do fim do mês pago (renovação).
-        if (Planos::slugPago($usuario) === $plano->slug && ! Pix::podeRenovar($usuario)) {
+        $pago = Planos::slugPago($usuario);
+        if ($pago === $plano->slug && ! Pix::podeRenovar($usuario)) {
             return redirect($voltar)->with('erro', 'Você já está neste plano. A renovação abre 7 dias antes do fim do mês pago.');
+        }
+
+        // Já paga um plano maior que ainda vale: confirmar este Pix trocaria o plano pelo menor.
+        $ordem = array_flip(Planos::slugs());
+        if (($ordem[$pago] ?? 0) > ($ordem[$plano->slug] ?? 0)) {
+            return redirect($voltar)->with('erro', 'Você já tem o plano ' . Planos::nome($pago) . ', que inclui tudo do ' . $plano->name . '.');
         }
 
         if (! Pix::pronto()) {
@@ -68,7 +75,8 @@ class AssinaturaController extends Controller
         return view('assinatura.pix', [
             'pix'    => $pix,
             'plano'  => $plano,
-            'codigo' => $pix->aberto() && Pix::pronto() ? Pix::copiaECola((float) $pix->valor, $pix->txid) : null,
+            // "recusado" (não achado no extrato) continua mostrando o código: a pessoa pode ter pago e avisar de novo
+            'codigo' => ($pix->aberto() || $pix->status === 'recusado') && Pix::pronto() ? Pix::copiaECola((float) $pix->valor, $pix->txid) : null,
             'cfg'    => Pix::config(),
         ]);
     }
@@ -80,7 +88,7 @@ class AssinaturaController extends Controller
 
         $dados = $request->validate(['pagador' => ['nullable', 'string', 'max:120']]);
 
-        if ($pix->status === 'aguardando') {
+        if (in_array($pix->status, ['aguardando', 'recusado'], true)) {
             $pix->status       = 'informado';
             $pix->pagador      = trim((string) ($dados['pagador'] ?? '')) ?: null;
             $pix->informado_em = now();

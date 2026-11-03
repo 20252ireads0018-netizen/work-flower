@@ -28,6 +28,21 @@ class AmbienteController extends Controller
         return $dono;
     }
 
+    /** Quantas abas de uma área podem ter fundo e música próprios (o id da aba vem do navegador). */
+    private const MAX_SETORES = 60;
+
+    /** Barra uma aba nova quando a área já tem MAX_SETORES configuradas (evita encher banco e disco com ids inventados). */
+    private function limiteSetores(int $dono, string $area, ?string $setor): void
+    {
+        if ($setor === null || CorpoDado::where('user_id', $dono)->where('chave', Ambiente::chave($area, $setor))->exists()) {
+            return;
+        }
+        $usados = CorpoDado::where('user_id', $dono)->where('chave', 'like', "amb.{$area}.s.%")->where('chave', 'not like', '%.img')->count();
+        if ($usados >= self::MAX_SETORES) {
+            throw ValidationException::withMessages(['setor' => 'Esta área já tem ' . self::MAX_SETORES . ' abas com fundo e música próprios. Volte alguma para "Igual à área" antes.']);
+        }
+    }
+
     /** Setor pedido (null = a área inteira); um id fora do formato não é aceito. */
     private function setor(Request $request): ?string
     {
@@ -45,6 +60,7 @@ class AmbienteController extends Controller
     {
         $dono = $this->donoQueEdita($request, $area);
         $setor = $this->setor($request);
+        $this->limiteSetores($dono, $area, $setor);
 
         $d = $request->validate([
             'fundo.proprio'        => ['required', 'boolean'],
@@ -108,6 +124,7 @@ class AmbienteController extends Controller
     {
         $dono = $this->donoQueEdita($request, $area);
         $setor = $this->setor($request);
+        $this->limiteSetores($dono, $area, $setor);
 
         $request->validate([
             'audio' => ['required', 'file', 'max:15360', // 15 MB

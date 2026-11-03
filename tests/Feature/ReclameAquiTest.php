@@ -35,6 +35,20 @@ class ReclameAquiTest extends TestCase
         $this->actingAs($u)->get('/painel')->assertOk()->assertDontSee('1 nova');
     }
 
+    public function test_filtro_em_lista_e_pagina_de_outro_site_nao_quebram(): void
+    {
+        $admin = User::factory()->create(['email' => 'xexplosion20@gmail.com']);
+        $this->actingAs($admin)->get('/admin/reclamacoes?status[]=aberta')->assertOk();
+        $this->actingAs($admin)->get('/admin/pix?status[]=informado')->assertOk();
+
+        $u = User::factory()->create();
+        $this->actingAs($u)->post('/reclame-aqui', [
+            'tipo' => 'problema', 'assunto' => 'A', 'mensagem' => 'Mensagem de teste.',
+            'pagina' => rtrim(url('/'), '/') . '.outro.com/x',
+        ]);
+        $this->assertNull(Reclamacao::where('user_id', $u->id)->value('pagina'));
+    }
+
     public function test_quem_nao_e_admin_nao_ve_nem_responde(): void
     {
         $u = User::factory()->create();

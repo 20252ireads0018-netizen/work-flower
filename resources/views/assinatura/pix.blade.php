@@ -75,7 +75,9 @@
 
         <p class="text-xs texto-2 text-center">O Pix vai direto para a conta do Work Flower. A liberação é feita à mão depois de conferir o extrato, normalmente no mesmo dia.</p>
 
-        <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+        {{-- integrity: se o arquivo do CDN for trocado, o navegador não roda (o QR Code decide para onde vai o dinheiro) --}}
+        <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"
+                integrity="sha384-lQXOAyZwHXE55JFyrOMB7nY2Wv+m5ZWNtJcHrd1rceRQXAYNLak8ukN5TjBTcIwz" crossorigin="anonymous"></script>
         <script>
             (function () {
                 var codigo = document.getElementById('pix-codigo').value;

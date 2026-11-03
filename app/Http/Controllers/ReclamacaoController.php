@@ -80,7 +80,7 @@ class ReclamacaoController extends Controller
         if (! self::pronto()) {
             return view('reclame-aqui.indisponivel', ['admin' => true]);
         }
-        $status = $request->query('status');
+        $status = is_string($s = $request->query('status')) ? $s : null; // ?status[]=x chega como array
         $lista = Reclamacao::with('user:id,name,email')
             ->when(isset(Reclamacao::STATUS[$status]), fn ($q) => $q->where('status', $status))
             ->orderByRaw("case status when 'aberta' then 0 when 'respondida' then 1 else 2 end")
@@ -126,6 +126,8 @@ class ReclamacaoController extends Controller
         }
         $base = rtrim(url('/'), '/');
 
-        return str_starts_with($url, $base) ? mb_substr($url, 0, 300) : null;
+        // compara até a barra: "https://site.com.outro.com" não passa por "https://site.com"
+        return $url === $base || str_starts_with($url, $base . '/') || str_starts_with($url, $base . '?')
+            ? mb_substr($url, 0, 300) : null;
     }
 }

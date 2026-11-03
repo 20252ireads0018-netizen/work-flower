@@ -20,27 +20,6 @@ use App\Http\Controllers\WorkflowTransferController;
 use App\Http\Controllers\PreferenciasController;
 use App\Http\Controllers\CompartilharController;
 
-Route::get('/diag-rotas', function () {
-    if (function_exists('opcache_reset')) { @opcache_reset(); }
-
-    $arquivo = base_path('routes/web.php');
-    $todas   = collect(Route::getRoutes()->getRoutes());
-
-    return response()->json([
-        'laravel'          => app()->version(),
-        'base_path'        => base_path(),
-        'public_path'      => public_path(),
-        'web_php_mtime'    => date('Y-m-d H:i:s', filemtime($arquivo)),
-        'web_php_tem_rota' => str_contains(file_get_contents($arquivo), 'downloads/registrar'),
-        'rotas_em_cache'   => app()->routesAreCached(),
-        'rotas_downloads'  => $todas
-            ->filter(fn ($r) => str_contains($r->uri(), 'downloads'))
-            ->map(fn ($r) => implode('|', $r->methods()) . ' ' . $r->uri())
-            ->values(),
-        'total_de_rotas'   => $todas->count(),
-    ]);
-});
-
 // Páginas públicas (abrem para qualquer pessoa, logada ou não).
 // A raiz mostra a página inicial para visitantes e leva quem está logado ao painel.
 Route::get('/', function () {
