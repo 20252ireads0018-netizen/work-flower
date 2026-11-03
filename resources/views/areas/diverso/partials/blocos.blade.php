@@ -708,24 +708,69 @@
                 const novo = limpar(entrada);
                 if (!novo || novo === n.caminho) { if (!novo) this.aviso('Nome inválido.'); return; }
                 if (this.existe(novo)) { this.aviso('Já existe algo com esse caminho.'); return; }
+                this.mover(n, novo);
+            },
+            /* Troca o caminho de um arquivo ou de uma pasta (com tudo o que tem dentro). Usado por renomear e arrastar. */
+            mover(n, novo) {
                 if (n.k === 'a') {
                     const f = I.arquivos.find(x => x.caminho === n.caminho);
-                    if (!f) return;
+                    if (!f) return false;
                     pend.push(f.caminho);
                     f.caminho = novo;
                     this.sel = novo;
                     this.atualizarPrevia();
                     this.agendarAuto();
-                    return;
+                    return true;
                 }
                 const pre = n.caminho + '/';
-                if (novo.startsWith(pre)) { this.aviso('Não dá para mover uma pasta para dentro dela mesma.'); return; }
+                if (novo.startsWith(pre)) { this.aviso('Não dá para mover uma pasta para dentro dela mesma.'); return false; }
                 I.arquivos.filter(f => f.caminho.startsWith(pre)).forEach(f => { pend.push(f.caminho); f.caminho = novo + '/' + f.caminho.slice(pre.length); });
                 I.pastas = I.pastas.map(p => (p === n.caminho ? novo : p.startsWith(pre) ? novo + '/' + p.slice(pre.length) : p));
                 this.fechadas = this.fechadas.map(p => (p === n.caminho ? novo : p.startsWith(pre) ? novo + '/' + p.slice(pre.length) : p));
                 this.sel = novo;
                 this.atualizarPrevia();
+                return true;
             },
+
+            /* ---------- arrastar e soltar na árvore ----------
+               Arraste um arquivo ou pasta para cima de uma pasta (ou de um arquivo dela) para mover para lá;
+               solte no espaço vazio da lista para levar para a raiz do projeto. */
+            arrastoIde: null, alvoIde: null,
+            destinoDe(n) { return !n ? '' : n.k === 'p' ? n.caminho : pai(n.caminho); },
+            podeSoltar(destino) {
+                const a = this.arrastoIde;
+                if (!a) return false;
+                if (pai(a.caminho) === destino) return false; // já está nessa pasta
+                return !(a.k === 'p' && (destino === a.caminho || destino.startsWith(a.caminho + '/')));
+            },
+            comecarArrasto(n, e) {
+                this.arrastoIde = { k: n.k, caminho: n.caminho };
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/x-wf-ide', n.caminho); // o Firefox só arrasta com algum dado
+            },
+            sobreArrasto(n, e) {
+                if (!this.arrastoIde) return;
+                const destino = this.destinoDe(n);
+                if (!this.podeSoltar(destino)) { this.alvoIde = null; return; }
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                this.alvoIde = destino;
+            },
+            soltarArrasto(n, e) {
+                const a = this.arrastoIde, destino = this.destinoDe(n), ok = this.podeSoltar(destino);
+                this.fimArrasto();
+                if (!ok) return;
+                e.preventDefault();
+                const novo = (destino ? destino + '/' : '') + nomeDe(a.caminho);
+                if (this.existe(novo)) { this.aviso('Já existe "' + nomeDe(a.caminho) + '" em ' + (destino || 'a raiz do projeto') + '.'); return; }
+                const origem = pai(a.caminho);
+                if (!this.mover(a, novo)) return;
+                // a pasta de onde saiu continua na árvore, mesmo que tenha ficado vazia; e a de destino abre
+                if (origem && !this.todasPastas().has(origem)) I.pastas.push(origem);
+                this.fechadas = this.fechadas.filter(p => p !== destino && !destino.startsWith(p + '/'));
+                this.agendarAuto();
+            },
+            fimArrasto() { this.arrastoIde = null; this.alvoIde = null; },
             excluir(n) {
                 const extra = dir ? ' Ao salvar na pasta, ele também será apagado do disco.' : '';
                 if (n.k === 'a') {
@@ -1458,6 +1503,10 @@
     .wf-ide-no:hover { background: var(--superficie); }
     .wf-ide-no.ativo { background: var(--prim-linha); }
     .wf-ide-no.sel { outline: 1px solid var(--prim-linha); outline-offset: -1px; }
+    /* arrastar e soltar: pasta que vai receber, item sendo levado e a raiz (espaço vazio da lista) */
+    .wf-ide-no.alvo { background: var(--prim-linha); outline: 1px dashed var(--prim); outline-offset: -1px; }
+    .wf-ide-no.arrastando { opacity: .45; }
+    .wf-ide-lado.alvo-raiz { outline: 1px dashed var(--prim); outline-offset: -2px; }
     .wf-ide-no .nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     .wf-ide-no .seta { width: .8rem; color: var(--tinta-2); font-size: .65rem; text-align: center; flex-shrink: 0; }
     .wf-ide-no .tipo { flex-shrink: 0; min-width: 1.5rem; padding: 0 .25rem; text-align: center; font-size: .58rem; font-weight: 700; letter-spacing: .02em; color: var(--tinta-2); border: 1px solid var(--linha); border-radius: .25rem; }
@@ -2199,10 +2248,15 @@
                                 </div>
 
                                 <div class="wf-ide-corpo">
-                                    <aside class="wf-ide-lado" aria-label="Arquivos do projeto" @click.self="sel = ''" @contextmenu="abrirMenu(null, $event)">
+                                    <aside class="wf-ide-lado" aria-label="Arquivos do projeto" @click.self="sel = ''" @contextmenu="abrirMenu(null, $event)"
+                                           :class="{ 'alvo-raiz': alvoIde === '' }"
+                                           @dragover="sobreArrasto(null, $event)" @drop="soltarArrasto(null, $event)"
+                                           @dragleave.self="alvoIde = null">
                                         <template x-for="n in arvore()" :key="n.k + ':' + n.caminho">
-                                            <div class="wf-ide-no" :class="{ 'ativo': n.id && n.id === b.dados.ide.ativo, 'sel': sel === n.caminho }"
-                                                 :style="`padding-left:${.4 + n.nivel * .9}rem`" @click="clicar(n)" @contextmenu="abrirMenu(n, $event)" :title="n.caminho">
+                                            <div class="wf-ide-no" :class="{ 'ativo': n.id && n.id === b.dados.ide.ativo, 'sel': sel === n.caminho, 'alvo': alvoIde !== null && alvoIde !== '' && n.k === 'p' && alvoIde === n.caminho, 'arrastando': arrastoIde && arrastoIde.caminho === n.caminho }"
+                                                 :style="`padding-left:${.4 + n.nivel * .9}rem`" @click="clicar(n)" @contextmenu="abrirMenu(n, $event)" :title="n.caminho"
+                                                 draggable="true" @dragstart.stop="comecarArrasto(n, $event)" @dragend="fimArrasto()"
+                                                 @dragover.stop="sobreArrasto(n, $event)" @drop.stop="soltarArrasto(n, $event)">
                                                 <span class="seta" x-text="n.k === 'p' ? (n.fechada ? '▸' : '▾') : ''"></span>
                                                 <span class="tipo" x-show="n.tipo" x-text="n.tipo"></span>
                                                 <span class="nome" x-text="n.nome"></span>
