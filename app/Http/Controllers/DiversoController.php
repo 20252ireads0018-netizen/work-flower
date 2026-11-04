@@ -13,10 +13,16 @@ use Illuminate\View\View;
 /**
  * Área Diverso: abas criadas pelo usuário, cada uma um quadro livre.
  * Guarda numa tabela só: "estado" (abas, blocos, layout, lixeira) e "img.{id}" (imagens dos blocos).
+ * O cartão "Banco de dados" guarda as linhas em pedaços "sqlz.{id}.{versão}.{tabela}.{n}" (gzip em base64,
+ * nunca SQL cru: o mod_security da hospedagem recusa com 406). Esses pedaços não vão junto com a página:
+ * o navegador busca cada um quando abre a tabela (ler).
  */
 class DiversoController extends Controller
 {
     private const SLUG = 'diverso';
+
+    /** Prefixo dos pedaços do cartão Banco de dados. */
+    public const PEDACO = 'sqlz.';
 
     public function show(Request $request): View
     {
@@ -37,19 +43,41 @@ class DiversoController extends Controller
 
     public static function dados(int $usuarioId)
     {
-        return DiversoDado::where('user_id', $usuarioId)->pluck('valor', 'chave');
+        // os pedaços do Banco de dados (sqlz.*) podem somar dezenas de MB: ficam fora da página
+        return DiversoDado::where('user_id', $usuarioId)->where('chave', 'not like', self::PEDACO . '%')->pluck('valor', 'chave');
     }
 
     public function salvar(Request $request, string $chave): JsonResponse
     {
         $data = $request->validate(['valor' => ['nullable', 'string', 'max:6000000']]);
+        // pedaço do Banco de dados: só base64 (gzip); texto cru não entra
+        if (str_starts_with($chave, self::PEDACO) && isset($data['valor']) && ! preg_match('~^[A-Za-z0-9+/=]*$~', $data['valor'])) {
+            return response()->json(['message' => 'Pedaço do banco em formato inválido.'], 422);
+        }
 
         return Sincronia::gravar($request, self::SLUG, Compartilhar::dono($request, self::SLUG), $chave, $data['valor'] ?? null);
     }
 
+    /** Um pedaço do Banco de dados (só chaves sqlz.*; o resto já vem com a página). */
+    public function ler(Request $request, string $chave): JsonResponse
+    {
+        abort_unless(str_starts_with($chave, self::PEDACO), 404);
+        $valor = DiversoDado::where('user_id', Compartilhar::dono($request, self::SLUG))->where('chave', $chave)->value('valor');
+        abort_if($valor === null, 404);
+
+        return response()->json(['valor' => $valor]);
+    }
+
     public function apagar(Request $request, string $chave): JsonResponse
     {
-        DiversoDado::where('user_id', Compartilhar::dono($request, self::SLUG))->where('chave', $chave)->delete();
+        $q = DiversoDado::where('user_id', Compartilhar::dono($request, self::SLUG));
+        if (str_starts_with($chave, self::PEDACO)) {
+            // sqlz.{id} apaga todos os pedaços do cartão; sqlz.{id}.{versão} só os daquela leitura
+            $q->where(fn ($w) => $w->where('chave', $chave)->orWhere('chave', 'like', $chave . '.%'));
+        } else {
+            $q->where('chave', $chave);
+        }
+        $q->delete();
 
         return response()->json(['ok' => true]);
     }

@@ -1,9 +1,13 @@
 /* Work Flower · área Diverso · cartão "Banco de dados (.sql)"
-   Lê no navegador um arquivo .sql (dump do phpMyAdmin/MySQL, SQLite ou PostgreSQL com INSERT), desenha as
-   tabelas e as ligações (chaves estrangeiras) e guarda os dados para consultar depois.
-   - Estrutura (tabelas, colunas, posições no diagrama) fica em b.dados.
-   - As linhas ficam numa chave à parte, img.<id>.sql (como as camadas do editor de imagem), e saem junto
-     quando o cartão é excluído.
+   Abre um dump .sql (MySQL/MariaDB, PostgreSQL com INSERT ou COPY, SQLite) ou um .csv, desenha as tabelas e as
+   ligações (chaves estrangeiras) e deixa consultar os dados.
+   - O trabalho pesado fica no worker (js/banco-sql-worker.js): leitura em fluxo, compressão, envio, busca,
+     filtros, ordem e estatísticas. A página só desenha o que está visível (linhas e tabelas do diagrama).
+   - Nada de SQL cru vai ao servidor (o mod_security da hospedagem recusa com 406):
+       img.<id>.sql                     índice comprimido: "wfsql2:" + base64(gzip(JSON com estrutura e contagens))
+       sqlz.<id>.<versão>.<tabela>.<n>  linhas, em pedaços de gzip+base64 (< 6 MB cada), baixados só quando a tabela abre
+     Formato antigo (até 11/2026): b.dados.tabelas no estado e img.<id>.sql com as linhas em JSON. Continua abrindo.
+   - b.dados guarda só o leve: versao, arquivo, resumo, visao e as posições das tabelas que a pessoa arrastou.
    Estende o diverso.js + diagrama.js: carregue depois deles; continua usando x-data="diversoAbasDiagrama()". */
 (function () {
     'use strict';
@@ -11,576 +15,854 @@
     if (!Q || typeof window.diversoAbasDiagrama !== 'function') return;
     const { uid } = Q.util;
     const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    const num = n => Number(n || 0).toLocaleString('pt-BR');
+    const raw = x => (window.Alpine && typeof window.Alpine.raw === 'function' ? window.Alpine.raw(x) : x);
+    const clone = x => JSON.parse(JSON.stringify(raw(x)));
+    const meta = n => document.querySelector(`meta[name="${n}"]`)?.content || '';
 
-    const MAX_ARQUIVO = 25 * 1024 * 1024;  // 25 MB de .sql
-    const ORCAMENTO = 4500000;             // caracteres de linhas guardadas (o servidor aceita até 6 milhões por chave)
-    const MAX_TABELAS = 200, MAX_COLUNAS = 150;
-    const POR_PAGINA = 50;
-    const BOX_W = 220, CAB_H = 28, LIN_H = 18, MOSTRA_COL = 24;
+    const eu = document.currentScript;
+    const URL_WORKER = (eu && eu.dataset.worker) || ((eu && eu.src) || '/js/banco-sql.js').replace(/banco-sql\.js/, 'banco-sql-worker.js');
+    const MAX_ARQUIVO = 500 * 1024 * 1024;
+    const PREFIXO = 'wfsql2:';
+    const BOX_W = 220, CAB_H = 28, LIN_H = 18, MOSTRA_COL = 20;
+    const LIN = 26, MAX_ALTURA = 8000000, POR_PAGINA = 100;
+    const NUM_TXT = /^-?\d{1,15}(\.\d+)?$/;
 
-    /* =================== leitura do .sql =================== */
-    const PALAVRA = /[A-Za-z0-9_$\u0080-￿]/;
-
-    /** Lê tokens de um texto SQL: palavras, nomes entre crases/aspas/colchetes, textos, números e símbolos. Pula comentários. */
-    function Leitor(s) { this.s = s; this.i = 0; this.n = s.length; this.dolar = true; }
-    Leitor.prototype.pularEspacos = function () {
-        const s = this.s;
-        for (;;) {
-            const c = s.charCodeAt(this.i);
-            if (c === 32 || c === 9 || c === 10 || c === 13 || c === 12) { this.i++; continue; }
-            if (c === 45 && s.charCodeAt(this.i + 1) === 45) { const f = s.indexOf('\n', this.i); this.i = f < 0 ? this.n : f + 1; continue; } // --
-            if (c === 35) { const f = s.indexOf('\n', this.i); this.i = f < 0 ? this.n : f + 1; continue; }                                    // #
-            if (c === 47 && s.charCodeAt(this.i + 1) === 42) { const f = s.indexOf('*/', this.i + 2); this.i = f < 0 ? this.n : f + 2; continue; } // /* */
-            return;
-        }
-    };
-    Leitor.prototype.texto = function (q) {
-        // de this.i (logo depois da aspa) até a aspa que fecha; aceita \' e '' como aspa dentro do texto
-        // uma passada só, caractere a caractere (indexOf a cada texto ficava lento em dumps grandes)
-        const s = this.s, n = this.n, cq = q.charCodeAt(0), barra = q !== '`';
-        let out = '', ini = this.i, i = this.i;
-        while (i < n) {
-            const c = s.charCodeAt(i);
-            if (c === 92 && barra) { // \
-                out += s.slice(ini, i);
-                const e = s[i + 1];
-                out += ESCAPES[e] ?? e ?? '';
-                i += 2; ini = i;
-                continue;
-            }
-            if (c === cq) {
-                if (s.charCodeAt(i + 1) === cq) { out += s.slice(ini, i + 1); i += 2; ini = i; continue; }
-                this.i = i + 1;
-                return out + s.slice(ini, i);
-            }
-            i++;
-        }
-        this.i = n;
-        return out + s.slice(ini);
-    };
-    const ESCAPES = { n: '\n', t: '\t', r: '\r', 0: '\0', Z: '\x1a' };
-    Leitor.prototype.prox = function () {
-        this.pularEspacos();
-        if (this.i >= this.n) return null;
-        const s = this.s, c = s[this.i];
-        if (c === "'") { this.i++; return { t: 'str', v: this.texto("'") }; }
-        if (c === '"' || c === '`') { this.i++; return { t: 'id', v: this.texto(c), q: 1 }; }
-        if (c === '[') { const f = s.indexOf(']', this.i); const v = s.slice(this.i + 1, f < 0 ? this.n : f); this.i = f < 0 ? this.n : f + 1; return { t: 'id', v, q: 1 }; }
-        if (PALAVRA.test(c)) {
-            let j = this.i + 1;
-            while (j < this.n && PALAVRA.test(s[j])) j++;
-            const v = s.slice(this.i, j);
-            this.i = j;
-            // N'texto', E'texto' (texto) e X'..', B'..' (binário, fica como está)
-            if (s[j] === "'" && /^[NnEeXxBb]$/.test(v)) {
-                this.i++;
-                const t = this.texto("'");
-                return /^[NnEe]$/.test(v) ? { t: 'str', v: t } : { t: 'raw', v: v + "'" + t + "'" };
-            }
-            // $$ corpo $$ do PostgreSQL (desligado enquanto um DELIMITER do MySQL estiver valendo)
-            if (this.dolar && /^\$\w*\$$/.test(v)) { const f = s.indexOf(v, this.i); const t = s.slice(this.i, f < 0 ? this.n : f); this.i = f < 0 ? this.n : f + v.length; return { t: 'str', v: t }; }
-            if (/^[0-9]/.test(v)) {
-                // 1.5, 1e10, 2.5e-3
-                let w = v;
-                if (s[this.i] === '.' && /[0-9]/.test(s[this.i + 1] || '')) { let k = this.i + 1; while (/[0-9eE]/.test(s[k] || '')) k++; w += s.slice(this.i, k); this.i = k; }
-                if (/[eE]$/.test(w) && /[+-]/.test(s[this.i] || '')) { let k = this.i + 1; while (/[0-9]/.test(s[k] || '')) k++; w += s.slice(this.i, k); this.i = k; }
-                return { t: 'num', v: w };
-            }
-            return { t: 'id', v };
-        }
-        if (c === '.' && /[0-9]/.test(s[this.i + 1] || '')) { let k = this.i + 1; while (/[0-9eE]/.test(s[k] || '')) k++; const v = s.slice(this.i, k); this.i = k; return { t: 'num', v }; }
-        this.i++;
-        return { t: 'p', v: c };
-    };
-    Leitor.prototype.espiar = function () { const i = this.i, t = this.prox(); this.i = i; return t; };
-
-    const P = (t, v) => t && t.t === 'p' && t.v === v;
-    const K = (t, v) => t && t.t === 'id' && !t.q && t.v.toUpperCase() === v;
-
-    /** Divide uma lista de tokens pelas vírgulas do nível de fora dos parênteses. */
-    function porVirgula(toks) {
-        const out = [];
-        let atual = [], nivel = 0;
-        for (const t of toks) {
-            if (P(t, '(')) nivel++;
-            if (P(t, ')')) nivel--;
-            if (P(t, ',') && nivel === 0) { out.push(atual); atual = []; continue; }
-            atual.push(t);
-        }
-        if (atual.length) out.push(atual);
-        return out;
-    }
-    /** Nomes entre parênteses a partir de toks[i] === '(' → { nomes, fim }. */
-    function nomesEntre(toks, i) {
-        const nomes = [];
-        if (!P(toks[i], '(')) return { nomes, fim: i };
-        let j = i + 1, nivel = 0;
-        for (; j < toks.length; j++) {
-            const t = toks[j];
-            if (P(t, '(')) nivel++;
-            else if (P(t, ')')) { if (nivel === 0) break; nivel--; }
-            else if (nivel === 0 && t.t === 'id') nomes.push(t.v);
-        }
-        return { nomes, fim: j + 1 };
-    }
-    /** Nome com esquema (banco.tabela, public."tabela") → só a tabela. Lê a partir de toks[i]. */
-    function nomeEm(toks, i) {
-        let nome = toks[i] && toks[i].v, j = i + 1;
-        while (P(toks[j], '.') && toks[j + 1]) { nome = toks[j + 1].v; j += 2; }
-        return { nome: String(nome || ''), fim: j };
-    }
-    function textoTipo(toks) {
-        let out = '';
-        toks.forEach((t, i) => {
-            const v = t.t === 'str' ? "'" + t.v + "'" : t.v;
-            if (P(t, '(') || P(t, ')') || i === 0 || P(toks[i - 1], '(')) out += v;
-            else if (P(t, ',')) out += ', ';
-            else if (P(toks[i - 1], ',')) out += v;
-            else out += ' ' + v;
-        });
-        return out.slice(0, 48);
-    }
-
-    const FIM_TIPO = new Set(['NOT', 'NULL', 'DEFAULT', 'PRIMARY', 'REFERENCES', 'AUTO_INCREMENT', 'AUTOINCREMENT', 'UNIQUE', 'COMMENT',
-        'COLLATE', 'CHARACTER', 'CHARSET', 'GENERATED', 'CHECK', 'CONSTRAINT', 'ON', 'IDENTITY', 'AS', 'KEY']);
-
-    function lerCreate(toks, banco) {
-        // CREATE [TEMPORARY] TABLE [IF NOT EXISTS] nome ( ... )
-        let i = 1;
-        while (toks[i] && !K(toks[i], 'TABLE')) i++;
-        i++;
-        if (K(toks[i], 'IF')) i += 3;
-        const { nome, fim } = nomeEm(toks, i);
-        i = fim;
-        if (!nome || !P(toks[i], '(')) return;
-        let nivel = 0, j = i;
-        for (; j < toks.length; j++) {
-            if (P(toks[j], '(')) nivel++;
-            else if (P(toks[j], ')') && --nivel === 0) break;
-        }
-        const t = tabela(banco, nome, true);
-        if (!t) return;
-        for (let def of porVirgula(toks.slice(i + 1, j))) {
-            if (!def.length) continue;
-            if (K(def[0], 'CONSTRAINT')) def = def.slice(2);
-            const w = def[0] && !def[0].q ? def[0].v.toUpperCase() : '';
-            if (w === 'PRIMARY') { nomesEntre(def, def.findIndex(x => P(x, '('))).nomes.forEach(c => marcar(t, c, 'pk')); continue; }
-            if (w === 'FOREIGN') { chaveEstrangeira(t, def); continue; }
-            if (w === 'UNIQUE') { const n = nomesEntre(def, def.findIndex(x => P(x, '('))).nomes; if (n.length === 1) marcar(t, n[0], 'uq'); continue; }
-            if (['KEY', 'INDEX', 'FULLTEXT', 'SPATIAL', 'CHECK', 'EXCLUDE', 'PERIOD'].includes(w)) continue;
-            if (def[0].t !== 'id' || t.colunas.length >= MAX_COLUNAS) continue;
-            const col = { n: def[0].v, tipo: '', pk: false, fk: null, nn: false, ai: false, uq: false };
-            let k = 1;
-            while (k < def.length && !(def[k].t === 'id' && !def[k].q && FIM_TIPO.has(def[k].v.toUpperCase()))) {
-                if (P(def[k], '(')) { let nv = 0; do { if (P(def[k], '(')) nv++; if (P(def[k], ')')) nv--; k++; } while (k < def.length && nv > 0); continue; }
-                k++;
-            }
-            col.tipo = textoTipo(def.slice(1, k));
-            for (; k < def.length; k++) {
-                if (K(def[k], 'PRIMARY')) col.pk = true;
-                else if (K(def[k], 'NOT') && K(def[k + 1], 'NULL')) col.nn = true;
-                else if (K(def[k], 'AUTO_INCREMENT') || K(def[k], 'AUTOINCREMENT') || K(def[k], 'IDENTITY')) col.ai = true;
-                else if (K(def[k], 'UNIQUE')) col.uq = true;
-                else if (K(def[k], 'REFERENCES')) {
-                    const r = nomeEm(def, k + 1), alvo = nomesEntre(def, r.fim).nomes;
-                    col.fk = { t: r.nome, c: alvo[0] || null };
-                    k = r.fim;
-                }
-            }
-            if (/serial/i.test(col.tipo)) col.ai = true;
-            t.colunas.push(col);
-        }
-    }
-    function chaveEstrangeira(t, def) {
-        // FOREIGN KEY [nome] (a, b) REFERENCES outra (x, y)
-        const ini = def.findIndex(x => P(x, '('));
-        const de = nomesEntre(def, ini);
-        const r = def.findIndex((x, k) => k >= de.fim && K(x, 'REFERENCES'));
-        if (r < 0) return;
-        const alvo = nomeEm(def, r + 1), para = nomesEntre(def, alvo.fim).nomes;
-        de.nomes.forEach((c, k) => {
-            const col = t.colunas.find(x => x.n === c);
-            if (col) col.fk = { t: alvo.nome, c: para[k] || para[0] || null };
-            else t.fkPendentes.push({ c, fk: { t: alvo.nome, c: para[k] || para[0] || null } });
-        });
-    }
-    function marcar(t, c, campo) {
-        const col = t.colunas.find(x => x.n === c);
-        if (col) col[campo] = true;
-        else if (campo === 'pk') t.pkPendentes.push(c);
-    }
-    function lerAlter(toks, banco) {
-        // ALTER TABLE [ONLY] [IF EXISTS] nome ADD ..., ADD ...
-        let i = 2;
-        if (K(toks[i], 'ONLY')) i++;
-        if (K(toks[i], 'IF')) i += 2;
-        const { nome, fim } = nomeEm(toks, i);
-        const t = banco.tabelas.get(nome.toLowerCase());
-        if (!t) return;
-        for (let a of porVirgula(toks.slice(fim))) {
-            if (!K(a[0], 'ADD')) continue;
-            a = a.slice(1);
-            if (K(a[0], 'CONSTRAINT')) a = a.slice(2);
-            if (K(a[0], 'PRIMARY')) nomesEntre(a, a.findIndex(x => P(x, '('))).nomes.forEach(c => marcar(t, c, 'pk'));
-            else if (K(a[0], 'FOREIGN')) chaveEstrangeira(t, a);
-            else if (K(a[0], 'UNIQUE')) { const n = nomesEntre(a, a.findIndex(x => P(x, '('))).nomes; if (n.length === 1) marcar(t, n[0], 'uq'); }
-        }
-    }
-    function tabela(banco, nome, criando) {
-        const k = nome.toLowerCase();
-        let t = banco.tabelas.get(k);
-        if (!t) {
-            if (banco.tabelas.size >= MAX_TABELAS) { banco.aviso(`O arquivo tem mais de ${MAX_TABELAS} tabelas; li só as primeiras.`); return null; }
-            t = { nome, colunas: [], total: 0, linhas: [], pkPendentes: [], fkPendentes: [], semCreate: !criando };
-            banco.tabelas.set(k, t);
-        }
-        return t;
-    }
-
-    /** Valor de uma coluna num INSERT: texto, número ou NULL; o resto (-5, NOW(), 'a'::text) fica escrito como está. */
-    function valor(partes) {
-        if (partes.length === 1) {
-            const t = partes[0];
-            if (K(t, 'NULL')) return null;
-            return t.v;
-        }
-        return partes.map(t => (t.t === 'str' ? "'" + t.v + "'" : t.v)).join('');
-    }
-
-    /** Lê as linhas de um INSERT direto do texto (sem guardar todos os tokens: dumps têm INSERTs enormes). */
-    function lerInsert(L, banco, delim) {
-        // INSERT|REPLACE [LOW_PRIORITY|DELAYED|HIGH_PRIORITY] [IGNORE] [INTO] nome [(colunas)] VALUES (...), (...)
-        let t = L.prox();
-        while (t && t.t === 'id' && !t.q && ['LOW_PRIORITY', 'DELAYED', 'HIGH_PRIORITY', 'IGNORE', 'INTO', 'OR', 'REPLACE', 'ABORT', 'FAIL', 'ROLLBACK'].includes(t.v.toUpperCase())) t = L.prox();
-        if (!t || t.t !== 'id') return;
-        let nome = t.v;
-        while (P(L.espiar(), '.')) { L.prox(); nome = (L.prox() || {}).v || nome; }
-        let cols = null;
-        t = L.prox();
-        if (P(t, '(')) {
-            cols = [];
-            for (t = L.prox(); t && !P(t, ')'); t = L.prox()) if (t.t === 'id') cols.push(t.v);
-            t = L.prox();
-        }
-        if (!(K(t, 'VALUES') || K(t, 'VALUE'))) return; // INSERT ... SELECT: não dá para saber as linhas
-        const tab = tabela(banco, nome, false);
-        if (!tab) return;
-        if (!tab.colunas.length && cols) cols.slice(0, MAX_COLUNAS).forEach(c => tab.colunas.push({ n: c, tipo: '', pk: false, fk: null, nn: false, ai: false, uq: false }));
-        const mapa = cols ? cols.map(c => tab.colunas.findIndex(x => x.n.toLowerCase() === c.toLowerCase())) : null;
-        for (;;) {
-            t = L.prox();
-            if (!P(t, '(')) { L.voltar = t; return; }
-            const vals = [];
-            let partes = [], nivel = 0;
-            for (t = L.prox(); t; t = L.prox()) {
-                if (nivel === 0 && (P(t, ',') || P(t, ')'))) {
-                    vals.push(valor(partes));
-                    partes = [];
-                    if (P(t, ')')) break;
-                    continue;
-                }
-                if (P(t, '(')) nivel++;
-                if (P(t, ')')) nivel--;
-                partes.push(t);
-            }
-            if (!tab.colunas.length) vals.forEach((_, k) => tab.colunas.length < MAX_COLUNAS && tab.colunas.push({ n: 'coluna_' + (k + 1), tipo: '', pk: false, fk: null, nn: false, ai: false, uq: false }));
-            let linha = vals;
-            if (mapa) { linha = new Array(tab.colunas.length).fill(null); mapa.forEach((p, k) => { if (p >= 0) linha[p] = vals[k] ?? null; }); }
-            tab.total++;
-            if (banco.usado < ORCAMENTO) {
-                tab.linhas.push(linha.map(v => (v == null ? null : String(v))));
-                banco.usado += linha.reduce((s, v) => s + (v == null ? 5 : String(v).length + 3), 2);
-            }
-            t = L.prox();
-            if (P(t, ',')) continue;
-            L.voltar = t;
-            return;
-        }
-    }
-
-    /** Lê o arquivo inteiro → { tabelas: [...], linhas: { nome: [[...]] }, avisos: [] }. */
-    function lerSql(texto) {
-        const avisos = new Set();
-        const banco = { tabelas: new Map(), usado: 0, aviso: m => avisos.add(m) };
-        const L = new Leitor(texto);
-        let delim = ';';
-        // fim do comando: ";" ou, com DELIMITER, o delimitador (pode vir grudado, como em END$$)
-        const fimComando = t => (delim === ';' ? P(t, ';') : !!t && typeof t.v === 'string' && t.t !== 'str' && t.v.endsWith(delim));
-        // pula até o fim do comando atual (respeitando o DELIMITER do MySQL)
-        const pular = () => {
-            for (;;) {
-                L.pularEspacos();
-                if (L.i >= L.n) return;
-                if (delim !== ';' && L.s.startsWith(delim, L.i)) { L.i += delim.length; return; }
-                const t = L.prox();
-                if (!t || fimComando(t)) return;
-            }
+    /* =================== conversa com o worker =================== */
+    let W = null, pidN = 0;
+    const pend = new Map();
+    function worker() {
+        if (W) return W;
+        W = new Worker(URL_WORKER);
+        W.onmessage = e => {
+            const d = e.data || {}, p = pend.get(d.pid);
+            if (!p) return;
+            if (d.parcial) { p.parcial && p.parcial(d); return; }
+            pend.delete(d.pid);
+            if (d.t === 'erro') { const er = new Error(d.erro); er.status = d.status; p.falha(er); } else p.ok(d);
         };
-        while (L.i < L.n) {
-            L.voltar = undefined;
-            const t = L.prox();
-            if (!t) break;
-            if (P(t, ';')) continue;
-            const w = t.t === 'id' && !t.q ? t.v.toUpperCase() : '';
-            if (w === 'DELIMITER') {
-                const f = L.s.indexOf('\n', L.i);
-                delim = L.s.slice(L.i, f < 0 ? L.n : f).trim() || ';';
-                L.i = f < 0 ? L.n : f + 1;
-                L.dolar = delim === ';';
-                continue;
-            }
-            if (w === 'INSERT' || w === 'REPLACE') {
-                lerInsert(L, banco, delim);
-                if (!(L.voltar && fimComando(L.voltar))) pular();
-                continue;
-            }
-            if (w === 'CREATE' || w === 'ALTER') {
-                // comandos de estrutura são curtos: junta os tokens até o fim
-                const toks = [t];
-                for (;;) {
-                    L.pularEspacos();
-                    if (L.i >= L.n) break;
-                    if (delim !== ';' && L.s.startsWith(delim, L.i)) { L.i += delim.length; break; }
-                    const x = L.prox();
-                    if (!x || fimComando(x)) break;
-                    if (toks.length < 20000) toks.push(x);
-                }
-                const tipo = (toks.find((x, k) => k > 0 && x.t === 'id' && !x.q && !['TEMPORARY', 'TEMP', 'UNLOGGED', 'OR', 'REPLACE', 'GLOBAL', 'LOCAL'].includes(x.v.toUpperCase())) || {}).v || '';
-                if (tipo.toUpperCase() === 'TABLE') {
-                    if (w === 'CREATE' && !toks.some(x => K(x, 'AS') || K(x, 'LIKE'))) lerCreate(toks, banco);
-                    else if (w === 'ALTER') lerAlter(toks, banco);
-                }
-                continue;
-            }
-            if (w === 'COPY') avisos.add('Comandos COPY do PostgreSQL não foram lidos. Exporte com INSERTs (pg_dump --inserts).');
-            pular();
-        }
-
-        const tabelas = [...banco.tabelas.values()];
-        const nomes = new Map(tabelas.map(t => [t.nome.toLowerCase(), t]));
-        tabelas.forEach(t => {
-            t.pkPendentes.forEach(c => { const col = t.colunas.find(x => x.n === c); if (col) col.pk = true; });
-            t.fkPendentes.forEach(p => { const col = t.colunas.find(x => x.n === p.c); if (col) col.fk = p.fk; });
-            // chave estrangeira sem coluna de destino: aponta para a chave primária da outra tabela
-            t.colunas.forEach(c => {
-                if (!c.fk) return;
-                const alvo = nomes.get(String(c.fk.t).toLowerCase());
-                if (alvo) { c.fk.t = alvo.nome; if (!c.fk.c) c.fk.c = (alvo.colunas.find(x => x.pk) || alvo.colunas[0] || {}).n || null; }
-            });
-        });
-        if (tabelas.some(t => t.linhas.length < t.total)) avisos.add('O arquivo tem mais dados do que cabe no cartão: guardei as primeiras linhas e contei todas.');
-        if (tabelas.some(t => t.semCreate)) avisos.add('Algumas tabelas só tinham INSERT (sem CREATE TABLE): os tipos das colunas ficaram em branco.');
-
-        const linhas = {};
-        tabelas.forEach(t => { linhas[t.nome] = t.linhas; });
-        return {
-            tabelas: tabelas.map(t => ({ nome: t.nome, colunas: t.colunas, total: t.total, guardadas: t.linhas.length })),
-            linhas,
-            avisos: [...avisos],
+        W.onerror = e => {
+            console.error('[Banco .sql] worker', e);
+            pend.forEach(p => p.falha(new Error('worker')));
+            pend.clear();
+            W = null;
         };
+        return W;
     }
+    function pedir(msg, parcial) {
+        return new Promise((ok, falha) => {
+            const pid = ++pidN;
+            pend.set(pid, { ok, falha, parcial });
+            worker().postMessage({ ...msg, pid });
+        });
+    }
+    function cfgServidor(ctx) {
+        return { url: new URL(ctx.cfg.url, location.href).href.replace(/\/$/, ''), csrf: meta('csrf-token'), dono: meta('wf-dono') };
+    }
+    const comprimir = async texto => (await pedir({ acao: 'comprimir', texto })).v;
+    const descomprimir = async b64 => (await pedir({ acao: 'descomprimir', b64 })).v;
 
-    /* =================== diagrama =================== */
+    /** Erro → frase para a pessoa. */
+    function mensagemErro(e) {
+        const s = e && e.status, m = String((e && e.message) || '');
+        if (m === 'cancelado') return 'Leitura cancelada.';
+        if (s === 401 || s === 419) return 'Sua sessão expirou. Recarregue a página, entre de novo e abra o arquivo outra vez.';
+        if (s === 403) return 'Você só pode ver este workflow: o dono não liberou a edição para você.';
+        if (s === 404) return 'Parte dos dados não está mais no servidor. Abra o arquivo de novo.';
+        if (s === 406 || s === 422) return 'O servidor recusou os dados (' + s + '). Tente de novo; se continuar, avise o suporte.';
+        if (s === 413) return 'Um pedaço dos dados ficou grande demais para o servidor (413). Avise o suporte.';
+        if (s === 429) return 'Muitos envios seguidos. Espere um minuto e tente de novo.';
+        if (s === 0) return 'Sem conexão com o servidor. Confira a internet e tente de novo.';
+        if (s >= 500) return 'O servidor teve um problema (' + s + '). Tente de novo daqui a pouco.';
+        if (m === 'worker') return 'Este navegador não conseguiu ler o arquivo (pouca memória?). Feche outras abas e tente de novo.';
+        return 'Não consegui ler este arquivo. Confira se é um .sql ou .csv em texto (UTF-8).';
+    }
+    function tempo(ms) {
+        if (!isFinite(ms) || ms < 0) return '';
+        const s = Math.round(ms / 1000);
+        if (s < 5) return 'menos de 5 s';
+        if (s < 90) return `cerca de ${s} s`;
+        return `cerca de ${Math.round(s / 60)} min`;
+    }
+    const mb = b => (b < 1048576 ? Math.max(b ? 1 : 0, Math.round(b / 1024)) + ' KB' : (b / 1048576).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' MB');
+
+    /* =================== sessões (uma por cartão) =================== */
+    const sessoes = new Map();
+
+    /* =================== diagrama: arrumação automática =================== */
     function alturaTabela(t) {
         const n = Math.min(t.colunas.length, MOSTRA_COL) + (t.colunas.length > MOSTRA_COL ? 1 : 0);
         return CAB_H + Math.max(1, n) * LIN_H + 8;
     }
-    /** Primeira arrumação: tabelas mais ligadas primeiro, em colunas. */
+    /** Camadas por chave estrangeira (as referenciadas à esquerda), componentes ligados lado a lado, soltas em grade. */
     function arrumar(tabelas) {
-        const grau = new Map(tabelas.map(t => [t.nome, 0]));
-        tabelas.forEach(t => t.colunas.forEach(c => { if (c.fk && grau.has(c.fk.t)) { grau.set(t.nome, grau.get(t.nome) + 1); grau.set(c.fk.t, grau.get(c.fk.t) + 1); } }));
-        const ordem = [...tabelas].sort((a, b) => grau.get(b.nome) - grau.get(a.nome));
-        const cols = Math.max(1, Math.ceil(Math.sqrt(ordem.length * 1.4)));
-        const alturas = new Array(cols).fill(20);
-        ordem.forEach((t, i) => {
-            const c = i % cols;
-            t.x = 20 + c * (BOX_W + 70);
-            t.y = alturas[c];
-            alturas[c] += alturaTabela(t) + 40;
+        const n = tabelas.length, por = new Map(tabelas.map((t, i) => [t.nome.toLowerCase(), i]));
+        const pais = tabelas.map(() => new Set()), filhos = tabelas.map(() => new Set());
+        const raiz = tabelas.map((_, i) => i);
+        const achar = i => { while (raiz[i] !== i) i = raiz[i] = raiz[raiz[i]]; return i; };
+        tabelas.forEach((t, i) => t.colunas.forEach(c => {
+            const j = c.fk ? por.get(String(c.fk.t).toLowerCase()) : undefined;
+            if (j === undefined || j === i) return;
+            pais[i].add(j); filhos[j].add(i);
+            raiz[achar(i)] = achar(j);
+        }));
+        const camada = new Array(n).fill(0);
+        for (let volta = 0; volta < 25; volta++) {
+            let mudou = false;
+            for (let i = 0; i < n; i++) for (const p of pais[i]) if (camada[p] + 1 > camada[i] && camada[p] + 1 < 25) { camada[i] = camada[p] + 1; mudou = true; }
+            if (!mudou) break;
+        }
+        const grupos = new Map();
+        for (let i = 0; i < n; i++) { const r = achar(i); (grupos.get(r) || grupos.set(r, []).get(r)).push(i); }
+        const pos = new Array(n);
+        const blocos = [];
+        const soltas = [];
+        for (const membros of grupos.values()) {
+            if (membros.length === 1) { soltas.push(membros[0]); continue; }
+            const porCamada = new Map();
+            membros.forEach(i => (porCamada.get(camada[i]) || porCamada.set(camada[i], []).get(camada[i])).push(i));
+            const cams = [...porCamada.keys()].sort((a, b) => a - b);
+            let w = 0, h = 0, x = 0;
+            const ys = new Map();
+            // camada com muitas tabelas quebra em várias colunas (o componente fica perto de quadrado)
+            const areaC = membros.reduce((s, i) => s + (BOX_W + 60) * (alturaTabela(tabelas[i]) + 30), 0);
+            const hMax = Math.max(1400, Math.sqrt(areaC) * 0.9);
+            cams.forEach(c => {
+                const lista = porCamada.get(c);
+                // ordem: média da altura dos pais já colocados (cruza menos linhas)
+                const m = i => { const ps = [...pais[i]].filter(p => ys.has(p)); return ps.length ? ps.reduce((s, p) => s + ys.get(p), 0) / ps.length : (filhos[i].size ? -1 : 1e9); };
+                const chave = new Map(lista.map(i => [i, m(i)]));
+                lista.sort((a, b) => chave.get(a) - chave.get(b) || filhos[b].size - filhos[a].size);
+                let y = 0;
+                lista.forEach(i => {
+                    const ht = alturaTabela(tabelas[i]);
+                    if (y > 0 && y + ht > hMax) { x += BOX_W + 40; y = 0; }
+                    pos[i] = { x, y }; ys.set(i, y); y += ht + 30; h = Math.max(h, y);
+                });
+                w = x + BOX_W;
+                x += BOX_W + 90;
+            });
+            blocos.push({ membros, w, h });
+        }
+        if (soltas.length) {
+            const cols = Math.max(1, Math.ceil(Math.sqrt(soltas.length)));
+            const alt = new Array(cols).fill(0);
+            soltas.sort((a, b) => tabelas[a].nome.localeCompare(tabelas[b].nome)).forEach((i, k) => {
+                const c = k % cols;
+                pos[i] = { x: c * (BOX_W + 40), y: alt[c] };
+                alt[c] += alturaTabela(tabelas[i]) + 30;
+            });
+            blocos.push({ membros: soltas, w: cols * (BOX_W + 40), h: Math.max(...alt) });
+        }
+        // prateleiras: blocos maiores primeiro, linha até ~1,6 × a raiz da área total
+        blocos.sort((a, b) => b.membros.length - a.membros.length);
+        const area = blocos.reduce((s, b) => s + b.w * b.h, 0);
+        const largura = Math.max(1400, Math.sqrt(area) * 1.6);
+        let x = 20, y = 20, alturaLinha = 0;
+        blocos.forEach(b => {
+            if (x > 20 && x + b.w > largura) { x = 20; y += alturaLinha + 80; alturaLinha = 0; }
+            b.membros.forEach(i => { pos[i].x += x; pos[i].y += y; });
+            x += b.w + 100; alturaLinha = Math.max(alturaLinha, b.h);
         });
-    }
-    function linhaDe(t, nomeCol) {
-        const i = t.colunas.findIndex(c => c.n === nomeCol);
-        return i < 0 ? 0 : Math.min(i, MOSTRA_COL);
+        return pos;
     }
 
+    /* =================== o cartão =================== */
+    function Cartao(ctx, b, el) {
+        this.ctx = ctx; this.b = b; this.el = el;
+        this.s = sessoes.get(b.id) || { id: b.id, schema: [], avisos: [], versao: '', idx: null };
+        sessoes.set(b.id, this.s);
+        this.s.cartao = this;
+        this.ui = this.s.ui || (this.s.ui = { visao: b.dados.visao === 'dados' || b.dados.visao === 'stats' ? b.dados.visao : 'diagrama', ti: 0, busca: '', filtros: {}, ordem: null, vp: null });
+        this.montarDom();
+        this.desenhar();
+        this.sinc(true);
+    }
+    const C = Cartao.prototype;
+
+    C.montarDom = function () {
+        const el = this.el;
+        const soVer = !!meta('wf-so-ver');
+        el.innerHTML = `
+            <div class="bd-barra">
+                <label class="btn-sec !py-1 cursor-pointer bd-abrir" ${soVer ? 'hidden' : ''}>
+                    <span data-r="abrir-txt">Abrir arquivo .sql ou .csv</span>
+                    <input type="file" accept=".sql,.csv,.tsv,.txt,application/sql,text/csv,text/plain" class="sr-only" data-r="arquivo">
+                </label>
+                <div class="bd-abas" role="tablist" aria-label="Ver" data-r="abas" hidden>
+                    <button type="button" class="btn-sec !py-1" role="tab" data-visao="diagrama">Diagrama</button>
+                    <button type="button" class="btn-sec !py-1" role="tab" data-visao="dados">Dados</button>
+                    <button type="button" class="btn-sec !py-1" role="tab" data-visao="stats">Estatísticas</button>
+                </div>
+                <span class="flex-1"></span>
+                <button type="button" class="btn-sec !py-1 bd-tela" data-r="tela" title="Ver em tela cheia">
+                    <span class="bd-tela-entrar">⤢ Tela cheia</span><span class="bd-tela-sair">✕ Sair da tela cheia</span>
+                </button>
+                <button type="button" class="mini-btn perigo bd-limpar" data-r="limpar" title="Tirar o banco do cartão" aria-label="Tirar o banco do cartão" hidden>✕</button>
+            </div>
+            <p class="text-xs texto-2" data-r="resumo" hidden></p>
+            <div class="bd-prog" data-r="prog" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                <div class="bd-prog-topo"><span data-r="prog-txt">Lendo…</span><button type="button" class="btn-sec !py-0.5 !px-2 text-xs" data-r="cancelar">Cancelar</button></div>
+                <div class="bd-prog-trilho"><div class="bd-prog-barra" data-r="prog-barra"></div></div>
+                <p class="text-xs texto-2" data-r="prog-sub"></p>
+            </div>
+            <div class="bd-msg" data-r="msg" role="status" hidden></div>
+            <div class="bd-avisos" data-r="avisos" hidden></div>
+            <div class="bd-vazio flex-1" data-r="vazio" hidden>
+                <p class="font-semibold text-sm">Solte aqui um arquivo .sql ou .csv</p>
+                <p class="text-xs texto-2 mt-1">ou clique em <b>Abrir arquivo</b>. Vale dump do phpMyAdmin/mysqldump (MySQL e MariaDB),
+                    do pg_dump (PostgreSQL, com INSERT ou COPY), do SQLite, e planilhas .csv. Até 500 MB.</p>
+                <p class="text-xs texto-2 mt-1">O arquivo é lido no seu navegador. Ao servidor vão só os dados já comprimidos, para você
+                    (e quem tem acesso a este workflow) consultar depois.</p>
+            </div>
+            <div class="bd-corpo flex-1 min-h-0" data-r="corpo" hidden></div>`;
+        this.r = {};
+        el.querySelectorAll('[data-r]').forEach(n => { this.r[n.dataset.r] = n; });
+        this.r.arquivo.addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; this.ler(f); });
+        this.r.abas.addEventListener('click', e => { const v = e.target.closest('[data-visao]'); if (v) this.mudarVisao(v.dataset.visao); });
+        this.r.limpar.addEventListener('click', () => this.ctx.bdLimpar(this.b));
+        this.r.cancelar.addEventListener('click', () => { if (this.lendo) pedir({ acao: 'cancelar', id: this.b.id }); });
+        this.r.tela.addEventListener('click', () => { const bt = el.closest('.wf-item')?.querySelector('.wf-fs-btn'); if (bt) bt.click(); });
+        el.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); el.classList.add('bd-soltando'); });
+        el.addEventListener('dragleave', e => { if (!el.contains(e.relatedTarget)) el.classList.remove('bd-soltando'); });
+        el.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); el.classList.remove('bd-soltando'); if (!soVer) this.ler(e.dataTransfer.files[0]); });
+    };
+
+    C.msg = function (texto, erro) {
+        const m = this.r.msg;
+        m.hidden = !texto;
+        m.textContent = texto || '';
+        m.classList.toggle('erro', !!erro);
+    };
+
+    /** Lê de novo o que está guardado (ao montar, e quando outra pessoa troca o arquivo). */
+    C.sinc = async function (forcar) {
+        const b = this.b, s = this.s;
+        const idx = raw(this.ctx.imagens[b.id + '.sql']);
+        if (this.lendo) return;
+        try {
+            if (typeof idx === 'string' && idx.startsWith(PREFIXO)) {
+                if (s.idx !== idx) {
+                    const j = JSON.parse(await descomprimir(idx.slice(PREFIXO.length)));
+                    s.idx = idx; s.schema = j.tabelas || []; s.avisos = j.avisos || []; s.versao = j.versao; s.formato = j.formato; s.semLinhas = false;
+                    await pedir({ acao: 'preparar', id: b.id, versao: s.versao, tabelas: s.schema, cfg: cfgServidor(this.ctx) });
+                    s.pos = null;
+                    forcar = true;
+                }
+            } else if ((b.dados.tabelas || []).length) {
+                // formato antigo: estrutura no estado, linhas (se vieram) em img.<id>.sql como JSON
+                const chave = 'antigo:' + (b.dados.lido || '') + ':' + b.dados.tabelas.length + ':' + (idx ? 1 : 0);
+                if (s.idx !== chave) {
+                    s.idx = chave; s.schema = clone(b.dados.tabelas).map(t => ({ ...t, pedacos: 0 })); s.avisos = clone(b.dados.avisos || []); s.versao = 'antigo';
+                    s.semLinhas = !idx;
+                    await pedir({ acao: 'preparar', id: b.id, versao: 'antigo', tabelas: s.schema, cfg: cfgServidor(this.ctx), legado: idx && typeof idx === 'object' ? raw(idx) : {} });
+                    s.pos = null;
+                    forcar = true;
+                }
+            } else if (s.idx) {
+                s.idx = null; s.schema = []; s.avisos = []; s.versao = ''; forcar = true;
+            }
+            // cartão restaurado do histórico ou colado da biblioteca: o índice e as linhas não vêm junto
+            if (!s.idx && b.dados.versao && b.dados.arquivo && !this.r.msg.textContent)
+                this.msg(`Os dados de "${b.dados.arquivo}" não vieram junto com este cartão (restaurado ou copiado). Abra o arquivo de novo para ver as tabelas.`);
+        } catch (e) {
+            console.error('[Banco .sql] índice', e);
+            this.msg('Não consegui abrir o que estava guardado neste cartão. Abra o arquivo de novo.', true);
+        }
+        if (forcar) this.desenhar();
+    };
+
+    C.resumo = function () {
+        const ts = this.s.schema;
+        const total = ts.reduce((s, t) => s + (t.total || 0), 0);
+        const fks = ts.reduce((s, t) => s + t.colunas.filter(c => c.fk).length, 0);
+        return `${this.b.dados.arquivo || 'arquivo'} · ${num(ts.length)} ${ts.length === 1 ? 'tabela' : 'tabelas'} · ${num(fks)} ${fks === 1 ? 'ligação' : 'ligações'} · ${num(total)} ${total === 1 ? 'linha' : 'linhas'}`;
+    };
+
+    C.desenhar = function () {
+        const tem = this.s.schema.length > 0, r = this.r;
+        r.abas.hidden = !tem; r.limpar.hidden = !tem || !!meta('wf-so-ver');
+        r.resumo.hidden = !tem; r.resumo.textContent = tem ? this.resumo() : '';
+        r['abrir-txt'].textContent = tem ? 'Trocar arquivo' : 'Abrir arquivo .sql ou .csv';
+        r.vazio.hidden = tem || !!this.lendo;
+        r.corpo.hidden = !tem;
+        const avisos = this.s.avisos || [];
+        r.avisos.hidden = !avisos.length;
+        r.avisos.innerHTML = avisos.map(a => `<p>⚠ ${esc(a)}</p>`).join('');
+        if (tem) this.mudarVisao(this.ui.visao, true);
+        else { if (this.vista && this.vista.sair) this.vista.sair(); r.corpo.innerHTML = ''; this.vista = null; }
+    };
+
+    C.mudarVisao = function (v, forcar) {
+        if (!forcar && v === this.ui.visao && this.vista) return;
+        this.ui.visao = v;
+        if (this.b.dados.visao !== v) this.b.dados.visao = v;
+        this.r.abas.querySelectorAll('[data-visao]').forEach(x => { const on = x.dataset.visao === v; x.classList.toggle('bd-on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
+        if (this.vista && this.vista.sair) this.vista.sair();
+        this.r.corpo.innerHTML = '';
+        this.vista = v === 'dados' ? new Grade(this) : v === 'stats' ? new Estatisticas(this) : new Diagrama(this);
+    };
+
+    /* ---------- abrir um arquivo ---------- */
+    C.ler = async function (arq) {
+        if (!arq || this.lendo) return;
+        const ctx = this.ctx, b = this.b, s = this.s;
+        if (!/\.(sql|csv|tsv|txt)$/i.test(arq.name)) { this.msg('Escolha um arquivo .sql (dump do banco) ou .csv (planilha).', true); return; }
+        if (arq.size > MAX_ARQUIVO) { this.msg(`O arquivo tem ${mb(arq.size)}; o limite é 500 MB. Exporte só as tabelas que quer ver.`, true); return; }
+        if (!arq.size) { this.msg('O arquivo está vazio.', true); return; }
+        if (typeof CompressionStream !== 'function' || typeof Worker !== 'function') { this.msg('Este navegador é antigo demais para abrir bancos. Use um Chrome, Edge, Firefox ou Safari atualizado.', true); return; }
+        if (s.schema.length && !confirm('Trocar o banco deste cartão pelo novo arquivo?')) return;
+        const cfg = cfgServidor(ctx);
+        const versao = uid().replace(/[^a-z0-9]/gi, '').slice(-7);
+        const antiga = s.versao && s.versao !== 'antigo' ? s.versao : null;
+        // cartão sem banco guardado: tira restos de uma leitura interrompida (página fechada no meio do envio)
+        if (!antiga) await pedir({ acao: 'apagar', cfg, chave: `sqlz.${b.id}`, servidor: true }).catch(() => {});
+        this.lendo = true;
+        this.msg('');
+        const r = this.r;
+        r.prog.hidden = false; r.vazio.hidden = true;
+        r.arquivo.disabled = true;
+        const t0 = performance.now();
+        const pintar = d => {
+            const fl = d.total ? d.lidos / d.total : 0;
+            let frac, txt;
+            if (d.fase === 'lendo') {
+                const estimado = fl > 0.02 ? d.bytesEnviar / fl : 0;
+                const fe = estimado ? d.bytesEnviados / estimado : 0;
+                frac = estimado ? Math.min(fl, (fl + fe) / 2) : fl * 0.5;
+                txt = `Lendo e enviando… ${Math.floor(frac * 100)}%`;
+            } else {
+                frac = d.bytesEnviar ? d.bytesEnviados / d.bytesEnviar : 0.99;
+                txt = `Terminando o envio… ${Math.floor(Math.min(0.99, frac) * 100)}%`;
+            }
+            frac = Math.max(0, Math.min(0.99, frac));
+            const ms = performance.now() - t0;
+            const falta = frac > 0.03 ? ms / frac - ms : NaN;
+            r['prog-txt'].textContent = txt + (falta ? ` · falta ${tempo(falta)}` : '');
+            r['prog-barra'].style.width = (frac * 100).toFixed(1) + '%';
+            r.prog.setAttribute('aria-valuenow', String(Math.floor(frac * 100)));
+            r['prog-sub'].textContent = `${mb(d.lidos)} de ${mb(d.total)} lidos · ${mb(d.bytesEnviados)} enviados (comprimidos)`;
+        };
+        pintar({ fase: 'lendo', lidos: 0, total: arq.size, bytesEnviar: 0, bytesEnviados: 0 });
+        let enviouAlgo = false;
+        try {
+            const res = await pedir({ acao: 'ler', arquivo: arq, id: b.id, versao, cfg }, d => { if (d.t === 'progresso') { enviouAlgo = enviouAlgo || d.bytesEnviar > 0; pintar(d); } });
+            if (!res.tabelas.length) {
+                if (res.enviado) pedir({ acao: 'apagar', cfg, chave: `sqlz.${b.id}.${versao}`, servidor: true });
+                this.msg('Não achei nenhuma tabela neste arquivo (nem estrutura de tabela, nem linhas de dados, nem cabeçalho de planilha).', true);
+                s.idx = null;
+                return;
+            }
+            r['prog-txt'].textContent = 'Salvando o índice…';
+            const formato = /\.(csv|tsv)$/i.test(arq.name) ? 'csv' : 'sql';
+            const indice = { v: 2, versao, arquivo: arq.name.slice(0, 120), formato, bytes: arq.size, tabelas: res.tabelas, avisos: res.avisos };
+            const texto = PREFIXO + await comprimir(JSON.stringify(indice));
+            if (texto.length > 5900000) throw Object.assign(new Error('índice'), { status: 413 });
+            await Q.enviar(`${ctx.cfg.url}/img.${b.id}.sql`, JSON.stringify(texto));
+            // tudo no servidor: troca o cartão para o arquivo novo
+            s.idx = texto; s.schema = res.tabelas; s.avisos = res.avisos; s.versao = versao; s.formato = formato; s.pos = null; s.semLinhas = false;
+            ctx.imagens[b.id + '.sql'] = texto;
+            const total = res.tabelas.reduce((a, t) => a + t.total, 0);
+            b.dados.versao = versao;
+            b.dados.formato = 2;
+            b.dados.arquivo = arq.name.slice(0, 120);
+            b.dados.lido = new Date().toISOString().slice(0, 10);
+            b.dados.resumo = { tabelas: res.tabelas.length, linhas: total };
+            b.dados.pos = {};
+            delete b.dados.tabelas; delete b.dados.avisos;
+            if (!b.titulo || b.titulo === 'Banco de dados') b.titulo = arq.name.replace(/\.(sql|csv|tsv|txt)$/i, '').slice(0, 80) || 'Banco de dados';
+            this.ui.ti = 0; this.ui.busca = ''; this.ui.filtros = {}; this.ui.ordem = null; this.ui.vp = null;
+            if (antiga) pedir({ acao: 'apagar', cfg, chave: `sqlz.${b.id}.${antiga}`, servidor: true });
+            const seg = ((performance.now() - t0) / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+            this.msg(`Pronto: ${num(total)} linhas em ${num(res.tabelas.length)} ${res.tabelas.length === 1 ? 'tabela' : 'tabelas'}, lidas e salvas em ${seg} s (${mb(res.enviado)} enviados).`);
+            console.info('[Banco .sql]', { arquivo: arq.name, bytes: arq.size, ms: Math.round(performance.now() - t0), leituraMs: res.ms, jsonBytes: res.cru, enviados: res.enviado });
+        } catch (e) {
+            console.error('[Banco .sql]', e);
+            if (enviouAlgo) pedir({ acao: 'apagar', cfg, chave: `sqlz.${b.id}.${versao}`, servidor: true }).catch(() => {});
+            this.msg(mensagemErro(e), String(e && e.message) !== 'cancelado');
+            // o worker ficou com a leitura pela metade: volta ao que estava salvo
+            s.idx = null;
+        } finally {
+            this.lendo = false;
+            r.prog.hidden = true;
+            r.arquivo.disabled = false;
+            if (s.idx === null && (typeof raw(ctx.imagens[b.id + '.sql']) === 'string' || (b.dados.tabelas || []).length)) await this.sinc(true).catch(() => {});
+            this.desenhar();
+        }
+    };
+
+    /* =================== diagrama =================== */
+    function Diagrama(c) {
+        this.c = c;
+        const ui = c.ui;
+        const el = document.createElement('div');
+        el.className = 'bd-diag';
+        el.innerHTML = `
+            <div class="bd-ferr">
+                <button type="button" class="mini-btn" data-a="menos" title="Diminuir" aria-label="Diminuir">−</button>
+                <button type="button" class="mini-btn !w-auto px-1.5" data-a="ajustar" title="Mostrar tudo" data-r="z">100%</button>
+                <button type="button" class="mini-btn" data-a="mais" title="Aumentar" aria-label="Aumentar">+</button>
+                <button type="button" class="btn-sec !py-1" data-a="arrumar" title="Arrumar as tabelas de novo (desfaz o que você arrastou)">Arrumar</button>
+                <input class="campo !py-1" style="width: 11rem" type="search" placeholder="Achar tabela" aria-label="Achar tabela" data-r="achar" list="bd-l-${esc(c.b.id)}">
+                <datalist id="bd-l-${esc(c.b.id)}">${c.s.schema.slice(0, 3000).map(t => `<option value="${esc(t.nome)}">`).join('')}</datalist>
+                <button type="button" class="btn-sec !py-1" data-a="mapa" title="Cria um cartão de Mapa mental com as tabelas, para editar">Copiar para Mapa mental</button>
+            </div>
+            <div class="bd-area" data-r="area" tabindex="0" aria-label="Diagrama das tabelas. Arraste o fundo para mover, use a roda do mouse para aproximar e clique duas vezes numa tabela para ver os dados.">
+                <svg class="bd-svg" width="100%" height="100%"><defs><marker id="bd-seta-${esc(c.b.id)}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="bd-seta" d="M0 0L10 5L0 10z"/></marker></defs><g data-r="vp"></g></svg>
+                <p class="bd-dica">Arraste o fundo para mover · roda do mouse para aproximar · clique duplo numa tabela abre os dados</p>
+            </div>`;
+        c.r.corpo.appendChild(el);
+        this.r = {};
+        el.querySelectorAll('[data-r]').forEach(n => { this.r[n.dataset.r] = n; });
+        this.el = el;
+        this.posicoes();
+        el.querySelector('.bd-ferr').addEventListener('click', e => {
+            const a = e.target.closest('[data-a]');
+            if (!a) return;
+            const act = a.dataset.a;
+            if (act === 'menos') this.zoomEm(1 / 1.25);
+            else if (act === 'mais') this.zoomEm(1.25);
+            else if (act === 'ajustar') this.ajustar();
+            else if (act === 'arrumar') { c.b.dados.pos = {}; c.s.pos = null; this.posicoes(); this.ajustar(); }
+            else if (act === 'mapa') c.ctx.bdParaMapa(c.b);
+        });
+        this.r.achar.addEventListener('change', () => this.achar(this.r.achar.value));
+        this.r.achar.addEventListener('keydown', e => { if (e.key === 'Enter') this.achar(this.r.achar.value); });
+        const area = this.r.area;
+        area.addEventListener('wheel', e => {
+            e.preventDefault();
+            const rc = area.getBoundingClientRect();
+            this.zoomEm(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0018)), e.clientX - rc.left, e.clientY - rc.top);
+        }, { passive: false });
+        area.addEventListener('pointerdown', e => this.pegar(e));
+        area.addEventListener('dblclick', e => {
+            const g = e.target.closest('[data-bd-t]');
+            if (!g) return;
+            c.ui.ti = Number(g.dataset.bdT); c.ui.busca = ''; c.ui.filtros = {}; c.ui.ordem = null;
+            c.mudarVisao('dados');
+        });
+        this.ro = new ResizeObserver(() => this.agendar());
+        this.ro.observe(area);
+        if (!ui.vp) requestAnimationFrame(() => this.ajustar()); else this.agendar();
+    }
+    const D = Diagrama.prototype;
+    D.sair = function () { this.ro && this.ro.disconnect(); };
+    /** Posição de cada tabela: a que a pessoa arrastou, a do formato antigo, ou a da arrumação automática. */
+    D.posicoes = function () {
+        const s = this.c.s, ts = s.schema;
+        if (!s.pos) {
+            const auto = arrumar(ts), salvo = raw(this.c.b.dados.pos) || {};
+            s.pos = ts.map((t, i) => {
+                const p = salvo[t.nome] || (t.x != null && t.y != null ? [t.x, t.y] : null);
+                return { x: p ? p[0] : auto[i].x, y: p ? p[1] : auto[i].y, h: alturaTabela(t) };
+            });
+        }
+        s.porNome = new Map(ts.map((t, i) => [t.nome.toLowerCase(), i]));
+        this.p = s.pos;
+    };
+    D.agendar = function () {
+        if (this._raf) return;
+        this._raf = requestAnimationFrame(() => { this._raf = 0; this.render(); });
+    };
+    D.limites = function () {
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        this.p.forEach(p => { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x + BOX_W); y1 = Math.max(y1, p.y + p.h); });
+        return isFinite(x0) ? { x0, y0, x1, y1 } : { x0: 0, y0: 0, x1: 100, y1: 100 };
+    };
+    D.ajustar = function () {
+        const a = this.r.area, W0 = a.clientWidth || 600, H0 = a.clientHeight || 400, l = this.limites();
+        const z = Math.max(0.02, Math.min(1, Math.min((W0 - 40) / (l.x1 - l.x0), (H0 - 40) / (l.y1 - l.y0))));
+        this.c.ui.vp = { z, tx: (W0 - (l.x1 - l.x0) * z) / 2 - l.x0 * z, ty: Math.max(10, (H0 - (l.y1 - l.y0) * z) / 2) - l.y0 * z };
+        this.agendar();
+    };
+    D.zoomEm = function (f, cx, cy) {
+        const vp = this.c.ui.vp, a = this.r.area;
+        if (!vp) return;
+        if (cx == null) { cx = a.clientWidth / 2; cy = a.clientHeight / 2; }
+        const z = Math.max(0.02, Math.min(2.5, vp.z * f));
+        vp.tx = cx - (cx - vp.tx) * (z / vp.z); vp.ty = cy - (cy - vp.ty) * (z / vp.z); vp.z = z;
+        this.agendar();
+    };
+    D.achar = function (nome) {
+        const i = this.c.s.porNome.get(String(nome || '').trim().toLowerCase());
+        if (i === undefined) return;
+        const p = this.p[i], a = this.r.area, vp = this.c.ui.vp;
+        vp.z = Math.max(vp.z, 0.8);
+        vp.tx = a.clientWidth / 2 - (p.x + BOX_W / 2) * vp.z; vp.ty = a.clientHeight / 2 - (p.y + p.h / 2) * vp.z;
+        this.realce = i;
+        this.agendar();
+    };
+    /** Desenha só as tabelas que aparecem na tela (e as ligações delas): aguenta milhares de tabelas. */
+    D.render = function () {
+        const c = this.c, vp = c.ui.vp, a = this.r.area, ts = c.s.schema, P = this.p;
+        if (!vp || !a.isConnected) return;
+        this.r.z.textContent = Math.round(vp.z * 100) + '%';
+        const W0 = a.clientWidth, H0 = a.clientHeight, m = 200 / vp.z;
+        const vx0 = -vp.tx / vp.z - m, vy0 = -vp.ty / vp.z - m, vx1 = (W0 - vp.tx) / vp.z + m, vy1 = (H0 - vp.ty) / vp.z + m;
+        const vis = new Uint8Array(ts.length);
+        for (let i = 0; i < ts.length; i++) { const p = P[i]; if (p.x + BOX_W >= vx0 && p.x <= vx1 && p.y + p.h >= vy0 && p.y <= vy1) vis[i] = 1; }
+        const simples = vp.z < 0.45, por = c.s.porNome;
+        let linhas = '', caixas = '', nVis = 0;
+        const seta = `url(#bd-seta-${esc(c.b.id)})`;
+        for (let i = 0; i < ts.length; i++) {
+            const t = ts[i];
+            for (let k = 0; k < t.colunas.length; k++) {
+                const col = t.colunas[k];
+                if (!col.fk) continue;
+                const j = por.get(String(col.fk.t).toLowerCase());
+                if (j === undefined || (!vis[i] && !vis[j])) continue;
+                const pa = P[i], pb = P[j];
+                const li = simples ? 0 : Math.min(k, MOSTRA_COL);
+                const lj = simples ? 0 : Math.min(Math.max(0, ts[j].colunas.findIndex(x => x.n === col.fk.c)), MOSTRA_COL);
+                const y1 = pa.y + (simples ? CAB_H / 2 : CAB_H + li * LIN_H + LIN_H / 2 + 2), y2 = pb.y + (simples ? CAB_H / 2 : CAB_H + lj * LIN_H + LIN_H / 2 + 2);
+                let d, x1;
+                if (i === j) { x1 = pa.x + BOX_W; d = `M${x1} ${y1}C${x1 + 40} ${y1},${x1 + 40} ${y2},${x1} ${y2}`; }
+                else if (Math.abs(pb.x - pa.x) < BOX_W / 2) { x1 = pa.x + BOX_W; const x2 = pb.x + BOX_W, dx = 40 + Math.abs(y2 - y1) * 0.1; d = `M${x1} ${y1}C${x1 + dx} ${y1},${x2 + dx} ${y2},${x2} ${y2}`; }
+                else { const dir = pb.x > pa.x ? 1 : -1; x1 = dir > 0 ? pa.x + BOX_W : pa.x; const x2 = dir > 0 ? pb.x : pb.x + BOX_W, dx = Math.max(30, Math.abs(x2 - x1) / 2) * dir; d = `M${x1} ${y1}C${x1 + dx} ${y1},${x2 - dx} ${y2},${x2} ${y2}`; }
+                const rl = this.realce === i || this.realce === j ? ' on' : '';
+                linhas += `<path class="bd-lig${rl}" d="${d}" marker-end="${seta}"><title>${esc(t.nome + '.' + col.n + ' → ' + ts[j].nome + '.' + (col.fk.c || ''))}</title></path>`;
+            }
+            if (!vis[i]) continue;
+            nVis++;
+            const p = P[i], rl = this.realce === i ? ' on' : '';
+            if (simples) {
+                caixas += `<g data-bd-t="${i}" transform="translate(${p.x},${p.y})"><rect class="bd-caixa${rl}" width="${BOX_W}" height="${p.h}" rx="8"/><rect class="bd-cab" width="${BOX_W}" height="${CAB_H}" rx="8"/>`
+                    + `<text class="bd-nome grande" x="10" y="${CAB_H - 6}">${esc(t.nome.length > 15 ? t.nome.slice(0, 14) + '…' : t.nome)}</text><title>${esc(t.nome)} · ${num(t.total)} linhas</title></g>`;
+                continue;
+            }
+            let g = `<g data-bd-t="${i}" transform="translate(${p.x},${p.y})"><rect class="bd-caixa${rl}" width="${BOX_W}" height="${p.h}" rx="8"/>`
+                + `<path class="bd-cab" d="M0 8a8 8 0 0 1 8-8h${BOX_W - 16}a8 8 0 0 1 8 8v${CAB_H - 8}h-${BOX_W}z"/>`
+                + `<text class="bd-nome" x="10" y="18">${esc(t.nome.length > 22 ? t.nome.slice(0, 21) + '…' : t.nome)}</text>`
+                + `<text class="bd-qtd" x="${BOX_W - 8}" y="18" text-anchor="end">${num(t.total)}</text>`;
+            const n = Math.min(t.colunas.length, MOSTRA_COL);
+            for (let k = 0; k < n; k++) {
+                const col = t.colunas[k], y = CAB_H + k * LIN_H + 14;
+                const tag = (col.pk ? 'PK' : '') + (col.pk && col.fk ? ',' : '') + (col.fk ? 'FK' : '') || (col.uq ? 'UK' : '');
+                g += `<text class="bd-tag" x="8" y="${y}">${tag}</text><text class="bd-col${col.pk ? ' pk' : ''}" x="40" y="${y}">${esc(col.n.length > 18 ? col.n.slice(0, 17) + '…' : col.n)}</text>`
+                    + `<text class="bd-tipo" x="${BOX_W - 8}" y="${y}" text-anchor="end">${esc((col.tipo || '').replace(/\s*(unsigned|zerofill)/ig, '').slice(0, 14))}</text>`;
+            }
+            if (t.colunas.length > MOSTRA_COL) g += `<text class="bd-tipo" x="40" y="${CAB_H + MOSTRA_COL * LIN_H + 14}">+ ${t.colunas.length - MOSTRA_COL} colunas</text>`;
+            caixas += g + `<title>${esc(t.nome)}: ${t.colunas.length} colunas, ${num(t.total)} linhas · clique duplo para ver os dados</title></g>`;
+        }
+        const g = this.r.vp;
+        g.setAttribute('transform', `translate(${vp.tx},${vp.ty}) scale(${vp.z})`);
+        g.innerHTML = linhas + caixas;
+        this.nVis = nVis;
+    };
+    /** Arrastar o fundo move a vista; arrastar uma tabela muda a posição dela (fica salva no cartão). */
+    D.pegar = function (e) {
+        if (e.button !== 0) return;
+        const c = this.c, vp = c.ui.vp, g = e.target.closest('[data-bd-t]');
+        if (!vp) return;
+        e.preventDefault(); e.stopPropagation();
+        const x0 = e.clientX, y0 = e.clientY, area = this.r.area;
+        try { area.setPointerCapture(e.pointerId); } catch { /* sem captura */ }
+        let mover, soltar;
+        if (g) {
+            const i = Number(g.dataset.bdT), p = this.p[i], px = p.x, py = p.y;
+            let mexeu = false;
+            mover = ev => { mexeu = true; p.x = Math.round((px + (ev.clientX - x0) / vp.z) / 10) * 10; p.y = Math.round((py + (ev.clientY - y0) / vp.z) / 10) * 10; this.agendar(); };
+            soltar = () => {
+                if (!mexeu) return;
+                const nome = c.s.schema[i].nome;
+                c.b.dados.pos = { ...(raw(c.b.dados.pos) || {}), [nome]: [p.x, p.y] };
+            };
+        } else {
+            const tx = vp.tx, ty = vp.ty;
+            area.classList.add('movendo');
+            mover = ev => { vp.tx = tx + ev.clientX - x0; vp.ty = ty + ev.clientY - y0; this.agendar(); };
+            soltar = () => area.classList.remove('movendo');
+        }
+        const fim = () => { area.removeEventListener('pointermove', mover); area.removeEventListener('pointerup', fim); area.removeEventListener('pointercancel', fim); soltar(); };
+        area.addEventListener('pointermove', mover);
+        area.addEventListener('pointerup', fim);
+        area.addEventListener('pointercancel', fim);
+    };
+
+    /* =================== dados (tabela virtual) =================== */
+    function Grade(c) {
+        this.c = c;
+        const ui = c.ui, ts = c.s.schema;
+        if (!ts[ui.ti]) ui.ti = 0;
+        const el = document.createElement('div');
+        el.className = 'bd-grade-v';
+        el.innerHTML = `
+            <div class="bd-ferr">
+                <select class="campo !py-1 !w-auto" style="max-width: 16rem" aria-label="Tabela" data-r="tab">${ts.map((t, i) => `<option value="${i}">${esc(t.nome)} (${num(t.total)})</option>`).join('')}</select>
+                <input class="campo !py-1" style="width: 12rem" type="search" placeholder="Buscar em todas as colunas" aria-label="Buscar nas linhas" data-r="busca">
+                <button type="button" class="btn-sec !py-1" data-r="limparf" title="Tira a busca, os filtros e a ordem">Limpar filtros</button>
+                <button type="button" class="btn-sec !py-1" data-r="csv" title="Baixa a tabela (só o que a busca e os filtros acharam, na ordem escolhida) em CSV">Baixar CSV</button>
+            </div>
+            <div class="bd-rolagem" data-r="rol" tabindex="0">
+                <div class="bd-cabeca" data-r="cab"></div>
+                <div class="bd-corpo-v" data-r="corpo"><div class="bd-janela" data-r="jan"></div></div>
+                <div class="bd-carregando" data-r="carr" hidden></div>
+            </div>
+            <div class="bd-detalhe" data-r="det" hidden></div>
+            <div class="bd-rodape">
+                <button type="button" class="mini-btn" data-r="ant" aria-label="Página anterior">‹</button>
+                <span>Página <input class="campo !py-0 !px-1 bd-pag" type="number" min="1" data-r="pag" aria-label="Página"> de <span data-r="paginas">1</span></span>
+                <button type="button" class="mini-btn" data-r="prox" aria-label="Próxima página">›</button>
+                <span data-r="info" class="texto-2"></span>
+            </div>`;
+        c.r.corpo.appendChild(el);
+        this.el = el; this.r = {};
+        el.querySelectorAll('[data-r]').forEach(n => { this.r[n.dataset.r] = n; });
+        this.r.tab.value = String(ui.ti);
+        this.r.busca.value = ui.busca || '';
+        this.r.tab.addEventListener('change', () => { ui.ti = Number(this.r.tab.value); ui.busca = ''; ui.filtros = {}; ui.ordem = null; this.r.busca.value = ''; this.montarTabela(); });
+        let tb;
+        this.r.busca.addEventListener('input', () => { clearTimeout(tb); tb = setTimeout(() => { ui.busca = this.r.busca.value; this.recarregar(); }, 250); });
+        this.r.limparf.addEventListener('click', () => { ui.busca = ''; ui.filtros = {}; ui.ordem = null; this.r.busca.value = ''; this.montarTabela(); });
+        this.r.csv.addEventListener('click', () => this.baixarCsv());
+        this.r.rol.addEventListener('scroll', () => this.agendar(), { passive: true });
+        this.r.ant.addEventListener('click', () => this.irPagina(this.pagina() - 1));
+        this.r.prox.addEventListener('click', () => this.irPagina(this.pagina() + 1));
+        this.r.pag.addEventListener('change', () => this.irPagina(Number(this.r.pag.value) - 1));
+        this.r.cab.addEventListener('click', e => {
+            const th = e.target.closest('[data-ord]');
+            if (!th) return;
+            const k = Number(th.dataset.ord), o = ui.ordem;
+            ui.ordem = !o || o.c !== k ? { c: k, dir: 'asc' } : o.dir === 'asc' ? { c: k, dir: 'desc' } : null;
+            this.pintarCabeca();
+            this.recarregar();
+        });
+        this.r.cab.addEventListener('input', e => {
+            const f = e.target.closest('[data-filtro]');
+            if (!f) return;
+            clearTimeout(this._tf);
+            this._tf = setTimeout(() => { const fs = { ...ui.filtros, [f.dataset.filtro]: f.value }; if (!f.value) delete fs[f.dataset.filtro]; ui.filtros = fs; this.recarregar(); }, 300);
+        });
+        this.r.jan.addEventListener('click', e => {
+            const td = e.target.closest('[data-c]');
+            if (!td) return;
+            const i = Number(td.parentNode.dataset.i), l = this.linhaEm(i), k = Number(td.dataset.c);
+            if (!l) return;
+            const col = this.t.colunas[k], v = l[k];
+            this.r.det.hidden = false;
+            this.r.det.innerHTML = `<b>${esc(col ? col.n : '')}</b> <span class="texto-2">(linha ${num(i + 1)})</span>: `
+                + (v == null ? '<i class="texto-2">NULL</i>' : `<span class="bd-det-v">${esc(String(v).slice(0, 20000))}</span>`)
+                + ' <button type="button" class="mini-btn !w-auto px-1.5" data-copiar>Copiar</button> <button type="button" class="mini-btn" data-fechar aria-label="Fechar">✕</button>';
+            this.r.det.querySelector('[data-copiar]').onclick = () => navigator.clipboard && navigator.clipboard.writeText(v == null ? '' : String(v));
+            this.r.det.querySelector('[data-fechar]').onclick = () => { this.r.det.hidden = true; };
+        });
+        this.ro = new ResizeObserver(() => this.agendar());
+        this.ro.observe(this.r.rol);
+        this.montarTabela();
+    }
+    const G = Grade.prototype;
+    G.sair = function () { this.ro && this.ro.disconnect(); this.morto = true; };
+    G.montarTabela = function () {
+        const c = this.c, t = c.s.schema[c.ui.ti];
+        this.t = t;
+        this.cache = null; this.total = t ? t.total : 0; this.todas = this.total;
+        this.larguras = t.colunas.map(col => Math.max(70, Math.min(260, col.n.length * 7.5 + 34, 90 + (col.tipo || '').length * 3)));
+        this.medido = false;
+        this.r.det.hidden = true;
+        this.r.carr.hidden = true;
+        this.pintarCabeca();
+        if (c.s.semLinhas && t.total) {
+            this.r.carr.hidden = false;
+            this.r.carr.textContent = 'Os dados deste cartão não vieram junto (cartão restaurado ou copiado). Abra o arquivo de novo para ver as linhas.';
+        }
+        this.recarregar();
+    };
+    G.pintarCabeca = function () {
+        const t = this.t, ui = this.c.ui, w = this.larguras;
+        const total = 64 + w.reduce((a, b) => a + b, 0);
+        this.r.cab.style.width = total + 'px';
+        this.r.corpo.style.width = total + 'px';
+        const ord = ui.ordem;
+        this.r.cab.innerHTML = `<div class="bd-lin bd-nomes"><div class="bd-cel bd-num">#</div>${t.colunas.map((col, k) => {
+            const seta = ord && ord.c === k ? (ord.dir === 'asc' ? ' ▲' : ' ▼') : '';
+            const tags = [col.pk && 'PK', col.fk && 'FK'].filter(Boolean).join(',');
+            const dica = (col.pk ? 'Chave primária · ' : '') + (col.fk ? 'Liga com ' + col.fk.t + '.' + (col.fk.c || '') + ' · ' : '') + (col.tipo || 'sem tipo') + ' · clique para ordenar';
+            return `<div class="bd-cel bd-th" style="width:${w[k]}px" data-ord="${k}" title="${esc(dica)}" role="columnheader" aria-sort="${seta ? (ord.dir === 'asc' ? 'ascending' : 'descending') : 'none'}">${esc(col.n)}${tags ? ` <small>${tags}</small>` : ''}<b>${seta}</b></div>`;
+        }).join('')}</div><div class="bd-lin bd-filtros"><div class="bd-cel bd-num" title="Filtros: texto (contém), =valor, !texto, &gt;10, &lt;10, vazio">⌕</div>${t.colunas.map((col, k) =>
+            `<div class="bd-cel" style="width:${w[k]}px"><input class="bd-filtro" data-filtro="${k}" value="${esc((ui.filtros || {})[k] || '')}" placeholder="filtrar" aria-label="Filtrar ${esc(col.n)}" title="texto, =valor, !texto, &gt;10, &lt;10, vazio"></div>`).join('')}</div>`;
+    };
+    G.recarregar = function () { this.cache = null; this.seq = (this.seq || 0) + 1; this.r.rol.scrollTop = 0; this.pedir(0); };
+    G.consulta = function () { const ui = this.c.ui; return { busca: ui.busca, filtros: ui.filtros, ordem: ui.ordem }; };
+    G.geometria = function () {
+        const rol = this.r.rol, H = Math.max(LIN, rol.clientHeight - this.r.cab.offsetHeight), n = this.total;
+        const alt = Math.min(n * LIN, MAX_ALTURA), escala = n * LIN > MAX_ALTURA;
+        const vis = Math.ceil(H / LIN) + 1;
+        const st = rol.scrollTop;
+        const primeira = escala ? Math.min(n - 1, Math.round(st * (n - vis + 1) / Math.max(1, alt - H))) : Math.floor(st / LIN);
+        return { H, alt, escala, vis, primeira: Math.max(0, primeira), st };
+    };
+    G.agendar = function () {
+        if (this._raf) return;
+        this._raf = requestAnimationFrame(() => { this._raf = 0; this.render(); });
+    };
+    G.pedir = async function (ini) {
+        const c = this.c, seq = this.seq, t = this.t;
+        if (this.pedindo === seq + ':' + ini) return;
+        this.pedindo = seq + ':' + ini;
+        const tAbrir = setTimeout(() => { if (seq === this.seq && !this.cache) { this.r.carr.hidden = false; this.r.carr.textContent = 'Abrindo a tabela…'; } }, 150);
+        try {
+            const r = await pedir({ acao: 'janela', id: c.b.id, ti: c.ui.ti, ini, n: 300, ...this.consulta() }, d => {
+                if (d.t === 'carregando' && seq === this.seq) { this.r.carr.hidden = false; this.r.carr.textContent = `Abrindo a tabela… ${Math.round(d.feito / d.de * 100)}% (${d.feito} de ${d.de} pedaços)`; }
+            });
+            if (seq !== this.seq || this.morto) return;
+            this.cache = { ini: r.ini, linhas: r.linhas };
+            this.total = r.total; this.todas = r.todas;
+            if (!(c.s.semLinhas && t.total)) this.r.carr.hidden = true;
+            if (!this.medido && r.linhas.length) this.medir(r.linhas);
+            this.render();
+        } catch (e) {
+            if (seq !== this.seq) return;
+            console.error('[Banco .sql] janela', e);
+            this.r.carr.hidden = false;
+            this.r.carr.textContent = mensagemErro(e);
+        } finally {
+            clearTimeout(tAbrir);
+            if (this.pedindo === seq + ':' + ini) this.pedindo = null;
+        }
+    };
+    /** Larguras das colunas pelo conteúdo das primeiras linhas (uma vez por tabela). */
+    G.medir = function (linhas) {
+        this.medido = true;
+        const amostra = linhas.slice(0, 80);
+        this.larguras = this.larguras.map((w, k) => {
+            let m = 0;
+            amostra.forEach(l => { const v = l[k]; const n = v == null ? 4 : Math.min(60, String(v).length); if (n > m) m = n; });
+            return Math.round(Math.max(w, Math.min(320, m * 7.2 + 20)));
+        });
+        this.pintarCabeca();
+    };
+    G.linhaEm = function (i) { const ca = this.cache; return ca && i >= ca.ini && i < ca.ini + ca.linhas.length ? ca.linhas[i - ca.ini] : null; };
+    G.render = function () {
+        if (this.morto || !this.t) return;
+        const g = this.geometria(), n = this.total, ca = this.cache;
+        this.r.corpo.style.height = g.alt + 'px';
+        const fim = Math.min(n, g.primeira + g.vis);
+        if (ca && n && (g.primeira < ca.ini || fim > ca.ini + ca.linhas.length)) this.pedir(Math.max(0, g.primeira - 100));
+        const topo = g.escala ? g.st : g.primeira * LIN;
+        this.r.jan.style.transform = `translateY(${topo}px)`;
+        const w = this.larguras;
+        let h = '';
+        for (let i = g.primeira; i < fim; i++) {
+            const l = this.linhaEm(i);
+            h += `<div class="bd-lin${i % 2 ? ' par' : ''}" data-i="${i}"><div class="bd-cel bd-num">${num(i + 1)}</div>`;
+            if (!l) { h += `<div class="bd-cel texto-2">…</div></div>`; continue; }
+            for (let k = 0; k < w.length; k++) {
+                const v = l[k];
+                if (v == null) h += `<div class="bd-cel nulo" style="width:${w[k]}px" data-c="${k}">NULL</div>`;
+                else if (typeof v === 'number' || NUM_TXT.test(v)) h += `<div class="bd-cel n" style="width:${w[k]}px" data-c="${k}">${esc(v)}</div>`;
+                else h += `<div class="bd-cel" style="width:${w[k]}px" data-c="${k}">${esc(v.length > 200 ? v.slice(0, 200) + '…' : v).replace(/\n/g, '↵')}</div>`;
+            }
+            h += '</div>';
+        }
+        this.r.jan.innerHTML = h;
+        // rodapé
+        const pag = Math.floor(g.primeira / POR_PAGINA), pags = Math.max(1, Math.ceil(n / POR_PAGINA));
+        this.r.paginas.textContent = num(pags);
+        if (document.activeElement !== this.r.pag) this.r.pag.value = String(pag + 1);
+        this.r.pag.max = String(pags);
+        this.r.ant.disabled = pag <= 0; this.r.prox.disabled = pag >= pags - 1;
+        let info = n ? `linhas ${num(g.primeira + 1)}–${num(fim)} de ${num(n)}` : (ca ? 'nenhuma linha' : '');
+        if (ca && n !== this.todas) info += ` (de ${num(this.todas)} na tabela)`;
+        this.r.info.textContent = info;
+    };
+    G.pagina = function () { return Math.floor(this.geometria().primeira / POR_PAGINA); };
+    G.irPagina = function (p) {
+        const pags = Math.max(1, Math.ceil(this.total / POR_PAGINA));
+        p = Math.max(0, Math.min(pags - 1, p || 0));
+        const g = this.geometria(), linha = p * POR_PAGINA;
+        this.r.rol.scrollTop = g.escala ? linha * Math.max(1, g.alt - g.H) / Math.max(1, this.total - g.vis + 1) : linha * LIN;
+        this.agendar();
+    };
+    G.baixarCsv = async function () {
+        const c = this.c, t = this.t, bt = this.r.csv;
+        bt.disabled = true; const txt = bt.textContent; bt.textContent = 'Gerando…';
+        try {
+            const r = await pedir({ acao: 'csv', id: c.b.id, ti: c.ui.ti, colunas: t.colunas.map(x => x.n), ...this.consulta() });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(r.blob);
+            a.download = (t.nome || 'tabela').replace(/[^\w.-]+/g, '_') + '.csv';
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        } catch (e) { c.msg(mensagemErro(e), true); } finally { bt.disabled = false; bt.textContent = txt; }
+    };
+
+    /* =================== estatísticas por coluna =================== */
+    function Estatisticas(c) {
+        this.c = c;
+        const ui = c.ui, ts = c.s.schema;
+        if (!ts[ui.ti]) ui.ti = 0;
+        const el = document.createElement('div');
+        el.className = 'bd-stats-v';
+        el.innerHTML = `<div class="bd-ferr"><select class="campo !py-1 !w-auto" style="max-width: 16rem" aria-label="Tabela" data-r="tab">${ts.map((t, i) => `<option value="${i}">${esc(t.nome)} (${num(t.total)})</option>`).join('')}</select>
+            <span class="text-xs texto-2" data-r="info"></span></div><div class="bd-stats" data-r="lista"></div>`;
+        c.r.corpo.appendChild(el);
+        this.r = {};
+        el.querySelectorAll('[data-r]').forEach(n => { this.r[n.dataset.r] = n; });
+        this.r.tab.value = String(ui.ti);
+        this.r.tab.addEventListener('change', () => { ui.ti = Number(this.r.tab.value); ui.busca = ''; ui.filtros = {}; ui.ordem = null; this.carregar(); });
+        this.carregar();
+    }
+    Estatisticas.prototype.carregar = async function () {
+        const c = this.c, ui = c.ui, t = c.s.schema[ui.ti], seq = (this.seq = (this.seq || 0) + 1);
+        const filtrado = (ui.busca || '').trim() || Object.values(ui.filtros || {}).some(v => String(v || '').trim());
+        this.r.info.textContent = 'Calculando…';
+        this.r.lista.innerHTML = '';
+        try {
+            const r = await pedir({ acao: 'estatisticas', id: c.b.id, ti: ui.ti, ncol: t.colunas.length, busca: ui.busca, filtros: ui.filtros }, d => {
+                if (d.t === 'carregando' && seq === this.seq) this.r.info.textContent = `Abrindo a tabela… ${d.feito} de ${d.de} pedaços`;
+            });
+            if (seq !== this.seq) return;
+            this.r.info.textContent = `${num(r.total)} linhas${filtrado ? ' (com a busca e os filtros da aba Dados)' : ''}`;
+            const fmt = v => (typeof v === 'number' ? v.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : esc(v));
+            this.r.lista.innerHTML = t.colunas.map((col, k) => {
+                const s = r.cols[k], cheio = s.total - s.nulos;
+                const pct = s.total ? Math.round(cheio / s.total * 100) : 0;
+                const maior = s.top.length ? s.top[0][1] : 1;
+                let linhas = `<p>Preenchidos <b>${pct}%</b> · nulos ${num(s.nulos)} · distintos ${num(s.distintos)}${s.distintosMais ? '+' : ''}</p>`;
+                if (s.nums) linhas += `<p>Mín <b>${fmt(s.min)}</b> · máx <b>${fmt(s.max)}</b> · média <b>${fmt(s.media)}</b>${s.nums < cheio ? ` <span class="texto-2">(${num(s.nums)} números)</span>` : ''}</p>`;
+                if (s.minT != null) linhas += `<p class="texto-2">Texto com ${num(s.minT)} a ${num(s.maxT)} caracteres</p>`;
+                const top = s.top.map(([v, q]) => `<div class="bd-barra-v" title="${esc(String(v))}: ${num(q)}"><span style="width:${Math.max(2, q / maior * 100)}%"></span><em>${v === '' ? '<i>(vazio)</i>' : fmt(v)}</em><b>${num(q)}</b></div>`).join('');
+                return `<div class="bd-stat"><p class="font-semibold text-sm">${esc(col.n)} <small class="texto-2">${esc(col.tipo || '')}${col.pk ? ' · PK' : ''}${col.fk ? ' · FK → ' + esc(col.fk.t) : ''}</small></p>${linhas}${top ? `<div class="bd-top">${top}</div>` : ''}</div>`;
+            }).join('');
+        } catch (e) {
+            if (seq !== this.seq) return;
+            this.r.info.textContent = mensagemErro(e);
+        }
+    };
+
+    /* =================== métodos do quadro (Alpine) =================== */
     function metodos() {
         return {
-            bdUI(b) {
-                return (this.ui['bd:' + b.id] ??= { tab: '', busca: '', pag: 0, msg: '', lendo: false, z: 1 });
+            /** Chamado pelo x-init do cartão: o conteúdo é montado e mantido por este arquivo (fora do Alpine). */
+            bdMontar(b, el) {
+                if (el._bd && el._bd.b === b) return;
+                el._bd = new Cartao(this, b, el);
             },
-            bdLinhas(b) { return this.imagens[b.id + '.sql'] || {}; },
-            bdResumo(b) {
-                const ts = b.dados.tabelas || [];
-                const total = ts.reduce((s, t) => s + (t.total || 0), 0);
-                const fks = ts.reduce((s, t) => s + t.colunas.filter(c => c.fk).length, 0);
-                return `${b.dados.arquivo || 'arquivo'} · ${ts.length} ${ts.length === 1 ? 'tabela' : 'tabelas'} · ${fks} ${fks === 1 ? 'ligação' : 'ligações'} · ${total.toLocaleString('pt-BR')} ${total === 1 ? 'linha' : 'linhas'}`;
-            },
-            async bdLer(b, arq) {
-                const u = this.bdUI(b);
-                if (!arq) return;
-                if (!/\.sql$/i.test(arq.name) && !/sql|text/.test(arq.type || '')) { u.msg = 'Escolha um arquivo .sql.'; return; }
-                if (arq.size > MAX_ARQUIVO) { u.msg = 'O arquivo passa de 25 MB. Exporte só as tabelas que quer ver.'; return; }
-                if ((b.dados.tabelas || []).length && !confirm('Trocar o banco deste cartão pelo novo arquivo?')) return;
-                u.lendo = true; u.msg = 'Lendo o arquivo…';
-                await new Promise(r => setTimeout(r, 30)); // deixa o aviso aparecer antes do trabalho pesado
-                try {
-                    const r = lerSql(await arq.text());
-                    if (!r.tabelas.length) { u.msg = 'Não achei nenhuma tabela (CREATE TABLE ou INSERT) neste arquivo.'; return; }
-                    arrumar(r.tabelas);
-                    let json = JSON.stringify(r.linhas);
-                    // garantia: o servidor aceita até 6 milhões de caracteres por chave
-                    while (json.length > 5800000) {
-                        Object.keys(r.linhas).forEach(k => { r.linhas[k] = r.linhas[k].slice(0, Math.floor(r.linhas[k].length * 0.8)); });
-                        json = JSON.stringify(r.linhas);
-                    }
-                    r.tabelas.forEach(t => { t.guardadas = (r.linhas[t.nome] || []).length; });
-                    await Q.enviar(`${this.cfg.url}/img.${b.id}.sql`, json);
-                    this.imagens[b.id + '.sql'] = r.linhas;
-                    b.dados.tabelas = r.tabelas;
-                    b.dados.arquivo = arq.name.slice(0, 120);
-                    b.dados.lido = new Date().toISOString().slice(0, 10);
-                    b.dados.avisos = r.avisos;
-                    if (!b.titulo || b.titulo === 'Banco de dados') b.titulo = arq.name.replace(/\.sql$/i, '').slice(0, 80) || 'Banco de dados';
-                    u.tab = r.tabelas[0].nome; u.pag = 0; u.busca = '';
-                    u.msg = '';
-                } catch (e) {
-                    console.error('[Banco .sql]', e);
-                    u.msg = e && /^\d+$/.test(e.message) ? 'Não consegui salvar os dados no servidor (' + e.message + '). Tente um arquivo menor.' : 'Não consegui ler este arquivo.';
-                } finally {
-                    u.lendo = false;
-                }
+            /** x-effect: outra pessoa (ou outra aba) trocou o arquivo do cartão. */
+            bdSinc(b, el) {
+                void b.dados.versao; void this.imagens[b.id + '.sql'];
+                if (!el || !el._bd) return;
+                if (!el._bdEfeito) { el._bdEfeito = true; return; }
+                el._bd.sinc(false);
             },
             bdLimpar(b) {
-                if (!confirm('Tirar o banco deste cartão? A estrutura e os dados saem daqui.')) return;
-                b.dados.tabelas = []; b.dados.arquivo = ''; b.dados.avisos = [];
+                if (!confirm('Tirar o banco deste cartão? A estrutura e os dados saem daqui e do servidor.')) return;
+                delete b.dados.tabelas; delete b.dados.avisos;
+                b.dados.versao = ''; b.dados.arquivo = ''; b.dados.resumo = null; b.dados.pos = {};
                 this.apagarImagens(b.id + '.sql');
+                const s = sessoes.get(b.id);
+                if (s) { s.idx = null; s.schema = []; s.avisos = []; s.versao = ''; if (s.cartao) s.cartao.desenhar(); }
             },
-            bdZoom(b, passo) {
-                const u = this.bdUI(b);
-                u.z = passo ? Math.min(2, Math.max(0.3, Math.round((u.z + passo) * 10) / 10)) : 1;
-            },
-
-            /** SVG do diagrama (texto escapado; desenhado com x-html). */
-            bdSvg(b) {
-                const ts = b.dados.tabelas || [], z = this.bdUI(b).z;
-                if (!ts.length) return '';
-                const por = new Map(ts.map(t => [t.nome, t]));
-                let w = 0, h = 0, linhas = '', caixas = '';
-                ts.forEach(t => { w = Math.max(w, (t.x || 0) + BOX_W + 40); h = Math.max(h, (t.y || 0) + alturaTabela(t) + 40); });
-                ts.forEach(t => t.colunas.forEach((c, i) => {
-                    const alvo = c.fk && por.get(c.fk.t);
-                    if (!alvo) return;
-                    const y1 = t.y + CAB_H + Math.min(i, MOSTRA_COL) * LIN_H + LIN_H / 2 + 2;
-                    const y2 = alvo.y + CAB_H + linhaDe(alvo, c.fk.c) * LIN_H + LIN_H / 2 + 2;
-                    let x1, x2, d;
-                    if (alvo === t) {
-                        x1 = t.x + BOX_W; d = `M${x1} ${y1} C${x1 + 40} ${y1},${x1 + 40} ${y2},${x1} ${y2}`;
-                    } else if (Math.abs(alvo.x - t.x) < BOX_W / 2) {
-                        x1 = t.x + BOX_W; x2 = alvo.x + BOX_W;
-                        const dx = 40 + Math.abs(y2 - y1) * 0.1;
-                        d = `M${x1} ${y1} C${x1 + dx} ${y1},${x2 + dx} ${y2},${x2} ${y2}`;
-                    } else {
-                        const dir = alvo.x > t.x ? 1 : -1;
-                        x1 = dir > 0 ? t.x + BOX_W : t.x; x2 = dir > 0 ? alvo.x : alvo.x + BOX_W;
-                        const dx = Math.max(30, Math.abs(x2 - x1) / 2) * dir;
-                        d = `M${x1} ${y1} C${x1 + dx} ${y1},${x2 - dx} ${y2},${x2} ${y2}`;
-                    }
-                    linhas += `<path class="bd-lig" d="${d}" marker-end="url(#bd-seta-${esc(b.id)})"><title>${esc(t.nome + '.' + c.n + ' → ' + alvo.nome + '.' + (c.fk.c || ''))}</title></path><circle class="bd-pt" cx="${x1}" cy="${y1}" r="3"/>`;
-                }));
-                ts.forEach(t => {
-                    const hT = alturaTabela(t);
-                    let g = `<g data-bd-t="${esc(t.nome)}" transform="translate(${t.x || 0},${t.y || 0})">`
-                        + `<rect class="bd-caixa" width="${BOX_W}" height="${hT}" rx="8"/>`
-                        + `<path class="bd-cab" d="M0 8a8 8 0 0 1 8-8h${BOX_W - 16}a8 8 0 0 1 8 8v${CAB_H - 8}h-${BOX_W}z"/>`
-                        + `<text class="bd-nome" x="10" y="18">${esc(t.nome.length > 24 ? t.nome.slice(0, 23) + '…' : t.nome)}</text>`
-                        + `<text class="bd-qtd" x="${BOX_W - 8}" y="18" text-anchor="end">${(t.total || 0).toLocaleString('pt-BR')}</text>`;
-                    t.colunas.slice(0, MOSTRA_COL).forEach((c, i) => {
-                        const y = CAB_H + i * LIN_H + 14;
-                        const tag = (c.pk ? 'PK' : '') + (c.pk && c.fk ? ',' : '') + (c.fk ? 'FK' : '') || (c.uq ? 'UK' : '');
-                        g += `<text class="bd-tag" x="8" y="${y}">${tag}</text>`
-                            + `<text class="bd-col${c.pk ? ' pk' : ''}" x="40" y="${y}">${esc(c.n.length > 18 ? c.n.slice(0, 17) + '…' : c.n)}</text>`
-                            + `<text class="bd-tipo" x="${BOX_W - 8}" y="${y}" text-anchor="end">${esc((c.tipo || '').replace(/\s*(unsigned|zerofill)/i, '').slice(0, 14))}</text>`;
-                    });
-                    if (t.colunas.length > MOSTRA_COL) g += `<text class="bd-tipo" x="40" y="${CAB_H + MOSTRA_COL * LIN_H + 14}">+ ${t.colunas.length - MOSTRA_COL} colunas</text>`;
-                    caixas += g + `<title>${esc(t.nome)}: ${t.colunas.length} colunas, ${(t.total || 0).toLocaleString('pt-BR')} linhas · clique duplo para ver os dados</title></g>`;
-                });
-                return `<svg class="bd-svg" width="${Math.round(w * z)}" height="${Math.round(h * z)}" viewBox="0 0 ${Math.round(w)} ${Math.round(h)}" role="img" aria-label="Diagrama das tabelas">`
-                    + `<defs><marker id="bd-seta-${esc(b.id)}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="bd-seta" d="M0 0L10 5L0 10z"/></marker></defs>`
-                    + linhas + caixas + '</svg>';
-            },
-            /** Arrastar uma tabela do diagrama (pelo corpo da caixa). */
-            bdPegar(b, e) {
-                const g = e.target.closest && e.target.closest('[data-bd-t]');
-                if (!g || e.button !== 0) return;
-                const t = (b.dados.tabelas || []).find(x => x.nome === g.getAttribute('data-bd-t'));
-                if (!t) return;
-                e.preventDefault();
-                e.stopPropagation();
-                const z = this.bdUI(b).z, x0 = e.clientX, y0 = e.clientY, tx = t.x || 0, ty = t.y || 0;
-                const mover = ev => { t.x = Math.max(0, Math.round((tx + (ev.clientX - x0) / z) / 10) * 10); t.y = Math.max(0, Math.round((ty + (ev.clientY - y0) / z) / 10) * 10); };
-                const soltar = () => { removeEventListener('pointermove', mover); removeEventListener('pointerup', soltar); removeEventListener('pointercancel', soltar); };
-                addEventListener('pointermove', mover);
-                addEventListener('pointerup', soltar);
-                addEventListener('pointercancel', soltar);
-            },
-            bdAbrirTabela(b, e) {
-                const g = e.target.closest && e.target.closest('[data-bd-t]');
-                if (!g) return;
-                const u = this.bdUI(b);
-                u.tab = g.getAttribute('data-bd-t'); u.pag = 0; u.busca = '';
-                b.dados.visao = 'dados';
-            },
-            bdRearrumar(b) { arrumar(b.dados.tabelas || []); },
-
-            /* ---------- dados ---------- */
-            bdTabela(b) {
-                const ts = b.dados.tabelas || [], u = this.bdUI(b);
-                return ts.find(t => t.nome === u.tab) || ts[0] || null;
-            },
-            bdFiltradas(b) {
-                const t = this.bdTabela(b), u = this.bdUI(b);
-                if (!t) return [];
-                const todas = this.bdLinhas(b)[t.nome] || [];
-                const q = u.busca.trim().toLowerCase();
-                return q ? todas.filter(l => l.some(v => v != null && String(v).toLowerCase().includes(q))) : todas;
-            },
-            bdPagina(b) {
-                const u = this.bdUI(b), f = this.bdFiltradas(b);
-                const max = Math.max(0, Math.ceil(f.length / POR_PAGINA) - 1);
-                if (u.pag > max) u.pag = max;
-                return f.slice(u.pag * POR_PAGINA, (u.pag + 1) * POR_PAGINA);
-            },
-            bdRodape(b) {
-                const t = this.bdTabela(b), u = this.bdUI(b), f = this.bdFiltradas(b);
-                if (!t) return '';
-                const ini = f.length ? u.pag * POR_PAGINA + 1 : 0, fim = Math.min(f.length, (u.pag + 1) * POR_PAGINA);
-                let txt = `${ini}–${fim} de ${f.length.toLocaleString('pt-BR')}`;
-                if (u.busca.trim()) txt += ' encontradas';
-                if (t.guardadas < t.total) txt += ` · ${t.total.toLocaleString('pt-BR')} no arquivo (guardadas ${t.guardadas.toLocaleString('pt-BR')})`;
-                if (t.total && !t.guardadas && !this.imagens[b.id + '.sql']) txt = 'Os dados não vieram junto (cartão restaurado ou copiado). Abra o .sql de novo para ver as linhas.';
-                return txt;
-            },
-            bdTemMais(b) { const u = this.bdUI(b); return (u.pag + 1) * POR_PAGINA < this.bdFiltradas(b).length; },
-            bdBaixarCsv(b) {
-                const t = this.bdTabela(b);
-                if (!t) return;
-                const cel = v => (v == null ? '' : /[";\n\r]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v));
-                const csv = [t.colunas.map(c => cel(c.n)).join(';'), ...this.bdFiltradas(b).map(l => l.map(cel).join(';'))].join('\r\n');
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
-                a.download = (t.nome || 'tabela').replace(/[^\w.-]+/g, '_') + '.csv';
-                a.click();
-                setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-            },
-
             /** Cria um cartão "Mapa mental e diagramas" com as tabelas como entidades, para editar à vontade. */
             bdParaMapa(b) {
-                const ts = (b.dados.tabelas || []).slice(0, 300);
+                const s = sessoes.get(b.id);
+                const todas = s ? s.schema : [];
+                const ts = todas.slice(0, 300);
                 if (!ts.length) return;
+                const pos = (s && s.pos) || arrumar(todas);
                 const ids = new Map(ts.map(t => [t.nome, uid()]));
-                const nos = ts.map(t => ({
-                    id: ids.get(t.nome), t: t.nome, x: t.x || 0, y: t.y || 0, pai: null, cor: '#2f6fc7', forma: 'entidade', w: 200,
+                const nos = ts.map((t, i) => ({
+                    id: ids.get(t.nome), t: t.nome, x: pos[i].x, y: pos[i].y, pai: null, cor: '#2f6fc7', forma: 'entidade', w: 200,
                     campos: t.colunas.slice(0, 30).map(c => [c.pk && 'PK', c.fk && 'FK', !c.pk && !c.fk && c.uq && 'UK'].filter(Boolean).join(',') + (c.pk || c.fk || c.uq ? ' ' : '') + c.n + (c.tipo ? ' ' + c.tipo : '')).join('\n') || 'PK id',
                 }));
                 const lig = [];
@@ -590,12 +872,12 @@
                 }));
                 const L = this.estado.layout?.[b.secao]?.[b.id];
                 const id = this.criarBloco(b.secao, 'mapa', L ? { x: L.x, y: L.y + L.h + 16 } : null, { titulo: (b.titulo || 'Banco') + ' (diagrama)', dados: { nos, lig, tracos: [] } });
-                if (id) this.aviso('Diagrama criado num cartão de Mapa mental logo abaixo. Lá dá para editar, colorir e ligar à vontade.');
+                if (id) this.aviso(todas.length > 300 ? 'Diagrama criado logo abaixo com as primeiras 300 tabelas.' : 'Diagrama criado num cartão de Mapa mental logo abaixo. Lá dá para editar, colorir e ligar à vontade.');
             },
         };
     }
 
-    window.WFBancoSql = { lerSql }; // usado nos testes (e útil no console)
+    window.WFBancoSql = { sessoes, arrumar };
 
     const anterior = window.diversoAbasDiagrama;
     window.diversoAbasDiagrama = function () {
@@ -604,12 +886,30 @@
         const criar = base.criarBloco;
         base.criarBloco = function (sec, tipo, pos, over = {}) {
             if (tipo !== 'banco') return criar.call(this, sec, tipo, pos, over);
-            const id = 'b' + uid(), W = this.col || 1088, w = Math.min(780, W), h = 520;
-            this.estado.blocos.push({ id, secao: sec, tipo, titulo: over.titulo || 'Banco de dados', links: [], dados: { tabelas: [], visao: 'diagrama', ...(over.dados || {}) } });
+            const id = 'b' + uid(), W0 = this.col || 1088, w = Math.min(820, W0), h = 560;
+            this.estado.blocos.push({ id, secao: sec, tipo, titulo: over.titulo || 'Banco de dados', links: [], dados: { versao: '', visao: 'diagrama', pos: {}, ...(over.dados || {}) } });
             const y0 = this.alturaConteudo(sec);
             (this.estado.layout[sec] ??= {})[id] = pos ? { x: pos.x, y: pos.y, w, h, z: ++this.zTop } : { x: 0, y: y0 ? y0 + 16 : 0, w, h, z: ++this.zTop };
             return id;
         };
-        return Object.assign(base, metodos());
+        Object.assign(base, metodos());
+        // os pedaços (sqlz.<id>.*) não ficam em this.imagens: saem junto com o índice img.<id>.sql
+        const apagar = base.apagarImagens;
+        base.apagarImagens = function (id) {
+            const m = /^(b[A-Za-z0-9]+)(\.sql)?$/.exec(String(id || ''));
+            const tinha = !!m && this.imagens[m[1] + '.sql'] !== undefined;
+            const r = apagar.call(this, id);
+            if (!m || !tinha) return r;
+            const bloco = m[1], cfg = cfgServidor(this);
+            const tirar = () => {
+                if (!m[2] && this.blocoPorId && this.blocoPorId(bloco)) return; // "Desfazer": o cartão voltou
+                pedir({ acao: 'apagar', id: bloco, cfg, chave: `sqlz.${bloco}`, servidor: true, esquecer: true }).catch(() => {});
+                sessoes.delete(bloco);
+            };
+            // cartão excluído: espera o "Desfazer" (8 s) antes de tirar os pedaços do servidor
+            if (m[2]) tirar(); else setTimeout(tirar, 9000);
+            return r;
+        };
+        return base;
     };
 })();

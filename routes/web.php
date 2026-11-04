@@ -61,6 +61,13 @@ Route::prefix('/loja/{slug}')->where(['slug' => '[a-z0-9-]{3,40}'])->name('loja.
         ->where('arquivo', '[A-Za-z0-9]{24}\.(jpg|png|webp)')->middleware('throttle:300,1')->name('img');
 });
 
+// ---- WhatsApp oficial (feature/redes): webhook da Cloud API da Meta, sem CSRF; a assinatura X-Hub-Signature-256 é conferida no ZapController
+Route::get('/whatsapp/webhook', [\App\Http\Controllers\ZapController::class, 'verificar'])->middleware('throttle:60,1')->name('zap.webhook');
+Route::post('/whatsapp/webhook', [\App\Http\Controllers\ZapController::class, 'receber'])
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class, \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class])
+    ->middleware('throttle:600,1')->name('zap.webhook.receber');
+// ---- fim WhatsApp oficial (webhook)
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'formLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
@@ -86,6 +93,15 @@ Route::middleware('auth')->group(function () {
             ->whereNumber('pix')->name('pix.admin.confirmar');
         Route::post('/admin/pix/{pix}/recusar', [\App\Http\Controllers\PixAdminController::class, 'recusar'])
             ->whereNumber('pix')->name('pix.admin.recusar');
+        // Pix dos pedidos das mini lojas (chave da plataforma) e resgates do saldo dos donos
+        Route::post('/admin/pix/lojas/{pedido}/confirmar', [\App\Http\Controllers\PixAdminController::class, 'confirmarPedidoLoja'])
+            ->whereNumber('pedido')->name('pix.admin.loja.confirmar');
+        Route::post('/admin/pix/lojas/{pedido}/recusar', [\App\Http\Controllers\PixAdminController::class, 'recusarPedidoLoja'])
+            ->whereNumber('pedido')->name('pix.admin.loja.recusar');
+        Route::post('/admin/pix/resgates/{resgate}/pagar', [\App\Http\Controllers\PixAdminController::class, 'pagarResgate'])
+            ->whereNumber('resgate')->name('pix.admin.resgate.pagar');
+        Route::post('/admin/pix/resgates/{resgate}/recusar', [\App\Http\Controllers\PixAdminController::class, 'recusarResgate'])
+            ->whereNumber('resgate')->name('pix.admin.resgate.recusar');
         // Promoções relâmpago dos planos
         Route::get('/admin/promocoes', [\App\Http\Controllers\PromocaoAdminController::class, 'index'])->name('promocoes.admin');
         Route::post('/admin/promocoes', [\App\Http\Controllers\PromocaoAdminController::class, 'criar'])
@@ -125,6 +141,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/downloads/registrar', [DownloadController::class, 'registrar'])
         ->middleware('throttle:60,1')->name('downloads.registrar');
 
+    // Cartão "Editor de PDF": o PDF original fica em disco (storage/app/editorpdf), enviado em partes de até 3 MB
+    Route::prefix('editor-pdf/{area}/{arquivo}')->where(['area' => '[a-z]{3,12}', 'arquivo' => '[A-Za-z0-9_-]{1,80}'])
+        ->name('editorpdf.')->group(function () {
+            Route::post('/parte', [\App\Http\Controllers\EditorPdfController::class, 'parte'])->middleware('throttle:gravar')->name('parte');
+            Route::post('/concluir', [\App\Http\Controllers\EditorPdfController::class, 'concluir'])->middleware('throttle:gravar')->name('concluir');
+            Route::get('/', [\App\Http\Controllers\EditorPdfController::class, 'ver'])->name('ver');
+            Route::delete('/', [\App\Http\Controllers\EditorPdfController::class, 'remover'])->middleware('throttle:gravar')->name('remover');
+        });
+
     // Carteira: precisa vir ANTES da rota genérica /areas/{area}
     Route::get('/areas/carteira', [CarteiraController::class, 'show'])->name('areas.carteira');
     Route::get('/carteira/cotacao', [CarteiraController::class, 'cotacao'])->middleware('throttle:30,1')->name('carteira.cotacao');
@@ -141,11 +166,43 @@ Route::middleware('auth')->group(function () {
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('negocios.dados.remover');
     Route::get('/negocios/clientes-da-loja', [\App\Http\Controllers\NegociosController::class, 'clientesDaLoja'])
         ->middleware('throttle:30,1')->name('negocios.clientes.loja');
+    // Negócios › Produtos: catálogo da conta (o mesmo da mini loja), venda com preço e baixa de estoque, pedidos da loja como vendas
+    Route::prefix('/negocios/produtos')->name('negocios.produtos')->controller(\App\Http\Controllers\ProdutosController::class)->group(function () {
+        Route::get('/', 'lista')->middleware('throttle:60,1')->name('');
+        Route::post('/', 'salvar')->middleware('throttle:60,1')->name('.criar');
+        Route::post('/{produto}', 'salvar')->whereNumber('produto')->middleware('throttle:60,1')->name('.salvar');
+        Route::delete('/{produto}', 'remover')->whereNumber('produto')->middleware('throttle:60,1')->name('.remover');
+        Route::post('/{produto}/venda', 'venda')->whereNumber('produto')->middleware('throttle:120,1')->name('.venda');
+        Route::post('/{produto}/estorno', 'estorno')->whereNumber('produto')->middleware('throttle:120,1')->name('.estorno');
+        Route::get('/{produto}/foto/{arquivo}', 'foto')->whereNumber('produto')->middleware('throttle:240,1')->name('.foto');
+    });
+    Route::get('/negocios/vendas-da-loja', [\App\Http\Controllers\ProdutosController::class, 'vendasDaLoja'])
+        ->middleware('throttle:30,1')->name('negocios.vendas.loja');
+
+    // ---- WhatsApp oficial em Negócios › Clientes e Instagram/TikTok no cartão Criador (feature/redes)
+    Route::prefix('/negocios/whatsapp')->name('zap.')->controller(\App\Http\Controllers\ZapController::class)->group(function () {
+        Route::get('/', 'estado')->middleware('throttle:120,1')->name('estado');
+        Route::post('/config', 'salvarConfig')->middleware('throttle:10,1')->name('config');
+        Route::delete('/config', 'removerConfig')->middleware('throttle:10,1')->name('config.remover');
+        Route::get('/conversa', 'conversa')->middleware('throttle:120,1')->name('conversa');
+        Route::get('/modelos', 'modelos')->middleware('throttle:30,1')->name('modelos');
+        Route::post('/enviar', 'enviar')->middleware('throttle:60,1')->name('enviar');
+    });
+    Route::prefix('/redes/{rede}')->whereIn('rede', ['instagram', 'tiktok'])->name('redes.')->controller(\App\Http\Controllers\RedesController::class)->group(function () {
+        Route::get('/conectar', 'conectar')->middleware('throttle:20,1')->name('conectar');
+        Route::get('/retorno', 'retorno')->middleware('throttle:20,1')->name('retorno');
+        Route::get('/metricas', 'metricas')->middleware('throttle:30,1')->name('metricas');
+        Route::delete('/', 'sair')->middleware('throttle:20,1')->name('sair');
+    });
+    // ---- fim feature/redes
 
     // Equipe (aba da área Negócios): pessoas dos meus workflows, permissões, bloqueio e histórico
     Route::get('/equipe', [\App\Http\Controllers\EquipeController::class, 'index'])->middleware('throttle:60,1')->name('equipe');
     Route::patch('/equipe/{membro}/{area}', [\App\Http\Controllers\EquipeController::class, 'alterar'])
         ->whereNumber('membro')->where('area', '[a-z]+')->middleware('throttle:60,1')->name('equipe.alterar');
+
+    // Negócios › Integrações (Discord) e Negócios › Calls
+    require __DIR__ . '/integracoes.php';
 
     // Carteira › Loja: mini loja da conta (aparência, Pix, produtos e pedidos). Página pública em /loja/{slug}.
     Route::prefix('/carteira/loja')->name('carteira.loja')->group(function () {
@@ -167,6 +224,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/entrega', [\App\Http\Controllers\LojaController::class, 'entrega'])->middleware('throttle:30,1')->name('.entrega');
         Route::post('/mercadopago', [\App\Http\Controllers\LojaController::class, 'mercadoPago'])->middleware('throttle:10,1')->name('.mp');
         Route::delete('/mercadopago', [\App\Http\Controllers\LojaController::class, 'desconectarMp'])->middleware('throttle:10,1')->name('.mp.sair');
+        Route::delete('/', [\App\Http\Controllers\LojaController::class, 'excluir'])->middleware('throttle:10,1')->name('.excluir');
+        Route::post('/resgates', [\App\Http\Controllers\LojaController::class, 'resgatar'])->middleware('throttle:10,1')->name('.resgatar');
     });
 
     // Carteira › Marketplaces (Mercado Livre, Shopee, Amazon). Limite de contas vem do plano do dono.
@@ -212,6 +271,16 @@ Route::middleware('auth')->group(function () {
     // Preferências da conta: teclas de atalho, organização automática dos cartões, tutorial visto
     // métricas públicas de um canal do YouTube (cartão Criador de conteúdo)
     Route::get('/youtube/canal', [\App\Http\Controllers\YoutubeController::class, 'canal'])->middleware('throttle:30,1')->name('youtube.canal');
+    // banco de questões abertas (cartão Questões) e tarefas da área (cartões Hábitos e RH)
+    Route::prefix('/cartoes')->name('cartoes.')->group(function () {
+        Route::get('/questoes/filtros', [\App\Http\Controllers\CartoesController::class, 'bancoFiltros'])->middleware('throttle:60,1')->name('questoes.filtros');
+        Route::get('/questoes', [\App\Http\Controllers\CartoesController::class, 'banco'])->middleware('throttle:120,1')->name('questoes');
+        Route::get('/questoes/simulado', [\App\Http\Controllers\CartoesController::class, 'simulado'])->middleware('throttle:60,1')->name('questoes.simulado');
+        Route::get('/tarefas/{area}', [\App\Http\Controllers\CartoesController::class, 'tarefas'])
+            ->whereIn('area', array_keys(Tarefa::AREAS))->middleware('throttle:60,1')->name('tarefas');
+        Route::post('/tarefas/{area}', [\App\Http\Controllers\CartoesController::class, 'criarTarefas'])
+            ->whereIn('area', array_keys(Tarefa::AREAS))->middleware('throttle:30,1')->name('tarefas.criar');
+    });
     Route::put('/preferencias', [PreferenciasController::class, 'salvar'])
         ->middleware('throttle:60,1')->name('preferencias.salvar');
     Route::get('/fundo/imagem', [FundoController::class, 'imagem'])->name('fundo.imagem');
@@ -296,6 +365,11 @@ Route::middleware('auth')->prefix('diverso')->name('diverso.')->group(function (
         ->middleware('throttle:gravar')
         ->name('salvar');
 
+    Route::get('/dados/{chave}', [DiversoController::class, 'ler'])
+        ->where('chave', 'sqlz\.[A-Za-z0-9._-]{1,55}')
+        ->middleware('throttle:600,1')
+        ->name('ler');
+
     Route::delete('/dados/{chave}', [DiversoController::class, 'apagar'])
         ->where('chave', '[A-Za-z0-9._-]{1,60}')
         ->middleware('throttle:gravar')
@@ -304,3 +378,8 @@ Route::middleware('auth')->prefix('diverso')->name('diverso.')->group(function (
 
 // Tabletop ao vivo (salas com código). O arquivo é carregado aqui para herdar o grupo "web" (sessão + CSRF).
 require __DIR__ . '/tabletop-vivo.php';
+
+// Negócios › E-mails (caixas conectadas por IMAP/Gmail). Mesmo motivo: herda o grupo "web".
+require __DIR__ . '/emails.php';
+// Configurações › Armazenamento (destinos próprios, backups e arquivos fora do banco)
+require __DIR__ . '/armazenamento.php';

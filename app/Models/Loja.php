@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Support\Pix;
 use App\Support\Planos;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /** Mini loja de uma conta (Carteira › Loja), com página pública em /loja/{slug}. */
 class Loja extends Model
 {
+    use SoftDeletes; // excluir a loja guarda pedidos e produtos (LojaController::excluir)
+
     protected $table = 'lojas';
 
     protected $fillable = ['slug', 'nome', 'chamada', 'sobre', 'visual', 'pix_tipo', 'pix_chave', 'pix_nome', 'pix_cidade', 'publicada'];
@@ -91,14 +95,29 @@ class Loja extends Model
         return $this->hasMany(LojaCupom::class)->orderByDesc('id');
     }
 
+    /**
+     * Recebe Pix: desde 06/11/2026 o Pix das lojas cai na chave da plataforma (a mesma das assinaturas, /admin/pix)
+     * e vira saldo do dono depois de confirmado (App\Support\SaldoLoja). Basta a plataforma ter a chave configurada.
+     */
     public function pixPronto(): bool
     {
-        return (string) $this->pix_chave !== '' && (string) $this->pix_nome !== '';
+        return Pix::pronto();
     }
 
-    public function pixConfig(): array
+    /** Chave que recebe o Pix deste pedido: a da plataforma, ou a do dono nos pedidos antigos (pix_destino = loja). */
+    public function pixConfig(?LojaPedido $pedido = null): array
     {
-        return ['tipo' => $this->pix_tipo, 'chave' => (string) $this->pix_chave, 'nome' => (string) $this->pix_nome, 'cidade' => (string) $this->pix_cidade];
+        if ($pedido && $pedido->pix_destino === 'loja' && $this->chavePropriaPronta()) {
+            return ['tipo' => $this->pix_tipo, 'chave' => (string) $this->pix_chave, 'nome' => (string) $this->pix_nome, 'cidade' => (string) $this->pix_cidade];
+        }
+
+        return Pix::config();
+    }
+
+    /** O dono cadastrou a própria chave Pix (hoje usada para receber os resgates do saldo). */
+    public function chavePropriaPronta(): bool
+    {
+        return (string) $this->pix_chave !== '' && (string) $this->pix_nome !== '';
     }
 
     /** Quantos produtos o plano do dono permite (null = ilimitado). */

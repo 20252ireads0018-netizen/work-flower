@@ -1,6 +1,6 @@
 @extends('loja.base')
 
-{{-- Pedido feito na mini loja: resumo, Pix (QR Code e copia e cola) na chave do dono e o "Já paguei". --}}
+{{-- Pedido feito na mini loja: resumo, Pix (QR Code e copia e cola) na chave da plataforma (ou do dono, nos pedidos antigos) e o "Já paguei". --}}
 @section('titulo', 'Pedido ' . $pedido->codigo . ' · ' . $loja->nome)
 
 @php
@@ -41,11 +41,14 @@
                 </form>
             </section>
         @endif
-        @if ($codigo && ($pedido->pagamento !== 'mp' || ! $loja->mpPronto()))
+        @if ($codigo)
             <section class="lj-cartao" style="padding:18px;text-align:center">
                 <div id="lj-qr" style="width:220px;height:220px;margin:0 auto;background:#fff;padding:10px;border-radius:10px" role="img" aria-label="QR Code do Pix"></div>
                 <p class="lj-preco" style="margin:10px 0 4px">{{ $brl($pedido->total) }}</p>
-                <p style="font-size:.85rem;opacity:.8;margin:0 0 10px">Pague com Pix para <b>{{ $loja->pix_nome }}</b>: abra o app do banco e leia o QR Code, ou copie o código abaixo.</p>
+                <p style="font-size:.85rem;opacity:.8;margin:0 0 10px">{{ $pedido->aberto() && $pedido->pagamento === 'mp' && $loja->mpPronto() ? 'Ou pague' : 'Pague' }} com Pix para <b>{{ $pixNome }}</b>: abra o app do banco e leia o QR Code, ou copie o código abaixo.</p>
+                @if ($pedido->pix_destino !== 'loja')
+                    <p style="font-size:.75rem;opacity:.65;margin:0 0 10px">O pagamento é recebido pela plataforma Work Flower, que confere o Pix e repassa o valor para {{ $loja->nome }}.</p>
+                @endif
                 <div style="display:flex;gap:6px">
                     <input class="lj-campo" id="lj-pix" readonly value="{{ $codigo }}" style="font-family:monospace;font-size:.75rem" onclick="this.select()" aria-label="Pix copia e cola">
                     <button type="button" class="lj-btn sec" id="lj-copiar">Copiar</button>
@@ -56,7 +59,7 @@
                         <button type="submit" class="lj-btn" style="width:100%">Já paguei</button>
                     </form>
                 @else
-                    <p class="lj-aviso" style="margin-top:14px">Você avisou que pagou. A loja confere o extrato e confirma.</p>
+                    <p class="lj-aviso" style="margin-top:14px">Você avisou que pagou. {{ $pedido->pix_destino === 'loja' ? 'A loja confere o extrato e confirma.' : 'A plataforma confere o Pix e confirma; esta página muda para "Pago".' }}</p>
                 @endif
                 @if ($v['whatsapp'])
                     <a class="lj-btn sec" style="width:100%;margin-top:8px" target="_blank" rel="noopener"

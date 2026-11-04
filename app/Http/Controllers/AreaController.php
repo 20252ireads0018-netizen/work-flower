@@ -77,6 +77,7 @@ class AreaController extends Controller
         $t = Tarefa::create($dados + ['user_id' => $dono, 'area' => $area]);
         \App\Support\Equipe::registrar($dono, $area, $request->user()->id, 'criou a tarefa "' . mb_substr($t->titulo, 0, 80) . '"'
             . ($t->responsavel_id ? ' para ' . ($t->responsavel?->name ?? 'alguém') : ''), 'Tarefas');
+        \App\Support\Discord::avisarTarefa('tarefa_criada', $t, $request->user()->name, '🆕 Tarefa criada');
 
         return back()->with('ok', 'Tarefa adicionada.');
     }

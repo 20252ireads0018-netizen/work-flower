@@ -1,4 +1,5 @@
-{{-- Formulário de um produto da loja ($p = null para um produto novo). Usado em areas/carteira/loja. --}}
+{{-- Formulário de um produto da loja ($p = null para um produto novo). Usado em areas/carteira/loja.
+     É o mesmo produto do catálogo de Negócios › Produtos (custo, SKU e categoria também aparecem lá). --}}
 <form method="POST" action="{{ $p ? route('carteira.loja.produtos.salvar', $p) : route('carteira.loja.produtos.criar') }}" enctype="multipart/form-data" class="mt-3 space-y-3">
     @csrf
     <div class="lj-grade">
@@ -6,6 +7,9 @@
         <label class="lj-campo"><span>Preço (R$)</span><input name="preco" class="campo" type="number" step="0.01" min="0.01" required value="{{ $p ? $p->preco : old('preco') }}"></label>
         <label class="lj-campo"><span>Preço antigo, riscado (opcional)</span><input name="preco_antigo" class="campo" type="number" step="0.01" min="0" value="{{ $p ? $p->preco_antigo : old('preco_antigo') }}"></label>
         <label class="lj-campo"><span>Estoque (vazio = não controlar)</span><input name="estoque" class="campo" type="number" step="1" min="0" value="{{ $p ? $p->estoque : old('estoque') }}"></label>
+        <label class="lj-campo"><span>Custo (R$, opcional: entra na margem em Negócios)</span><input name="custo" class="campo" type="number" step="0.01" min="0" value="{{ $p ? $p->custo : old('custo') }}"></label>
+        <label class="lj-campo"><span>SKU / código (opcional)</span><input name="sku" class="campo" maxlength="40" value="{{ $p ? $p->sku : old('sku') }}"></label>
+        <label class="lj-campo"><span>Categoria (opcional)</span><input name="categoria" class="campo" maxlength="60" value="{{ $p ? $p->categoria : old('categoria') }}"></label>
         <label class="lj-campo"><span>Ordem na vitrine</span><input name="ordem" class="campo" type="number" step="1" min="0" value="{{ $p ? $p->ordem : old('ordem', 0) }}"></label>
     </div>
     <label class="lj-campo"><span>Descrição</span><textarea name="descricao" class="campo" rows="2" maxlength="2000">{{ $p ? $p->descricao : old('descricao') }}</textarea></label>

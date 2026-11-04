@@ -8,6 +8,7 @@ use App\Models\LojaPedido;
 use App\Models\NegocioDado;
 use App\Models\Tarefa;
 use App\Support\Compartilhar;
+use App\Support\SaldoLoja;
 use App\Support\Sincronia;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,7 +45,10 @@ class NegociosController extends Controller
                 'abertos'   => LojaPedido::where('loja_id', $loja->id)->whereIn('status', ['aguardando', 'informado'])->count(),
                 'publicada' => $loja->publicada,
                 'nome'      => $loja->nome,
+                'url'       => route('loja.ver', $loja->slug),
             ] : null,
+            'lojaObj'       => $loja,
+            'lojaSaldo'     => SaldoLoja::resumo($request->user()->id),
             'wfVersao'      => Sincronia::versao($dados['estado'] ?? null),
             'wfSincronizar' => Compartilhar::temOutrasPessoas($donoId, self::SLUG, $request->user()->id),
         ]);

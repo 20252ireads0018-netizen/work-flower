@@ -16,7 +16,11 @@
         'cotacao' => route('carteira.cotacao'),
         'negocios' => route('areas.negocios'),
         'clientesLoja' => $modo === 'negocios' ? route('negocios.clientes.loja') : null,
+        'produtos' => $modo === 'negocios' ? route('negocios.produtos') : null,
+        'vendasLoja' => $modo === 'negocios' ? route('negocios.vendas.loja') : null,
         'nomeLoja' => $lojaResumo['nome'] ?? null,
+        // WhatsApp oficial (ZapController, feature/redes); sem rota, fica só o wa.me
+        'zapApi'  => $modo === 'negocios' && \Illuminate\Support\Facades\Route::has('zap.estado') ? url('/negocios/whatsapp') : null,
         'dados'   => (object) $dados->all(),
         'tarefas' => $tarefasJs,
     ];
@@ -181,7 +185,7 @@
     {{-- Barra de ferramentas --}}
     <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-xs texto-2" x-text="rotuloSalvo()" aria-live="polite"></p>
-        <div class="flex items-center gap-2" x-show="!['loja', 'equipe'].includes(aba)">
+        <div class="flex items-center gap-2" x-show="!semQuadro.includes(aba)">
             <button type="button" class="btn-sec" @click="reorganizar()">Reorganizar</button>
             <div class="relative" @click.outside="menuBloco = false" @keydown.escape.window="menuBloco = false">
                 <button type="button" class="btn" @click="menuBloco = !menuBloco" aria-haspopup="menu" :aria-expanded="menuBloco">+ Bloco</button>
@@ -440,11 +444,16 @@
                     <ul class="space-y-2">
                         <template x-for="n in estado.negocios" :key="n.id">
                             <li class="wf-linha cursor-pointer" :style="estado.negAtivo === n.id ? 'border-color:var(--prim)' : ''" @click="estado.negAtivo = n.id">
-                                <div class="min-w-0"><p class="font-medium truncate" x-text="n.nome"></p><p class="text-xs texto-2" x-text="formatoNome(n.formato)"></p></div>
+                                <div class="min-w-0"><p class="font-medium truncate" x-text="n.nome"></p><p class="text-xs texto-2" x-text="formatoNome(n.formato) + (n.comLoja ? ' · soma a loja' : '')"></p></div>
                                 <button type="button" class="mini-btn perigo" title="Excluir negócio" @click.stop="remNegocio(n)">✕</button>
                             </li>
                         </template>
                     </ul>
+                    {{-- pedidos pagos da loja virtual contam como vendas do negócio escolhido --}}
+                    <label class="flex items-start gap-2 text-xs texto-2" x-show="neg() && lojaVendas.length">
+                        <input type="checkbox" class="mt-0.5" :checked="neg()?.comLoja" @change="neg().comLoja = $event.target.checked">
+                        <span x-text="'Somar os ' + lojaVendas.length + ' pedidos pagos da loja às vendas de ' + (neg()?.nome || '')"></span>
+                    </label>
                     <div class="pt-3 space-y-2" style="border-top:1px solid var(--linha)">
                         <input class="campo" x-model="nv.nome" placeholder="Nome do negócio" @keydown.enter.prevent="addNegocio()">
                         <select class="campo" x-model="nv.formato"><template x-for="f in formatos" :key="f.id"><option :value="f.id" x-text="f.nome"></option></template></select>
@@ -459,7 +468,7 @@
                 <template x-if="neg()">
                     <div x-data="{ get k() { return kpisNeg(neg()) } }" class="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div class="wf-stat"><p class="text-xs texto-2">Vendas</p><p class="titulo text-lg" x-text="brl(k.vendas)"></p></div>
-                        <div class="wf-stat"><p class="text-xs texto-2">Custos</p><p class="titulo text-lg" x-text="brl(k.custos)"></p></div>
+                        <div class="wf-stat"><p class="text-xs texto-2">Custos</p><p class="titulo text-lg" x-text="brl(k.custos)"></p><p class="text-xs texto-2" x-show="k.cmv > 0" x-text="'inclui ' + brl(k.cmv) + ' de custo dos produtos'"></p></div>
                         <div class="wf-stat"><p class="text-xs texto-2">Lucro</p><p class="titulo text-lg" :style="{ color: cor(k.lucro) }" x-text="brl(k.lucro)"></p></div>
                         <div class="wf-stat"><p class="text-xs texto-2">Margem · Ticket</p><p class="font-medium" x-text="pc(k.margem) + ' · ' + brl(k.ticket)"></p></div>
                     </div>
@@ -474,6 +483,26 @@
                             <button type="button" class="chip" :class="{ 'ativo': mv.modo === 'venda' }" @click="mv.modo = 'venda'">Venda</button>
                             <button type="button" class="chip" :class="{ 'ativo': mv.modo === 'custo' }" @click="mv.modo = 'custo'">Custo</button>
                         </div>
+                        {{-- venda de um produto do catálogo (Negócios › Produtos): preço, custo e margem vêm de lá e o estoque baixa --}}
+                        <template x-if="mv.modo === 'venda' && prod.lista.length">
+                            <div class="grid gap-2 md:grid-cols-5 items-center">
+                                <select class="campo md:col-span-3" x-model="mv.produto" @change="escolherProduto()" aria-label="Produto do catálogo">
+                                    <option value="">Produto do catálogo (opcional)</option>
+                                    <template x-for="p in prod.lista" :key="p.id">
+                                        <option :value="String(p.id)" x-text="p.nome + (p.sku ? ' · ' + p.sku : '') + ' · ' + brl(p.preco) + (p.estoque !== null ? ' · ' + p.estoque + ' em estoque' : '')"></option>
+                                    </template>
+                                </select>
+                                <input type="number" min="1" step="1" class="campo" x-model="mv.qtd" @input="escolherProduto()" :disabled="!mv.produto" aria-label="Quantidade" title="Quantidade">
+                                <p class="text-xs texto-2 md:col-span-1" x-show="mv.produto" x-data="{ get pv() { return previaVenda() } }">
+                                    <span x-show="pv && pv.custo !== null" x-text="pv ? 'custo ' + brl(pv.custo) + ' · margem ' + margemTexto(pv.margem) : ''"></span>
+                                    <span x-show="pv && pv.custo === null">sem custo cadastrado</span>
+                                    <span x-show="pv && pv.falta" style="color:#ef4444" x-text="pv ? ' · só ' + pv.estoque + ' em estoque' : ''"></span>
+                                </p>
+                            </div>
+                        </template>
+                        <p class="text-xs texto-2" x-show="mv.modo === 'venda' && prod.carregado && !prod.lista.length">
+                            Cadastre seus produtos em <button type="button" class="link-prim" @click="ir('produtos')">Produtos</button> para o preço vir sozinho e o estoque baixar a cada venda.
+                        </p>
                         <div class="grid gap-2 md:grid-cols-5">
                             <input type="date" class="campo" x-model="mv.d" aria-label="Data">
                             <input class="campo md:col-span-2" x-model="mv.item" :placeholder="mv.modo === 'venda' ? 'Item vendido' : 'Descrição do custo'">
@@ -484,7 +513,7 @@
                             </template>
                         </div>
                         <div class="flex items-center gap-3">
-                            <button type="button" class="btn" @click="registrarMov()">Lançar</button>
+                            <button type="button" class="btn" @click="registrarMov()" :disabled="mvEnviando" x-text="mvEnviando ? 'Lançando…' : 'Lançar'">Lançar</button>
                             <p class="erro" x-text="mvErro"></p>
                         </div>
                     </div>
@@ -503,7 +532,8 @@
                                     <div class="min-w-0"><p class="truncate" x-text="m.desc"></p><p class="text-xs texto-2" x-text="dataBR(m.d) + ' · saldo ' + brl(m.saldo)"></p></div>
                                     <div class="flex items-center gap-2 shrink-0">
                                         <span class="font-medium" :style="{ color: m.v >= 0 ? '#4ade80' : '#f87171' }" x-text="(m.v >= 0 ? '+ ' : '− ') + brl(Math.abs(m.v))"></span>
-                                        <button type="button" class="mini-btn perigo" title="Remover" @click="remMov(neg(), m)">✕</button>
+                                        <button type="button" class="mini-btn perigo" title="Remover" x-show="!m.loja" @click="remMov(neg(), m)">✕</button>
+                                        <a class="text-xs link-prim" x-show="m.loja" href="{{ route('carteira.loja', ['aba' => 'pedidos']) }}" title="Pedido da loja: muda na página da loja">loja</a>
                                     </div>
                                 </li>
                             </template>
@@ -530,7 +560,7 @@
                                 </div>
                                 <template x-if="g.estilo === 'barras'">
                                     <div class="wf-grafico">
-                                        <template x-for="i in s.itens" :key="i.l">
+                                        <template x-for="(i, k) in s.itens" :key="k">
                                             <div class="col" :title="brl(i.v)"><div :class="{ 'neg': i.neg }" :style="`height:${i.h}%`"></div><small x-text="i.l"></small></div>
                                         </template>
                                     </div>
@@ -538,7 +568,7 @@
                                 <template x-if="g.estilo === 'linha'">
                                     <div>
                                         <svg viewBox="0 0 100 40" class="w-full h-24" preserveAspectRatio="none" aria-hidden="true"><polyline :points="s.pontos" fill="none" stroke="var(--prim)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
-                                        <div class="flex justify-between"><template x-for="i in s.itens" :key="i.l"><small class="texto-2" x-text="i.l"></small></template></div>
+                                        <div class="flex justify-between"><template x-for="(i, k) in s.itens" :key="k"><small class="texto-2" x-text="i.l"></small></template></div>
                                     </div>
                                 </template>
                                 <p class="text-xs texto-2" x-text="'Total no período: ' + brl(s.total)"></p>

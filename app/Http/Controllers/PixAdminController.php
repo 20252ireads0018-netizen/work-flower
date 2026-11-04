@@ -2,14 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\LojaPedido;
+use App\Models\LojaResgate;
 use App\Models\PixPagamento;
 use App\Support\Pix;
+use App\Support\SaldoLoja;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
-/** /admin/pix (só a conta de administração, middleware SoAdmin): chave Pix e confirmação dos pagamentos. */
+/**
+ * /admin/pix (só a conta de administração, middleware SoAdmin): chave Pix, confirmação dos pagamentos dos planos,
+ * Pix dos pedidos das mini lojas (que caem na mesma chave e viram saldo do dono) e resgates desse saldo.
+ */
 class PixAdminController extends Controller
 {
     public function index(Request $request): View
@@ -29,6 +35,12 @@ class PixAdminController extends Controller
             'status'   => $status,
             'contagem' => PixPagamento::selectRaw('status, count(*) n')->groupBy('status')->pluck('n', 'status'),
             'cfg'      => Pix::config(),
+            // pedidos das lojas pagos por Pix na chave da plataforma: primeiro os que o cliente avisou que pagou
+            'pedidosLojas' => LojaPedido::with('loja.user')->where('pagamento', 'pix')->where('pix_destino', 'plataforma')
+                ->whereIn('status', ['informado', 'aguardando'])
+                ->orderByRaw("CASE status WHEN 'informado' THEN 0 ELSE 1 END")->latest('id')->limit(60)->get(),
+            'resgates'       => LojaResgate::with('user')->where('status', 'pendente')->orderBy('prazo')->orderBy('id')->limit(100)->get(),
+            'resgatesFeitos' => LojaResgate::with('user')->where('status', '!=', 'pendente')->latest('updated_at')->limit(10)->get(),
         ]);
     }
 
@@ -67,6 +79,43 @@ class PixAdminController extends Controller
         }
 
         return back()->with('ok', "Plano liberado para {$pix->user?->name} até " . $ate->format('d/m/Y') . '.');
+    }
+
+    /** Achou o Pix de um pedido de loja no extrato: o pedido fica pago e o valor entra no saldo do dono da loja. */
+    public function confirmarPedidoLoja(LojaPedido $pedido): RedirectResponse
+    {
+        if (! SaldoLoja::confirmarPedido($pedido)) {
+            return back()->with('ok', 'Este pedido já foi tratado.');
+        }
+
+        return back()->with('ok', 'Pedido ' . $pedido->codigo . ' confirmado: R$ ' . number_format((float) $pedido->total, 2, ',', '.')
+            . ' no saldo de ' . ($pedido->loja?->nome ?? 'loja') . '.');
+    }
+
+    /** Não achou o Pix: o pedido volta para "aguardando" com o motivo, que o dono da loja vê. */
+    public function recusarPedidoLoja(Request $request, LojaPedido $pedido): RedirectResponse
+    {
+        if (! $pedido->pixDaPlataforma() || $pedido->status !== 'informado') {
+            return back()->with('ok', 'Este pedido já foi tratado.');
+        }
+        $pedido->forceFill(['status' => 'aguardando', 'informado_em' => null,
+            'admin_obs' => mb_substr(trim((string) $request->input('observacao', '')), 0, 300) ?: 'Pix não encontrado no extrato.'])->save();
+
+        return back()->with('ok', 'Pedido ' . $pedido->codigo . ' voltou para aguardando pagamento.');
+    }
+
+    public function pagarResgate(LojaResgate $resgate): RedirectResponse
+    {
+        return back()->with('ok', SaldoLoja::pagarResgate($resgate)
+            ? 'Resgate #' . $resgate->id . ' marcado como pago.'
+            : 'Este resgate já foi tratado.');
+    }
+
+    public function recusarResgate(Request $request, LojaResgate $resgate): RedirectResponse
+    {
+        return back()->with('ok', SaldoLoja::recusarResgate($resgate, trim((string) $request->input('observacao', '')) ?: null)
+            ? 'Resgate #' . $resgate->id . ' recusado: o valor voltou para o saldo da pessoa.'
+            : 'Este resgate já foi tratado.');
     }
 
     public function recusar(Request $request, PixPagamento $pix): RedirectResponse

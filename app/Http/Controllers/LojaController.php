@@ -7,7 +7,10 @@ use App\Models\LojaCupom;
 use App\Models\LojaPedido;
 use App\Models\LojaProduto;
 use App\Support\MercadoPago;
+use App\Models\LojaResgate;
+use App\Models\LojaSaldoMovimento;
 use App\Support\Pix;
+use App\Support\SaldoLoja;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -31,8 +34,16 @@ class LojaController extends Controller
         $loja = $this->loja($request);
         $aba = in_array($request->query('aba'), self::ABAS, true) ? $request->query('aba') : ($loja ? 'pedidos' : 'aparencia');
         $status = is_string($s = $request->query('status')) && isset(LojaPedido::STATUS[$s]) ? $s : null;
+        $uid = $request->user()->id;
+        $antiga = $loja ? null : Loja::onlyTrashed()->where('user_id', $uid)->first();
 
         return view('areas.carteira.loja', [
+            'saldo'       => SaldoLoja::resumo($uid),
+            'movimentos'  => $aba === 'pix' || ! $loja ? LojaSaldoMovimento::where('user_id', $uid)->latest('id')->limit(50)->get() : collect(),
+            'resgates'    => $aba === 'pix' || ! $loja ? LojaResgate::where('user_id', $uid)->latest('id')->limit(20)->get() : collect(),
+            'chaveResgate' => $loja ?? $antiga,
+            'antiga'      => $antiga,
+            'pixPlataforma' => Pix::pronto(),
             'loja'     => $loja,
             'aba'      => $aba,
             'status'   => $status,
@@ -47,7 +58,8 @@ class LojaController extends Controller
     /** Nome, endereço, textos e aparência (cria a loja na primeira vez). */
     public function salvar(Request $request): RedirectResponse
     {
-        $loja = $this->loja($request);
+        // loja excluída antes: volta com o mesmo histórico (pedidos, produtos e saldo)
+        $loja = $this->loja($request) ?? Loja::onlyTrashed()->where('user_id', $request->user()->id)->first();
         $d = $request->validate([
             'nome'      => ['required', 'string', 'max:80'],
             'slug'      => ['required', 'string', 'min:3', 'max:40', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', Rule::notIn(Loja::RESERVADOS),
@@ -93,7 +105,13 @@ class LojaController extends Controller
             'sobre'     => trim((string) ($d['sobre'] ?? '')) ?: null,
             'publicada' => $request->boolean('publicada'),
         ]);
+        $nova = ! $loja->exists || $loja->trashed();
+        if ($loja->trashed()) $loja->deleted_at = null;
         $loja->save(); // precisa do id para a pasta das imagens
+        if ($nova) {
+            // produtos do catálogo de Negócios entram na loja nova (aparecem os marcados "Mostrar na loja")
+            LojaProduto::where('user_id', $loja->user_id)->whereNull('loja_id')->update(['loja_id' => $loja->id]);
+        }
 
         foreach (['logo', 'banner'] as $k) {
             if ($request->boolean('tirar_' . $k) && ! empty($visual[$k])) {
@@ -113,16 +131,83 @@ class LojaController extends Controller
         return redirect()->route('carteira.loja', ['aba' => 'aparencia'])->with('ok', 'Loja salva.' . ($loja->publicada ? '' : ' Ela ainda não está publicada: marque "Loja aberta ao público" quando quiser mostrar.'));
     }
 
-    /** Chave Pix que recebe os pagamentos da loja (o dinheiro vai direto para a pessoa). */
+    /**
+     * Chave Pix do dono para receber os RESGATES do saldo. Os clientes pagam na chave da plataforma (SaldoLoja);
+     * esta chave só é usada quando o dono resgata (e nos pedidos antigos, feitos antes da mudança).
+     */
     public function pix(Request $request): RedirectResponse
     {
         $loja = $this->loja($request);
         abort_unless($loja, 404);
+        $d = $this->validarChave($request);
+        if (! is_array($d)) return $d;
+        $loja->forceFill(['pix_tipo' => $d['tipo'], 'pix_chave' => $d['chave'], 'pix_nome' => $d['nome'], 'pix_cidade' => $d['cidade']])->save();
+
+        return redirect()->route('carteira.loja', ['aba' => 'pix'])->with('ok', 'Chave para resgates salva.');
+    }
+
+    /** "Resgatar": tira do saldo e pede o Pix para a chave do dono, pago pela plataforma em até 7 dias úteis. */
+    public function resgatar(Request $request): RedirectResponse
+    {
+        $loja = Loja::withTrashed()->where('user_id', $request->user()->id)->first();
+        abort_unless($loja, 404);
+        $request->validate(['valor' => ['required', 'numeric', 'min:' . SaldoLoja::RESGATE_MINIMO, 'max:9999999']], [], ['valor' => 'valor do resgate']);
+        $d = $this->validarChave($request);
+        if (! is_array($d)) return $d;
+        // a chave usada fica guardada para os próximos resgates
+        $loja->forceFill(['pix_tipo' => $d['tipo'], 'pix_chave' => $d['chave'], 'pix_nome' => $d['nome'], 'pix_cidade' => $d['cidade']])->save();
+
+        $r = SaldoLoja::pedirResgate($request->user()->id, (float) $request->input('valor'), $d);
+        if (is_string($r)) return back()->withErrors(['valor' => $r])->withInput();
+
+        return redirect()->route('carteira.loja', ['aba' => 'pix'])->with('ok', 'Resgate de R$ ' . number_format((float) $r->valor, 2, ',', '.')
+            . ' pedido. O Pix cai na sua chave até ' . $r->prazo->format('d/m/Y') . ' (7 dias úteis).');
+    }
+
+    /**
+     * Excluir a loja: a pessoa digita o nome da loja para confirmar. A página pública sai do ar, o endereço fica livre,
+     * cupons, Mercado Pago, logo e banner são apagados. Pedidos, produtos (que continuam no catálogo de Negócios)
+     * e o saldo ficam guardados; criar a loja de novo reaproveita o histórico.
+     */
+    public function excluir(Request $request): RedirectResponse
+    {
+        $loja = $this->loja($request);
+        abort_unless($loja, 404);
+        $request->validate(['confirmar_nome' => ['required', 'string', 'max:80']], [], ['confirmar_nome' => 'nome da loja']);
+        if (mb_strtolower(trim($request->input('confirmar_nome'))) !== mb_strtolower(trim($loja->nome))) {
+            return back()->withErrors(['confirmar_nome' => 'Digite o nome da loja exatamente como está: ' . $loja->nome])->withInput();
+        }
+        $abertos = $loja->pedidos()->whereIn('status', ['aguardando', 'informado'])->count();
+        if ($abertos) {
+            return back()->withErrors(['confirmar_nome' => "A loja tem {$abertos} " . ($abertos === 1 ? 'pedido' : 'pedidos') . ' esperando pagamento. Cancele ou conclua antes de excluir: o cliente perde o link do pedido quando a loja sai do ar.'])->withInput();
+        }
+
+        DB::transaction(function () use ($loja) {
+            $v = $loja->visual();
+            foreach (['logo', 'banner'] as $k) {
+                if (! empty($v[$k])) $this->apagarImagem($loja, $v[$k]);
+            }
+            $loja->cupons()->delete();
+            $visual = is_array($loja->visual) ? $loja->visual : [];
+            unset($visual['logo'], $visual['banner']);
+            $loja->forceFill([
+                'publicada' => false, 'mp_token' => null, 'mp_conta' => null, 'visual' => $visual,
+                'slug' => 'x-' . $loja->id . '-' . strtolower(Str::random(8)), // libera o endereço para outra loja
+            ])->save();
+            $loja->delete();
+        });
+
+        return redirect()->route('areas.negocios')->with('ok', 'Loja "' . $loja->nome . '" excluída. Os pedidos e o saldo ficam guardados; os produtos continuam em Negócios › Produtos.');
+    }
+
+    /** @return array|RedirectResponse */
+    private function validarChave(Request $request)
+    {
         $d = $request->validate([
             'tipo'   => ['required', Rule::in(array_keys(Pix::TIPOS))],
             'chave'  => ['required', 'string', 'max:77'],
             'nome'   => ['required', 'string', 'max:60'],
-            'cidade' => ['required', 'string', 'max:40'],
+            'cidade' => ['nullable', 'string', 'max:40'],
         ], [], ['chave' => 'chave Pix', 'nome' => 'nome do titular']);
         $d['chave'] = Pix::normalizarChave($d['tipo'], $d['chave']);
         if ($erro = Pix::erroChave($d['tipo'], $d['chave'])) {
@@ -131,9 +216,10 @@ class LojaController extends Controller
         if (! preg_match('/[A-Za-z0-9]/', Str::ascii($d['nome']))) {
             return back()->withErrors(['nome' => 'Use o nome do titular com letras.'])->withInput();
         }
-        $loja->forceFill(['pix_tipo' => $d['tipo'], 'pix_chave' => $d['chave'], 'pix_nome' => trim($d['nome']), 'pix_cidade' => trim($d['cidade'])])->save();
+        $d['nome'] = trim($d['nome']);
+        $d['cidade'] = trim((string) ($d['cidade'] ?? ''));
 
-        return redirect()->route('carteira.loja', ['aba' => 'pix'])->with('ok', 'Chave Pix salva. Os próximos pedidos já usam estes dados.');
+        return $d;
     }
 
     public function salvarProduto(Request $request, ?LojaProduto $produto = null): RedirectResponse
@@ -158,10 +244,19 @@ class LojaController extends Controller
             'ativo'        => ['nullable', 'boolean'],
             'imagem'       => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:' . self::MAX_IMG_KB],
             'tirar_imagem' => ['nullable', 'boolean'],
+            'sku'          => ['nullable', 'string', 'max:40'],
+            'custo'        => ['nullable', 'numeric', 'min:0', 'max:999999'],
+            'categoria'    => ['nullable', 'string', 'max:60'],
         ], [], ['preco' => 'preço', 'preco_antigo' => 'preço antigo']);
 
         $produto ??= new LojaProduto(['loja_id' => $loja->id]);
         $produto->loja_id = $loja->id;
+        $produto->user_id = $loja->user_id;
+        // campos do catálogo (Negócios › Produtos): só mudam se vierem no formulário
+        foreach (['sku', 'categoria'] as $k) {
+            if ($request->has($k)) $produto->{$k} = trim((string) ($d[$k] ?? '')) ?: null;
+        }
+        if ($request->has('custo')) $produto->custo = $request->filled('custo') ? round((float) $d['custo'], 2) : null;
         $antigo = isset($d['preco_antigo']) && (float) $d['preco_antigo'] > (float) $d['preco'] ? round((float) $d['preco_antigo'], 2) : null;
         $produto->fill([
             'nome'         => trim($d['nome']),
@@ -205,6 +300,19 @@ class LojaController extends Controller
         $loja = $this->loja($request);
         abort_unless($loja && $pedido->loja_id === $loja->id, 404);
         $d = $request->validate(['status' => ['required', Rule::in(['pago', 'enviado', 'cancelado', 'aguardando'])]]);
+        // Pix na chave da plataforma: só a administração confirma (é ela que vê o extrato) e o valor vira saldo
+        if ($pedido->pixDaPlataforma()) {
+            $pagoJa = in_array($pedido->status, ['pago', 'enviado'], true);
+            if ($d['status'] === 'pago' && ! $pagoJa) {
+                return back()->withErrors(['status' => 'Este Pix caiu na conta do Work Flower: a confirmação é feita pela plataforma, normalmente no mesmo dia útil. Quando confirmar, o pedido aparece como pago e o valor entra no seu saldo.']);
+            }
+            if ($d['status'] === 'enviado' && ! $pagoJa) {
+                return back()->withErrors(['status' => 'Espere o pagamento ser confirmado antes de marcar como enviado.']);
+            }
+            if ($d['status'] === 'cancelado' && $pagoJa) {
+                return back()->withErrors(['status' => 'Este pedido já foi pago e o valor entrou no seu saldo. Para devolver o dinheiro ao cliente, fale com o suporte do Work Flower.']);
+            }
+        }
 
         DB::transaction(function () use ($pedido, $d) {
             $p = LojaPedido::whereKey($pedido->id)->lockForUpdate()->first();
@@ -325,7 +433,7 @@ class LojaController extends Controller
             $base .= '-loja';
         }
         $slug = $base;
-        for ($i = 2; Loja::where('slug', $slug)->exists() || in_array($slug, Loja::RESERVADOS, true); $i++) {
+        for ($i = 2; Loja::withTrashed()->where('slug', $slug)->exists() || in_array($slug, Loja::RESERVADOS, true); $i++) {
             $slug = $base . '-' . $i;
         }
 

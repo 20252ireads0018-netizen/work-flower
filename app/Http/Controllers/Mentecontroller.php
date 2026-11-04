@@ -9,7 +9,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use App\Support\Armazenamento\Arquivos;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Persistência da área Mente.
@@ -63,10 +64,16 @@ class MenteController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    public function pdf(Request $request, string $id): BinaryFileResponse
+    public function pdf(Request $request, string $id): Response
     {
         $caminho = $this->pasta($request) . '/' . $id . '.pdf';
-        abort_unless(Storage::disk('local')->exists($caminho), 404);
+        if (! Storage::disk('local')->exists($caminho)) {
+            // PDF levado para o armazenamento da conta (Configurações › Armazenamento)
+            $movido = Arquivos::pdfMovido(Compartilhar::dono($request, 'mente'), $id);
+            abort_unless($movido && $movido->destino, 404);
+
+            return ArmazenamentoController::entregar($movido);
+        }
 
         return response()->file(Storage::disk('local')->path($caminho), [
             'Content-Type'        => 'application/pdf',
@@ -78,6 +85,7 @@ class MenteController extends Controller
     public function removerPdf(Request $request, string $id): JsonResponse
     {
         Storage::disk('local')->delete($this->pasta($request) . '/' . $id . '.pdf');
+        Arquivos::esquecerPdf(Compartilhar::dono($request, 'mente'), $id);
 
         return response()->json(['ok' => true]);
     }

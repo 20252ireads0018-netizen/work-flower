@@ -40,6 +40,16 @@ return [
     // métricas do cartão Criador de conteúdo (YouTube Data API v3; chave em console.cloud.google.com)
     'youtube' => ['key' => env('YOUTUBE_API_KEY')],
 
+    // Gmail pelo login do Google (Negócios › E-mails). Vazio = desligado; o Gmail entra por IMAP com senha de app.
+    'google' => [
+        'client_id'     => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect'      => env('GOOGLE_REDIRECT_URI'),
+    ],
+    // App da Meta (Instagram Graph API pelo Login do Facebook e assinatura do webhook do WhatsApp) e app do TikTok
+    'meta'   => ['id' => env('META_APP_ID'), 'secret' => env('META_APP_SECRET'), 'versao' => env('META_GRAPH_VERSION', 'v21.0')],
+    'tiktok' => ['key' => env('TIKTOK_CLIENT_KEY'), 'secret' => env('TIKTOK_CLIENT_SECRET')],
+
     'adsense' => [
         'client' => env('ADSENSE_CLIENT'),
     ],

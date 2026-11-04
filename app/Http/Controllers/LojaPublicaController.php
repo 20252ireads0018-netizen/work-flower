@@ -20,7 +20,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Página pública de uma mini loja (/loja/{slug}): vitrine, carrinho, entrega, cupom, pedido e pagamento
- * (Pix na chave do dono ou cartão no Mercado Pago do dono).
+ * (Pix na chave da plataforma, que vira saldo do dono, ou cartão no Mercado Pago do dono).
  * Os preços e o estoque são sempre conferidos aqui no servidor (o carrinho do navegador só diz o que e quanto).
  */
 class LojaPublicaController extends Controller
@@ -126,10 +126,19 @@ class LojaPublicaController extends Controller
                 'status'           => 'aguardando',
             ]);
             $pedido->loja_id = $loja->id;
+            $pedido->pix_destino = 'plataforma';
             $pedido->save();
 
             return $pedido;
         });
+        \App\Support\Discord::avisar((int) $loja->user_id, 'pedido', '🛍️ Pedido novo na loja ' . $loja->nome,
+            collect($pedido->itens)->map(fn ($i) => $i['qtd'] . '× ' . $i['nome'])->implode("\n"), route('carteira.loja'), [
+                'Cliente'   => $pedido->cliente_nome,
+                'Total'     => 'R$ ' . number_format((float) $pedido->total, 2, ',', '.'),
+                'Pagamento' => $pedido->pagamento === 'mp' ? 'Mercado Pago' : 'Pix',
+                'Entrega'   => $pedido->frete_nome,
+                'Código'    => $pedido->codigo,
+            ]);
 
         if ($pagamento === 'mp') {
             if ($url = MercadoPago::checkout($loja, $pedido)) return redirect()->away($url);
@@ -191,11 +200,18 @@ class LojaPublicaController extends Controller
             elseif (in_array($st, ['rejected', 'cancelled'], true)) session()->now('ok', 'O Mercado Pago não aprovou o pagamento. Você pode tentar de novo.');
         }
 
+        // pedido antigo (Pix na chave do dono) cuja chave foi apagada: passa a ser pago na chave da plataforma
+        if ($pedido->aberto() && $pedido->pagamento === 'pix' && $pedido->pix_destino === 'loja' && ! $loja->chavePropriaPronta()) {
+            $pedido->forceFill(['pix_destino' => 'plataforma'])->save();
+        }
+        $pix = $loja->pixConfig($pedido);
+
         return view('loja.pedido', [
-            'loja'   => $loja,
-            'v'      => $loja->visual(),
-            'pedido' => $pedido,
-            'codigo' => $pedido->aberto() && $loja->pixPronto() ? Pix::copiaECola((float) $pedido->total, $pedido->codigo, $loja->pixConfig()) : null,
+            'loja'    => $loja,
+            'v'       => $loja->visual(),
+            'pedido'  => $pedido,
+            'pixNome' => $pix['nome'],
+            'codigo'  => $pedido->aberto() && $pix['chave'] !== '' && $pix['nome'] !== '' ? Pix::copiaECola((float) $pedido->total, $pedido->codigo, $pix) : null,
         ]);
     }
 
@@ -204,10 +220,11 @@ class LojaPublicaController extends Controller
         $loja = $this->loja($request, $slug);
         $pedido = LojaPedido::where('loja_id', $loja->id)->where('codigo', $codigo)->firstOrFail();
         if ($pedido->status === 'aguardando') {
-            $pedido->forceFill(['status' => 'informado', 'informado_em' => now()])->save();
+            // "Já paguei" fica no quadro do Pix: mesmo quem escolheu cartão e acabou pagando por Pix vai para a conferência
+            $pedido->forceFill(['status' => 'informado', 'informado_em' => now(), 'pagamento' => 'pix'])->save();
         }
 
-        return redirect()->route('loja.pedido', [$loja->slug, $pedido->codigo])->with('ok', 'Obrigado! A loja vai conferir o pagamento e falar com você.');
+        return redirect()->route('loja.pedido', [$loja->slug, $pedido->codigo])->with('ok', $pedido->pixDaPlataforma() ? 'Obrigado! O pagamento é conferido pela plataforma Work Flower (normalmente no mesmo dia útil) e a loja é avisada.' : 'Obrigado! A loja vai conferir o pagamento e falar com você.');
     }
 
     /** Logo, banner e fotos dos produtos (só arquivos desta loja, com nome no formato que a própria loja gerou). */
@@ -216,7 +233,11 @@ class LojaPublicaController extends Controller
         abort_unless(preg_match('/^[A-Za-z0-9]{24}\.(jpg|png|webp)$/', $arquivo, $m), 404);
         $loja = Loja::where('slug', $slug)->firstOrFail();
         $caminho = 'lojas/' . $loja->id . '/' . $arquivo;
-        abort_unless(Storage::disk('local')->exists($caminho), 404);
+        if (! Storage::disk('local')->exists($caminho)) {
+            // foto de produto cadastrado em Negócios › Produtos antes de a loja existir (fica na pasta do dono)
+            $caminho = 'produtos/' . $loja->user_id . '/' . $arquivo;
+            abort_unless(Storage::disk('local')->exists($caminho) && LojaProduto::where('loja_id', $loja->id)->where('imagem', $arquivo)->exists(), 404);
+        }
 
         return response()->file(Storage::disk('local')->path($caminho), [
             'Content-Type'  => ['jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp'][$m[1]],

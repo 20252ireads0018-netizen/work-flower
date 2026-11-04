@@ -18,11 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'subscribed' => \App\Http\Middleware\EnsureActiveSubscription::class,
+            // throttle:N,M com um contador por rota (o padrão do Laravel dividia um só entre todas as rotas)
+            'throttle'   => \App\Http\Middleware\LimitePorRota::class,
         ]);
 
         // cabeçalhos de segurança e cookie de sessão "Secure" em HTTPS (antes do StartSession)
         $middleware->prepend(\App\Http\Middleware\CabecalhosSeguranca::class);
-
+
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -24,18 +24,23 @@
     .lj-foto { width: 4rem; height: 4rem; border-radius: .5rem; object-fit: cover; background: var(--superficie-2); border: 1px solid var(--linha); flex-shrink: 0; }
     .lj-st { font-size: .72rem; padding: .1rem .5rem; border-radius: 9999px; border: 1px solid var(--linha); white-space: nowrap; }
     .lj-st.aguardando { color: #fbbf24; } .lj-st.informado { color: #38bdf8; } .lj-st.pago { color: #4ade80; } .lj-st.enviado { color: #a78bfa; } .lj-st.cancelado { color: var(--tinta-2); }
+    .lj-saldo { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
     .lj-cor { width: 2.5rem; height: 2rem; padding: 0; border: 1px solid var(--linha); border-radius: .4rem; background: none; cursor: pointer; }
 </style>
 
-<div class="space-y-4">
+<div class="space-y-4" style="max-width:76rem">
     <div class="flex flex-wrap items-center gap-2">
         <a class="btn-sec !py-1.5 !px-3 text-sm" href="{{ route('areas.negocios') }}">← Negócios</a>
         @if ($loja)
             <a class="btn !py-1.5 !px-3 text-sm" href="{{ route('loja.ver', $loja->slug) }}" target="_blank" rel="noopener">{{ $loja->publicada ? 'Ver a loja' : 'Ver prévia' }} ↗</a>
             <span class="lj-st {{ $loja->publicada ? 'pago' : 'aguardando' }}">{{ $loja->publicada ? 'Aberta ao público' : 'Fechada (só você vê)' }}</span>
             <span class="text-xs texto-2 break-all">{{ route('loja.ver', $loja->slug) }}</span>
+            <span class="flex flex-wrap gap-2 ml-auto">
+                <a class="btn-sec !py-1.5 !px-3 text-sm" href="{{ route('carteira.loja', ['aba' => 'aparencia']) }}">Editar loja</a>
+                @include('areas.carteira.partials.loja-excluir', ['loja' => $loja, 'abertos' => ($contagem['aguardando'] ?? 0) + ($contagem['informado'] ?? 0)])
+            </span>
             @if (! $loja->recebePedidos())
-                <a href="{{ route('carteira.loja', ['aba' => 'pix']) }}" class="lj-st aguardando">Falta a forma de pagamento (Pix ou Mercado Pago): sem ela a loja não recebe pedidos</a>
+                <a href="{{ route('carteira.loja', ['aba' => 'pix']) }}" class="lj-st aguardando basis-full sm:basis-auto">A loja ainda não recebe pedidos: o Pix da plataforma não foi configurado. Conecte o Mercado Pago na aba Pagamento para vender agora.</a>
             @endif
         @endif
     </div>
@@ -97,10 +102,19 @@
                     </p>
                 @endif
                 @if ($p->pagamento === 'mp') <p class="text-xs texto-2">Pagamento por Mercado Pago{{ $p->mp_pagamento ? ' (aprovado, nº ' . $p->mp_pagamento . ')' : ': aguardando o cliente concluir' }}.</p> @endif
-                @if ($p->informado_em) <p class="text-xs texto-2">O cliente avisou que pagou em {{ $p->informado_em->tz('America/Sao_Paulo')->format('d/m H:i') }}. Confira no extrato do banco.</p> @endif
+                @php $plataforma = $p->pixDaPlataforma(); $pagoJa = in_array($p->status, ['pago', 'enviado'], true); @endphp
+                @if ($plataforma)
+                    @if ($p->informado_em) <p class="text-xs texto-2">O cliente avisou que pagou em {{ $p->informado_em->tz('America/Sao_Paulo')->format('d/m H:i') }}. O Pix caiu na conta do Work Flower: a plataforma confere e confirma, e o valor entra no seu saldo.</p> @endif
+                    @if ($p->confirmado_em) <p class="text-xs texto-2">Pix confirmado pela plataforma em {{ $p->confirmado_em->tz('America/Sao_Paulo')->format('d/m H:i') }}: {{ $brl($p->total) }} no seu saldo.</p> @endif
+                    @if ($p->admin_obs && $p->status === 'aguardando') <p class="text-xs" style="color:#fbbf24">Plataforma: {{ $p->admin_obs }}</p> @endif
+                @elseif ($p->informado_em)
+                    <p class="text-xs texto-2">O cliente avisou que pagou em {{ $p->informado_em->tz('America/Sao_Paulo')->format('d/m H:i') }}. Confira no extrato do banco.</p>
+                @endif
                 <div class="flex flex-wrap gap-2">
                     @foreach (['pago' => 'Marcar como pago', 'enviado' => 'Marcar como enviado', 'cancelado' => 'Cancelar pedido', 'aguardando' => 'Voltar para aguardando'] as $st => $rot)
                         @continue($p->status === $st || ($st === 'aguardando' && $p->status !== 'cancelado'))
+                        {{-- Pix na chave da plataforma: quem confirma é a plataforma; pago não se cancela por aqui --}}
+                        @continue($plataforma && (($st === 'pago') || ($st === 'enviado' && ! $pagoJa) || ($st === 'cancelado' && $pagoJa)))
                         <form method="POST" action="{{ route('carteira.loja.pedidos.status', $p) }}" @if ($st === 'cancelado') onsubmit="return confirm('Cancelar este pedido? O estoque dos produtos volta.')" @endif>
                             @csrf
                             <input type="hidden" name="status" value="{{ $st }}">
@@ -110,7 +124,13 @@
                 </div>
             </article>
         @empty
-            <p class="texto-2 text-sm">Nenhum pedido por aqui ainda. Divulgue o endereço da loja para começar a vender.</p>
+            <p class="texto-2 text-sm">
+                @if ($status) Nenhum pedido com a situação “{{ LojaPedido::STATUS[$status] }}”. <a class="underline" href="{{ route('carteira.loja', ['aba' => 'pedidos']) }}">Ver todos</a>.
+                @elseif ($produtos->isEmpty()) Nenhum pedido ainda. Comece cadastrando produtos na aba <a class="underline" href="{{ route('carteira.loja', ['aba' => 'produtos']) }}">Produtos</a>{{ $loja->publicada ? '' : ' e abra a loja ao público em Aparência' }}.
+                @elseif (! $loja->publicada) Nenhum pedido ainda. A loja está fechada: marque “Loja aberta ao público” em <a class="underline" href="{{ route('carteira.loja', ['aba' => 'aparencia']) }}">Aparência</a> e divulgue o endereço.
+                @else Nenhum pedido ainda. Divulgue o endereço da loja ({{ route('loja.ver', $loja->slug) }}) no WhatsApp e no Instagram para começar a vender.
+                @endif
+            </p>
         @endforelse
         {{ $pedidos->links() }}
     @endif
@@ -139,7 +159,7 @@
                     <span class="text-xs texto-2">Editar</span>
                 </summary>
                 @include('areas.carteira.partials.loja-produto', ['p' => $p, 'img' => $img])
-                <form method="POST" action="{{ route('carteira.loja.produtos.remover', $p) }}" class="mt-2" onsubmit="return confirm('Remover este produto da loja?')">
+                <form method="POST" action="{{ route('carteira.loja.produtos.remover', $p) }}" class="mt-2" onsubmit="return confirm('Apagar este produto? Ele sai da loja e do catálogo de Negócios › Produtos. Para só esconder da loja, desmarque “Aparece na loja”.')">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="text-xs underline" style="color:#ef4444">Remover produto</button>
@@ -210,13 +230,19 @@
         @unless ($loja)
             <div class="card p-4 text-sm space-y-1">
                 <p class="font-semibold">Monte sua loja virtual</p>
-                <p class="texto-2">Escolha o nome e o endereço, cadastre os produtos e a chave Pix. Os clientes pagam direto na sua conta e os pedidos aparecem aqui.</p>
+                <p class="texto-2">Escolha o nome e o endereço e cadastre os produtos. Os clientes pagam por Pix na conta da plataforma (o valor vira seu saldo, que você resgata para a sua chave) ou com cartão no seu Mercado Pago. Os pedidos aparecem aqui.</p>
+                @if ($antiga)
+                    <p>Você já teve a loja “{{ $antiga->nome }}”. Criar de novo traz de volta os pedidos e os produtos dela.</p>
+                @endif
             </div>
+            @if ($saldo['disponivel'] > 0 || $saldo['em_resgate'] > 0 || $resgates->isNotEmpty())
+                @include('areas.carteira.partials.loja-saldo')
+            @endif
         @endunless
         <form method="POST" action="{{ route('carteira.loja.salvar') }}" enctype="multipart/form-data" class="card p-4 space-y-4">
             @csrf
             <div class="lj-grade">
-                <label class="lj-campo"><span>Nome da loja</span><input name="nome" class="campo" maxlength="80" required value="{{ old('nome', $loja->nome ?? auth()->user()->name) }}"></label>
+                <label class="lj-campo"><span>Nome da loja</span><input name="nome" class="campo" maxlength="80" required value="{{ old('nome', $loja->nome ?? $antiga?->nome ?? auth()->user()->name) }}"></label>
                 <label class="lj-campo"><span>Endereço: {{ url('/loja') }}/…</span><input name="slug" class="campo" maxlength="40" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="{{ old('slug', $loja->slug ?? $sugestao) }}" title="Letras minúsculas, números e hífen"></label>
                 <label class="lj-campo"><span>Frase do topo</span><input name="chamada" class="campo" maxlength="160" value="{{ old('chamada', $loja->chamada ?? '') }}" placeholder="Ex.: Doces caseiros feitos na hora"></label>
                 <label class="lj-campo"><span>Texto do botão de compra</span><input name="botao" class="campo" maxlength="20" value="{{ old('botao', $v['botao'] ?? 'Comprar') }}"></label>
@@ -264,17 +290,7 @@
 
     {{-- ===================== Pix ===================== --}}
     @if ($loja && $aba === 'pix')
-        <form method="POST" action="{{ route('carteira.loja.pix') }}" class="card p-4 grid sm:grid-cols-2 gap-3">
-            @csrf
-            <p class="sm:col-span-2 text-sm texto-2"><b>Pix na sua chave</b> (sem taxa): os clientes pagam por Pix direto nesta chave: o dinheiro vai para a sua conta, sem passar pelo Work Flower. Confira os pagamentos no extrato do seu banco e marque o pedido como pago.</p>
-            <label class="lj-campo"><span>Tipo de chave</span>
-                <select name="tipo" class="campo">@foreach (Pix::TIPOS as $k => $n)<option value="{{ $k }}" @selected(old('tipo', $loja->pix_tipo) === $k)>{{ $n }}</option>@endforeach</select>
-            </label>
-            <label class="lj-campo"><span>Chave</span><input name="chave" class="campo" maxlength="77" required autocomplete="off" value="{{ old('chave', $loja->pix_chave) }}"></label>
-            <label class="lj-campo"><span>Nome do titular (aparece no app do banco)</span><input name="nome" class="campo" maxlength="60" required value="{{ old('nome', $loja->pix_nome) }}"></label>
-            <label class="lj-campo"><span>Cidade</span><input name="cidade" class="campo" maxlength="40" required value="{{ old('cidade', $loja->pix_cidade) }}"></label>
-            <div class="sm:col-span-2"><button type="submit" class="btn">Salvar chave Pix</button></div>
-        </form>
+        @include('areas.carteira.partials.loja-saldo')
 
         <section class="card p-4 space-y-3">
             <div class="flex flex-wrap items-center gap-2">

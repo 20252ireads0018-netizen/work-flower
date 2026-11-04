@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Tarefa;
 use App\Support\Compartilhar;
+use App\Support\Discord;
 use App\Support\Equipe;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,12 +48,18 @@ class TarefaController extends Controller
         }
 
         $antes = $tarefa->status;
+        $antesResp = $tarefa->responsavel_id;
         $tarefa->update($dados);
+        $quem = $request->user()->name;
 
         if (isset($dados['status']) && $dados['status'] !== $antes) {
             Equipe::registrar($dono, (string) $tarefa->area, $eu, 'moveu "' . mb_substr($tarefa->titulo, 0, 80) . '" para ' . Tarefa::STATUS[$dados['status']], 'Tarefas');
+            Discord::avisarTarefa('tarefa_movida', $tarefa, $quem, '➡️ Tarefa movida para ' . Tarefa::STATUS[$dados['status']]);
         } elseif (array_key_exists('responsavel_id', $dados) && $tarefa->responsavel_id) {
             Equipe::registrar($dono, (string) $tarefa->area, $eu, 'delegou "' . mb_substr($tarefa->titulo, 0, 80) . '" a ' . ($tarefa->responsavel?->name ?? 'alguém'), 'Tarefas');
+        }
+        if (array_key_exists('responsavel_id', $dados) && $tarefa->responsavel_id && $tarefa->responsavel_id !== $antesResp) {
+            Discord::avisarTarefa('tarefa_delegada', $tarefa, $quem, '👤 Tarefa delegada a ' . ($tarefa->responsavel?->name ?? 'alguém'));
         }
 
         return back()->with('ok', 'Tarefa atualizada.');

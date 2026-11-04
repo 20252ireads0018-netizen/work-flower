@@ -88,7 +88,8 @@ class MercadoPago
         $status = (string) $r->json('status');
         $valorOk = round((float) $r->json('transaction_amount'), 2) >= round((float) $pedido->total, 2);
         if ($status === 'approved' && $valorOk && $pedido->aberto()) {
-            $pedido->forceFill(['status' => 'pago', 'pagamento' => 'mp', 'mp_pagamento' => $pagamentoId])->save();
+            $pedido->forceFill(['status' => 'pago', 'pagamento' => 'mp', 'mp_pagamento' => $pagamentoId, 'confirmado_em' => now()])->save();
+            SaldoLoja::registrarMp($pedido); // só histórico: o dinheiro do cartão já caiu no Mercado Pago do dono
         }
 
         return $status;

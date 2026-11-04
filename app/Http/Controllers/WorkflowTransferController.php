@@ -28,7 +28,7 @@ use Illuminate\Validation\ValidationException;
  */
 class WorkflowTransferController extends Controller
 {
-    private const AREAS = [
+    public const AREAS = [
         'corpo'    => 'Corpo',
         'mente'    => 'Mente',
         'carteira' => 'Carteira',
@@ -89,13 +89,30 @@ class WorkflowTransferController extends Controller
 
         $uid     = $request->user()->id;
         $pedidas = array_unique($dados['ids']);
-        $saida   = [];
-        $avisos  = [];
 
         // Limites do plano (antes de qualquer leitura pesada)
         $slugPlano = Planos::slugDe($request->user());
         Planos::exigir($slugPlano, 'workflows', count($pedidas), 'exportar');
         Planos::exigir($slugPlano, 'elementos', $this->elementosDasAreas($pedidas, $uid), 'exportar');
+
+        ['workflows' => $saida, 'avisos' => $avisos] = $this->montar($uid, $pedidas);
+
+        return response()->json(
+            ['workflows' => $saida, 'avisos' => $avisos],
+            200,
+            [],
+            JSON_INVALID_UTF8_SUBSTITUTE
+        );
+    }
+
+    /**
+     * Monta o conteúdo do arquivo de exportação das áreas pedidas (sem limites de plano: quem chama decide).
+     * Usado também pelos backups de Configurações › Armazenamento.
+     */
+    public function montar(int $uid, array $pedidas): array
+    {
+        $saida  = [];
+        $avisos = [];
 
         foreach (array_keys(self::AREAS) as $slug) {
             if (! in_array($slug, $pedidas, true)) continue;
@@ -124,12 +141,7 @@ class WorkflowTransferController extends Controller
             $saida[] = $item;
         }
 
-        return response()->json(
-            ['workflows' => $saida, 'avisos' => $avisos],
-            200,
-            [],
-            JSON_INVALID_UTF8_SUBSTITUTE
-        );
+        return ['workflows' => $saida, 'avisos' => $avisos];
     }
 
     // ------------------------------------------------------------- importar
@@ -142,19 +154,7 @@ class WorkflowTransferController extends Controller
             'workflows' => ['required', 'array', 'min:1', 'max:4'],
         ]);
 
-        // Valida e limpa tudo ANTES de tocar no banco: se algo estiver errado, nada é alterado.
-        $pacotes  = [];
-        $vistas   = [];
-        $totalPdf = 0;
-
-        foreach ($request->input('workflows') as $w) {
-            $p = $this->validarArea($w, $totalPdf);
-            if (isset($vistas[$p['area']])) {
-                $this->falha('A área ' . self::AREAS[$p['area']] . ' aparece duas vezes no arquivo.');
-            }
-            $vistas[$p['area']] = true;
-            $pacotes[] = $p;
-        }
+        $pacotes = $this->validarPacotes($request->input('workflows'));
 
         // Limites do plano: valem para o que vem no arquivo, antes de tocar no banco
         $slugPlano = Planos::slugDe($request->user());
@@ -169,6 +169,40 @@ class WorkflowTransferController extends Controller
 
         $uid = $request->user()->id;
 
+        $this->gravar($uid, $pacotes);
+
+        return response()->json([
+            'importados' => count($pacotes),
+            'areas'      => array_map(fn ($p) => self::AREAS[$p['area']], $pacotes),
+        ]);
+    }
+
+    /**
+     * Confere e limpa as áreas de um arquivo (formato do exportar). Lança ValidationException se algo estiver errado.
+     * Usado também pela restauração de backups (Configurações › Armazenamento).
+     */
+    public function validarPacotes(array $workflows): array
+    {
+        // Valida e limpa tudo ANTES de tocar no banco: se algo estiver errado, nada é alterado.
+        $pacotes  = [];
+        $vistas   = [];
+        $totalPdf = 0;
+
+        foreach ($workflows as $w) {
+            $p = $this->validarArea($w, $totalPdf);
+            if (isset($vistas[$p['area']])) {
+                $this->falha('A área ' . self::AREAS[$p['area']] . ' aparece duas vezes no arquivo.');
+            }
+            $vistas[$p['area']] = true;
+            $pacotes[] = $p;
+        }
+
+        return $pacotes;
+    }
+
+    /** Substitui as áreas do usuário pelo conteúdo já validado (validarPacotes). */
+    public function gravar(int $uid, array $pacotes): void
+    {
         DB::transaction(function () use ($pacotes, $uid) {
             $agora = now();
 
@@ -198,11 +232,6 @@ class WorkflowTransferController extends Controller
                 Storage::disk('local')->put('mente/pdf/' . $uid . '/' . $pdf['id'] . '.pdf', $pdf['conteudo']);
             }
         }
-
-        return response()->json([
-            'importados' => count($pacotes),
-            'areas'      => array_map(fn ($p) => self::AREAS[$p['area']], $pacotes),
-        ]);
     }
 
     // ------------------------------------------------------------ validação

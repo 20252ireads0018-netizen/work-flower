@@ -24,6 +24,7 @@ class LojaVendasTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        \App\Support\Pix::salvarConfig(['tipo' => 'email', 'chave' => 'pix@workflower.com', 'nome' => 'Work Flower', 'cidade' => 'Recife']); // Pix das lojas cai na chave da plataforma
         $this->dono = User::factory()->create(['created_at' => now()->subDays(60)]);
         DB::table('users')->where('id', $this->dono->id)->update(['plano_slug' => 'gratuito']);
         $this->actingAs($this->dono)->post('/carteira/loja', ['nome' => 'Doces da Ana', 'slug' => 'doces-da-ana', 'publicada' => 1])->assertRedirect();

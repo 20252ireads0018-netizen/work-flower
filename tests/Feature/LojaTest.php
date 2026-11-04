@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/** Carteira › Loja (mini loja com página pública, pedido e Pix na chave do dono). */
+/** Carteira › Loja (mini loja com página pública, pedido e Pix na chave da plataforma, que vira saldo do dono). */
 class LojaTest extends TestCase
 {
     use RefreshDatabase;
@@ -27,6 +27,7 @@ class LojaTest extends TestCase
 
     private function lojaPronta(User $u): Loja
     {
+        \App\Support\Pix::salvarConfig(['tipo' => 'email', 'chave' => 'pix@workflower.com', 'nome' => 'Work Flower', 'cidade' => 'Recife']); // Pix das lojas cai na chave da plataforma
         $this->actingAs($u)->post('/carteira/loja', ['nome' => 'Doces da Ana', 'slug' => 'doces-da-ana', 'publicada' => 1, 'cor' => '#AA3355'])->assertRedirect();
         $this->actingAs($u)->post('/carteira/loja/pix', ['tipo' => 'email', 'chave' => 'Ana@Exemplo.com', 'nome' => 'Ana Souza', 'cidade' => 'Recife'])->assertSessionHasNoErrors();
 
@@ -109,7 +110,7 @@ class LojaTest extends TestCase
         return Loja::where('user_id', $u->id)->firstOrFail();
     }
 
-    public function test_pedido_usa_o_preco_do_servidor_reserva_estoque_e_pix_vai_para_o_dono(): void
+    public function test_pedido_usa_o_preco_do_servidor_reserva_estoque_e_pix_vai_para_a_plataforma(): void
     {
         $u = $this->dono();
         $loja = $this->lojaPronta($u);
@@ -125,7 +126,8 @@ class LojaTest extends TestCase
         $this->assertSame('60.00', (string) $pedido->total);
         $this->assertSame(1, $p->fresh()->estoque);
 
-        $this->get("/loja/doces-da-ana/pedido/{$pedido->codigo}")->assertOk()->assertSee('ana@exemplo.com', false)->assertSee('R$ 60,00');
+        $this->get("/loja/doces-da-ana/pedido/{$pedido->codigo}")->assertOk()->assertSee('pix@workflower.com', false)->assertDontSee('ana@exemplo.com', false)->assertSee('R$ 60,00');
+        $this->assertSame('plataforma', $pedido->pix_destino);
         $this->post('/loja/doces-da-ana/pedido', ['nome' => 'C', 'contato' => 'c@c.com', 'itens' => json_encode([['id' => $p->id, 'qtd' => 2]])])
             ->assertSessionHasErrors('itens');
         $this->post('/loja/doces-da-ana/pedido', ['nome' => 'C', 'contato' => 'c@c.com', 'itens' => json_encode([['id' => $escondido->id, 'qtd' => 1]])])
@@ -142,6 +144,7 @@ class LojaTest extends TestCase
         $this->actingAs($u)->get('/carteira/loja?aba=pedidos')->assertOk()->assertSee($pedido->codigo);
     }
 
+    /** Sem a chave Pix da plataforma (/admin/pix) e sem Mercado Pago, a loja não recebe pedidos. */
     public function test_loja_sem_pix_nao_recebe_pedido(): void
     {
         $u = $this->dono();

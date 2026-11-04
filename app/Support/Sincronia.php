@@ -137,7 +137,7 @@ class Sincronia
             return;
         }
         $aba = $request->header('X-WF-Aba');
-        Equipe::registrar($donoId, $area, $uid, str_starts_with($chave, 'img.') ? 'trocou uma imagem' : 'editou os cartões', is_string($aba) ? rawurldecode($aba) : null);
+        Equipe::registrar($donoId, $area, $uid, str_starts_with($chave, 'img.') ? 'trocou uma imagem' : (str_starts_with($chave, 'sqlz.') ? 'carregou um banco de dados' : 'editou os cartões'), is_string($aba) ? rawurldecode($aba) : null);
     }
 
     /**

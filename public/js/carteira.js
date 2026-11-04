@@ -41,12 +41,12 @@
             'inv-radar': { x: 0, y: 662, w: 1088, h: 380 },
         },
         negocios: {
-            'neg-negocios': { x: 0, y: 0, w: 340, h: 420 },
+            'neg-negocios': { x: 0, y: 0, w: 340, h: 490 },
             'neg-resumo': { x: 356, y: 0, w: 732, h: 190 },
-            'neg-lanc': { x: 356, y: 206, w: 732, h: 214 },
-            'neg-caixa': { x: 0, y: 436, w: 540, h: 520 },
-            'neg-dash': { x: 556, y: 436, w: 532, h: 520 },
-            'neg-conexoes': { x: 0, y: 972, w: 1088, h: 380 },
+            'neg-lanc': { x: 356, y: 206, w: 732, h: 284 },
+            'neg-caixa': { x: 0, y: 506, w: 540, h: 520 },
+            'neg-dash': { x: 556, y: 506, w: 532, h: 520 },
+            'neg-conexoes': { x: 0, y: 1042, w: 1088, h: 380 },
         },
         tarefas: {
             'tarefa-form': { x: 0, y: 0, w: 340, h: 440 },
@@ -70,8 +70,27 @@
     /* Abas de cada modo (as de Negócios saíram da Carteira em 04/11/2026; os dados antigos continuam guardados lá). */
     const ABAS_DO_MODO = {
         carteira: ['tarefas', 'carteira', 'invest', 'trabalho', 'mapa', 'livre'],
-        negocios: ['negocios', 'clientes', 'docs', 'loja', 'equipe', 'tarefas', 'livre'],
+        negocios: ['negocios', 'produtos', 'clientes', 'docs', 'loja', 'equipe', 'calls', 'integracoes', 'tarefas', 'livre'],
     };
+
+    /* Abas de Negócios com página comum (sem quadro de cartões soltos): sem "Reorganizar" e "+ Bloco". */
+    const ABAS_SEM_QUADRO = ['loja', 'equipe', 'produtos', 'calls', 'integracoes'];
+
+    const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+    /* Pedido JSON ao servidor (catálogo de produtos). O catálogo é sempre da conta logada: X-WF-Dono vazio. */
+    async function pedirJson(url, metodo = 'GET', corpo = null) {
+        const h = { Accept: 'application/json', 'X-WF-Dono': '', 'X-CSRF-TOKEN': csrf() };
+        if (corpo && !(corpo instanceof FormData)) { h['Content-Type'] = 'application/json'; corpo = JSON.stringify(corpo); }
+        const r = await fetch(url, { method: metodo, credentials: 'same-origin', headers: h, body: corpo });
+        let j = {};
+        try { j = await r.json(); } catch { /* resposta sem JSON */ }
+        if (!r.ok) {
+            const erros = j.errors ? Object.values(j.errors).flat() : [];
+            throw new Error(j.erro || erros[0] || j.message || 'Não deu certo agora. Tente de novo.');
+        }
+        return j;
+    }
+    const produtoVazio = () => ({ id: null, nome: '', sku: '', tipo: 'produto', categoria: '', preco: '', custo: '', estoque: '', descricao: '', na_loja: true, foto: null, tirar_foto: false });
 
     /* ================= estado inicial ================= */
     function mapaSemente() {
@@ -149,9 +168,12 @@
                 { id: 'docs', nome: 'Documentos', icone: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>' },
                 { id: 'mapa', nome: 'Mapa mental', icone: '<circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="20" r="2"/><path d="M10 10.5L6.5 7.5M14 10.5l3.5-3M12 14.5v3.5"/>' },
                 { id: 'livre', nome: 'Quadro livre', icone: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4" rx="1.5"/><rect x="13" y="10" width="7" height="10" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/>' },
+                { id: 'produtos', nome: 'Produtos', icone: '<path d="M3.5 7.5L12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5L12 12l8.5-4.5M12 12v9"/>' },
                 { id: 'clientes', nome: 'Clientes', icone: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.3-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.9.7 3.1 2.5 3.5 5.2"/>' },
                 { id: 'loja', nome: 'Loja e marketplaces', icone: '<path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/>' },
                 { id: 'equipe', nome: 'Equipe', icone: '<circle cx="12" cy="7" r="3"/><circle cx="5" cy="10" r="2.2"/><circle cx="19" cy="10" r="2.2"/><path d="M6.5 20c.6-3.4 2.8-5.5 5.5-5.5s4.9 2.1 5.5 5.5M1.5 19c.3-2 1.5-3.4 3.5-3.6M22.5 19c-.3-2-1.5-3.4-3.5-3.6"/>' },
+                { id: 'calls', nome: 'Calls', icone: '<rect x="2.5" y="6" width="13" height="12" rx="2"/><path d="M15.5 10.5l6-3.5v10l-6-3.5"/>' },
+                { id: 'integracoes', nome: 'Integrações', icone: '<path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0z"/><path d="M12 16v5"/>' },
             ].filter(a => ABAS_DO_MODO[MODO].includes(a.id)).sort((a, b) => ABAS_DO_MODO[MODO].indexOf(a.id) - ABAS_DO_MODO[MODO].indexOf(b.id)),
             tiposBloco: [
                 { id: 'texto', nome: 'Campo de texto' }, { id: 'tabela', nome: 'Tabela' },
@@ -166,11 +188,18 @@
             iv: { nome: '', tipo: 'Ação', qtd: '', pm: '', atual: '' }, ivErro: '',
             rd: { ticker: '', tese: '', alvo: '' },
             nv: { nome: '', formato: 'marketplace' }, nvErro: '',
-            mv: { modo: 'venda', d: hoje(), item: '', valor: '', canal: '', cat: 'Variável' }, mvErro: '',
+            mv: { modo: 'venda', d: hoje(), item: '', valor: '', canal: '', cat: 'Variável', produto: '', qtd: 1 }, mvErro: '', mvEnviando: false,
+            // catálogo de produtos (Negócios › Produtos), carregado do servidor; lojaVendas = pedidos pagos da loja
+            prod: { lista: [], cats: [], carregado: false, erro: '', busca: '', cat: '', form: produtoVazio(), salvando: false, temLoja: false, aberto: false },
+            lojaVendas: [], lojaNome: null,
+            semQuadro: ABAS_SEM_QUADRO,
             cn: { tipo: 'marketplace', nome: '', gasto: '', nota: '' },
             novoProj: '',
             cl: { nome: '', contato: '', tags: '' }, clErro: '', clBusca: '',
             zap: { aberto: false, cli: null, modelo: '', texto: '', fila: [], editar: false },
+            zo: { carregado: false, configurado: false, falta: [], eDono: false, config: null, webhook: '', conversas: [], painel: false,
+                  form: { phone_number_id: '', waba_id: '', access_token: '', app_secret: '', verify_token: '' }, salvando: false, erroCfg: '', okCfg: '',
+                  conversa: null, msgs: [], erro: '', enviando: false, modelos: null, erroModelos: '', modelo: '', params: [] },
 
             init() {
                 const guardada = sessionStorage.getItem(MODO + '.aba');
@@ -183,14 +212,22 @@
                 this.ln.conta = this.estado.contas[0]?.id || '';
                 this.$watch('estado', () => this.agendar());
                 this.initQuadro();
+                this.zapIniciar();
 
                 const urgente = () => { if (this.salvo === 'pendente') this.gravarEstado(); };
                 document.addEventListener('visibilitychange', () => { if (document.hidden) urgente(); });
                 window.addEventListener('pagehide', urgente);
                 if (!this.cfg.dados.estado) this.agendar();
+                if (MODO === 'negocios' && this.cfg.produtos) { this.carregarProdutos(); this.carregarVendasLoja(); }
             },
 
-            hoje, uid, brl,
+            hoje, uid, brl, num,
+            /* Páginas comuns (Produtos, Loja, Equipe) ficam na mesma coluna do título: a área do quadro ocupa a janela
+               inteira (quadro.js, ox = onde a coluna começa), então elas voltam para dentro dela e não esticam. */
+            estiloPagina() {
+                const ox = this.empilhado && this.empilhado() ? 0 : Math.max(0, this.ox || 0);
+                return { marginLeft: ox + 'px', maxWidth: ox ? `min(76rem, calc(100vw - ${ox * 2}px))` : '76rem' };
+            },
             pc(n) { return String(r1(n)).replace('.', ',') + '%'; },
             pct(v, m) { return m > 0 ? Math.min(Math.max(v / m * 100, 0), 100) : 0; },
             dataBR,
@@ -354,32 +391,80 @@
                 if (i >= 0) this.estado.negocios.splice(i, 1);
                 if (this.estado.negAtivo === n.id) this.estado.negAtivo = this.estado.negocios[0]?.id || null;
             },
-            registrarMov() {
-                const n = this.neg(), f = this.mv;
-                if (!n) return;
-                if (num(f.valor) <= 0) { this.mvErro = 'Informe um valor maior que zero.'; return; }
-                if (!f.item.trim()) { this.mvErro = f.modo === 'venda' ? 'Descreva o item vendido.' : 'Descreva o custo.'; return; }
-                const valor = Math.round(num(f.valor) * 100) / 100;
-                if (f.modo === 'venda') n.vendas.push({ id: uid(), d: f.d || hoje(), item: f.item.trim(), valor, canal: f.canal.trim() });
-                else n.custos.push({ id: uid(), d: f.d || hoje(), nome: f.item.trim(), valor, cat: f.cat });
-                this.mv.item = ''; this.mv.valor = ''; this.mvErro = '';
+            /* Escolheu um produto do catálogo na venda: preço × quantidade, nome e canal vêm preenchidos. */
+            escolherProduto() {
+                const p = this.produtoPorId(this.mv.produto);
+                this.mvErro = '';
+                if (!p) return;
+                const q = Math.max(1, Math.floor(num(this.mv.qtd)) || 1);
+                this.mv.qtd = q;
+                this.mv.item = p.nome + (q > 1 ? ' × ' + q : '');
+                this.mv.valor = (Math.round(p.preco * q * 100) / 100).toFixed(2);
             },
-            remMov(n, m) {
+            produtoPorId(id) { return id ? this.prod.lista.find(p => String(p.id) === String(id)) || null : null; },
+            /* Prévia de custo e margem da venda com produto (o servidor confere de novo ao lançar). */
+            previaVenda() {
+                const p = this.produtoPorId(this.mv.produto);
+                if (!p) return null;
+                const q = Math.max(1, Math.floor(num(this.mv.qtd)) || 1), valor = num(this.mv.valor);
+                const custo = p.custo === null ? null : p.custo * q;
+                return { custo, lucro: custo === null ? null : valor - custo, margem: custo === null || valor <= 0 ? null : (valor - custo) / valor * 100,
+                    estoque: p.estoque, falta: p.estoque !== null && p.estoque < q };
+            },
+            async registrarMov() {
+                const n = this.neg(), f = this.mv;
+                if (!n || this.mvEnviando) return;
+                if (num(f.valor) <= 0) { this.mvErro = 'Informe um valor maior que zero.'; return; }
+                if (!f.item.trim()) { this.mvErro = f.modo === 'venda' ? 'Descreva o item vendido ou escolha um produto.' : 'Descreva o custo.'; return; }
+                const valor = Math.round(num(f.valor) * 100) / 100;
+                if (f.modo === 'venda') {
+                    const venda = { id: uid(), d: f.d || hoje(), item: f.item.trim(), valor, canal: f.canal.trim() };
+                    const p = this.produtoPorId(f.produto);
+                    if (p) {
+                        // baixa o estoque no servidor e traz o custo do produto (para a margem)
+                        this.mvEnviando = true;
+                        try {
+                            const j = await pedirJson(`${this.cfg.produtos}/${p.id}/venda`, 'POST', { qtd: Math.max(1, Math.floor(num(f.qtd)) || 1) });
+                            Object.assign(venda, { produto: p.id, qtd: j.qtd, custo: j.custo_total });
+                            p.estoque = j.estoque;
+                        } catch (e) { this.mvErro = e.message; return; } finally { this.mvEnviando = false; }
+                    }
+                    n.vendas.push(venda);
+                } else n.custos.push({ id: uid(), d: f.d || hoje(), nome: f.item.trim(), valor, cat: f.cat });
+                this.mv.item = ''; this.mv.valor = ''; this.mv.produto = ''; this.mv.qtd = 1; this.mvErro = '';
+            },
+            async remMov(n, m) {
+                if (m.loja) return; // pedido da loja: muda na página da loja
                 const lista = m.tipo === 'venda' ? n.vendas : n.custos;
                 const i = lista.findIndex(x => x.id === m.id);
-                if (i >= 0) lista.splice(i, 1);
+                if (i < 0) return;
+                const v = lista[i];
+                if (m.tipo === 'venda' && v.produto && v.qtd) {
+                    const p = this.produtoPorId(v.produto);
+                    if (!confirm(`Apagar esta venda? ${p && p.estoque !== null ? v.qtd + ' unidade(s) voltam para o estoque de "' + p.nome + '".' : ''}`)) return;
+                    try {
+                        const j = await pedirJson(`${this.cfg.produtos}/${v.produto}/estorno`, 'POST', { qtd: v.qtd });
+                        if (p) p.estoque = j.estoque;
+                    } catch { /* produto apagado do catálogo: só tira a venda */ }
+                }
+                const k = lista.findIndex(x => x.id === m.id);
+                if (k >= 0) lista.splice(k, 1);
             },
+            /* Vendas do negócio + pedidos pagos da loja (quando o negócio soma a loja). */
+            vendasDe(n) { return n ? (n.comLoja ? [...n.vendas, ...this.lojaVendas] : n.vendas) : []; },
             kpisNeg(n) {
-                if (!n) return { vendas: 0, custos: 0, lucro: 0, margem: 0, ticket: 0, qtd: 0 };
+                if (!n) return { vendas: 0, custos: 0, cmv: 0, lucro: 0, margem: 0, ticket: 0, qtd: 0 };
                 const ini = mesIni();
-                const v = n.vendas.filter(x => x.d >= ini), c = n.custos.filter(x => x.d >= ini);
-                const vendas = v.reduce((s, x) => s + num(x.valor), 0), custos = c.reduce((s, x) => s + num(x.valor), 0);
-                return { vendas, custos, lucro: vendas - custos, margem: vendas > 0 ? (vendas - custos) / vendas * 100 : 0, ticket: v.length ? vendas / v.length : 0, qtd: v.length };
+                const v = this.vendasDe(n).filter(x => x.d >= ini), c = n.custos.filter(x => x.d >= ini);
+                const vendas = v.reduce((s, x) => s + num(x.valor), 0);
+                const cmv = v.reduce((s, x) => s + num(x.custo), 0); // custo dos produtos vendidos (do catálogo)
+                const custos = c.reduce((s, x) => s + num(x.valor), 0) + cmv;
+                return { vendas, custos, cmv, lucro: vendas - custos, margem: vendas > 0 ? (vendas - custos) / vendas * 100 : 0, ticket: v.length ? vendas / v.length : 0, qtd: v.length };
             },
             caixaNeg(n) {
                 if (!n) return { itens: [], saldo: 0 };
                 const l = [
-                    ...n.vendas.map(v => ({ id: v.id, d: v.d, desc: v.item + (v.canal ? ' · ' + v.canal : ''), v: num(v.valor), tipo: 'venda' })),
+                    ...this.vendasDe(n).map(v => ({ id: v.id, d: v.d, desc: v.item + (v.canal ? ' · ' + v.canal : ''), v: num(v.valor), tipo: 'venda', loja: String(v.id).startsWith('lj') })),
                     ...n.custos.map(c => ({ id: c.id, d: c.d, desc: c.nome + (c.cat ? ' · ' + c.cat : ''), v: -num(c.valor), tipo: 'custo' })),
                 ].sort((a, b) => a.d.localeCompare(b.d) || a.id.localeCompare(b.id));
                 let s = 0;
@@ -406,11 +491,13 @@
             },
             serieGrafico(n, g) {
                 if (!n) return { itens: [], pontos: '', total: 0 };
-                const soma = (arr, a, b) => arr.filter(x => x.d >= a && x.d <= b).reduce((s, x) => s + num(x.valor), 0);
+                const soma = (arr, a, b, campo = 'valor') => arr.filter(x => x.d >= a && x.d <= b).reduce((s, x) => s + num(x[campo]), 0);
+                const vendas = this.vendasDe(n);
                 const itens = this.baldes(g.janela).map(k => {
-                    const v = g.metrica === 'vendas' ? soma(n.vendas, k.a, k.b)
-                        : g.metrica === 'custos' ? soma(n.custos, k.a, k.b)
-                        : soma(n.vendas, k.a, k.b) - soma(n.custos, k.a, k.b);
+                    const custos = soma(n.custos, k.a, k.b) + soma(vendas, k.a, k.b, 'custo');
+                    const v = g.metrica === 'vendas' ? soma(vendas, k.a, k.b)
+                        : g.metrica === 'custos' ? custos
+                        : soma(vendas, k.a, k.b) - custos;
                     return { l: k.l, v };
                 });
                 const max = Math.max(...itens.map(i => Math.abs(i.v)), 1);
@@ -431,6 +518,79 @@
                 this.cn = { tipo: f.tipo, nome: '', gasto: '', nota: '' };
             },
             remConexao(n, id) { const i = n.conexoes.findIndex(x => x.id === id); if (i >= 0) n.conexoes.splice(i, 1); },
+
+            /* ================= produtos (área Negócios, o mesmo catálogo da loja) ================= */
+            async carregarProdutos() {
+                try {
+                    const j = await pedirJson(this.cfg.produtos);
+                    this.prod.lista = j.produtos || []; this.prod.cats = j.categorias || []; this.prod.temLoja = !!j.loja;
+                    this.prod.erro = '';
+                } catch (e) { this.prod.erro = 'Não consegui carregar o catálogo: ' + e.message; }
+                this.prod.carregado = true;
+            },
+            async carregarVendasLoja() {
+                if (!this.cfg.vendasLoja) return;
+                try {
+                    const j = await pedirJson(this.cfg.vendasLoja);
+                    this.lojaVendas = (j.vendas || []).map(v => ({ ...v, loja: true }));
+                    this.lojaNome = j.loja;
+                } catch { this.lojaVendas = []; }
+            },
+            produtosFiltrados() {
+                const b = norm(this.prod.busca.trim()), c = this.prod.cat;
+                return this.prod.lista.filter(p => (!c || p.categoria === c)
+                    && (!b || norm(p.nome + ' ' + (p.sku || '') + ' ' + (p.categoria || '')).includes(b)));
+            },
+            novoProduto() { this.prod.form = produtoVazio(); this.prod.form.na_loja = this.prod.temLoja; this.prod.aberto = true; this.prod.erro = ''; this.$nextTick(() => this.$refs.prodNome?.focus()); },
+            editarProduto(p) {
+                this.prod.form = { ...produtoVazio(), ...p, preco: p.preco, custo: p.custo ?? '', estoque: p.estoque ?? '', sku: p.sku || '', categoria: p.categoria || '', descricao: p.descricao || '' };
+                this.prod.aberto = true; this.prod.erro = '';
+                this.$nextTick(() => { this.$refs.prodForm?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); this.$refs.prodNome?.focus(); });
+            },
+            margemForm() {
+                const f = this.prod.form, pr = num(f.preco), cu = f.custo === '' || f.custo === null ? null : num(f.custo);
+                return cu === null || pr <= 0 ? null : (pr - cu) / pr * 100;
+            },
+            margemTexto(m) { return m === null || m === undefined ? '—' : this.pc(m); },
+            async salvarProduto(form) {
+                const f = this.prod.form;
+                if (!String(f.nome).trim()) { this.prod.erro = 'Dê um nome ao produto ou serviço.'; return; }
+                if (num(f.preco) <= 0) { this.prod.erro = 'Informe o preço de venda.'; return; }
+                const fd = new FormData();
+                ['nome', 'sku', 'tipo', 'categoria', 'descricao', 'preco', 'custo', 'estoque'].forEach(k => fd.append(k, f[k] === null || f[k] === undefined ? '' : String(f[k]).trim()));
+                fd.append('na_loja', f.na_loja ? '1' : '0');
+                if (f.tirar_foto) fd.append('tirar_foto', '1');
+                const arq = form.querySelector('input[type=file]')?.files?.[0];
+                if (arq) fd.append('foto', arq);
+                this.prod.salvando = true; this.prod.erro = '';
+                try {
+                    const j = await pedirJson(f.id ? `${this.cfg.produtos}/${f.id}` : this.cfg.produtos, 'POST', fd);
+                    const i = this.prod.lista.findIndex(p => p.id === j.produto.id);
+                    if (i >= 0) this.prod.lista.splice(i, 1, j.produto); else this.prod.lista.push(j.produto);
+                    this.prod.lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+                    if (j.produto.categoria && !this.prod.cats.includes(j.produto.categoria)) this.prod.cats.push(j.produto.categoria);
+                    this.aviso(f.id ? 'Produto salvo.' : 'Produto cadastrado.');
+                    this.prod.form = produtoVazio(); this.prod.aberto = false;
+                    form.reset();
+                } catch (e) { this.prod.erro = e.message; } finally { this.prod.salvando = false; }
+            },
+            async remProduto(p) {
+                if (!confirm(`Apagar "${p.nome}" do catálogo?${p.na_loja ? ' Ele também sai da loja.' : ''} As vendas e pedidos antigos continuam com o nome e o preço.`)) return;
+                try {
+                    await pedirJson(`${this.cfg.produtos}/${p.id}`, 'DELETE');
+                    const i = this.prod.lista.findIndex(x => x.id === p.id);
+                    if (i >= 0) this.prod.lista.splice(i, 1);
+                    if (this.prod.form.id === p.id) { this.prod.form = produtoVazio(); this.prod.aberto = false; }
+                    this.aviso('Produto apagado.');
+                } catch (e) { this.aviso(e.message); }
+            },
+            /* Atalho "Vender" da lista: abre a aba Negócios com o produto escolhido no lançamento. */
+            venderProduto(p) {
+                this.ir('negocios');
+                if (!this.neg()) { this.aviso('Crie ou escolha um negócio para lançar a venda.'); return; }
+                this.mv.modo = 'venda'; this.mv.produto = String(p.id); this.mv.qtd = 1; this.escolherProduto();
+            },
+            estoqueTexto(p) { return p.estoque === null || p.estoque === undefined ? (p.tipo === 'servico' ? 'serviço' : 'sem controle') : p.estoque + (p.estoque === 1 ? ' unid.' : ' unid.'); },
 
             /* ================= clientes (área Negócios) ================= */
             addCliente() {
@@ -468,6 +628,7 @@
                 const fila = c ? [] : this.clientesFiltrados().filter(x => this.zapNumero(x)).map(x => x.id);
                 if (!c && !fila.length) { this.aviso('Nenhum cliente da busca tem WhatsApp com DDD.'); return; }
                 this.zap = { aberto: true, cli: c ? c.id : null, modelo: m ? m.id : '', texto: m ? m.texto : '', fila, feitos: [], editar: false };
+                if (c && this.zo.configurado) { this.zo.modelo = ''; this.zapCarregarConversa(); }
             },
             zapCliente() { return this.estado.clientes.find(c => c.id === this.zap.cli) || null; },
             zapEscolher(id) { const m = this.estado.msgModelos.find(x => x.id === id); this.zap.modelo = id; if (m) this.zap.texto = m.texto; },
@@ -495,6 +656,137 @@
                 this.estado.msgModelos.splice(i, 1);
                 this.zapEscolher(this.estado.msgModelos[0]?.id || '');
             },
+            /* ---------- WhatsApp oficial (Cloud API; servidor em ZapController) ----------
+               zo guarda a configuração, as conversas e a conversa aberta. Sem configuração, vale o wa.me acima. */
+            async zapApi(caminho, op = {}) {
+                // corpo em base64: o mod_security da hospedagem recusa (406) textos que parecem SQL ou código
+                if (op.dados) {
+                    const bytes = new TextEncoder().encode(JSON.stringify(op.dados));
+                    let bin = ''; bytes.forEach(x => { bin += String.fromCharCode(x); });
+                    op = Object.assign({}, op, { body: JSON.stringify({ b64: btoa(bin) }) });
+                    delete op.dados;
+                }
+                const r = await fetch(this.cfg.zapApi + caminho, Object.assign({ credentials: 'same-origin' }, op, { headers: Object.assign({
+                    Accept: 'application/json', 'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                }, op.headers || {}) }));
+                const j = await r.json().catch(() => ({}));
+                return { ok: r.ok && j.ok !== false, status: r.status, j };
+            },
+            async zapEstado() {
+                if (!this.cfg.zapApi) return;
+                try {
+                    const { ok, j } = await this.zapApi('');
+                    if (!ok) return;
+                    Object.assign(this.zo, { carregado: true, configurado: j.configurado, falta: j.falta || [], eDono: j.eDono, config: j.config, webhook: j.webhook, conversas: j.conversas || [] });
+                    if (j.config && !this.zo.form.phone_number_id) Object.assign(this.zo.form, { phone_number_id: j.config.phone_number_id || '', waba_id: j.config.waba_id || '', verify_token: j.config.verify_token || '' });
+                } catch (e) { /* sem rede: tenta de novo no próximo ciclo */ }
+            },
+            zapIniciar() {
+                if (!this.cfg.zapApi) return;
+                this.zapEstado();
+                // conversa aberta: confere a cada 8 s; lista e contadores: a cada 45 s (só com a aba visível)
+                let n = 0;
+                setInterval(() => {
+                    if (document.hidden) return;
+                    n++;
+                    if (this.zap.aberto && this.zapCliente() && this.zo.configurado) this.zapCarregarConversa(true);
+                    if (n % 6 === 0 || (this.zo.painel && n % 2 === 0)) this.zapEstado();
+                }, 8000);
+            },
+            zapChave(t) {
+                let d = String(t || '').replace(/\D/g, '');
+                if (d.length >= 10 && d.length <= 11) d = '55' + d;
+                return d.startsWith('55') && (d.length === 12 || d.length === 13) ? d.slice(2, 4) + d.slice(-8) : d.slice(-20);
+            },
+            /** Conversa do WhatsApp oficial com o cliente (pelo telefone; o WhatsApp às vezes tira o 9). */
+            zapConversaDe(c) { const k = this.zapNumero(c) ? this.zapChave(this.zapNumero(c)) : ''; return k ? this.zo.conversas.find(x => x.chave === k) || null : null; },
+            zapNaoLidas(c) { return this.zapConversaDe(c)?.nao_lidas || 0; },
+            zapTotalNaoLidas() { return this.zo.conversas.reduce((s, c) => s + (c.nao_lidas || 0), 0); },
+            async zapCarregarConversa(quieto) {
+                const c = this.zapCliente();
+                if (!c || !this.zo.configurado || !this.zapNumero(c)) return;
+                if (!quieto) { this.zo.msgs = []; this.zo.conversa = null; this.zo.erro = ''; this.zo.modelos = null; }
+                try {
+                    const { ok, j } = await this.zapApi('/conversa?tel=' + encodeURIComponent(this.zapNumero(c)));
+                    if (!ok || this.zapCliente()?.id !== c.id) return;
+                    const novas = (j.mensagens || []).length !== this.zo.msgs.length;
+                    this.zo.msgs = j.mensagens || []; this.zo.conversa = j.conversa;
+                    const k = this.zo.conversas.find(x => x.id === j.conversa?.id); if (k) k.nao_lidas = 0;
+                    if (novas) this.$nextTick(() => { const el = document.getElementById('zap-fio'); if (el) el.scrollTop = el.scrollHeight; });
+                    if (j.conversa && !j.conversa.janela && this.zo.modelos === null) this.zapCarregarModelos();
+                } catch (e) { /* tenta no próximo ciclo */ }
+            },
+            /** Abre a conversa de um número que escreveu (mesmo sem ser cliente: vira cliente novo). */
+            zapAbrirConversa(cv) {
+                let c = this.estado.clientes.find(x => x.id === cv.cliente_id) || this.estado.clientes.find(x => this.zapNumero(x) && this.zapChave(this.zapNumero(x)) === cv.chave);
+                if (!c) {
+                    if (!confirm(`${cv.nome || '+' + cv.telefone} ainda não está nos clientes. Adicionar agora?`)) return;
+                    c = { id: uid(), nome: cv.nome || '+' + cv.telefone, contato: '+' + cv.telefone, tags: 'whatsapp', nota: '' };
+                    this.estado.clientes.unshift(c);
+                }
+                this.zo.painel = false;
+                this.zapAbrir(c);
+            },
+            zapJanela() { return !!this.zo.conversa?.janela; },
+            zapJanelaAte() { const t = this.zo.conversa?.janela_ate; return t ? new Date(t).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : ''; },
+            async zapCarregarModelos() {
+                this.zo.modelos = [];
+                const { ok, j } = await this.zapApi('/modelos');
+                if (!ok) { this.zo.erroModelos = j.erro || 'Não deu para ler os modelos aprovados.'; return; }
+                this.zo.erroModelos = '';
+                this.zo.modelos = j.modelos || [];
+                if (this.zo.modelos[0] && !this.zo.modelo) this.zapEscolherModeloOficial(this.zo.modelos[0].nome);
+            },
+            zapEscolherModeloOficial(nome) {
+                const m = (this.zo.modelos || []).find(x => x.nome === nome);
+                this.zo.modelo = nome;
+                this.zo.params = m ? Array.from({ length: m.params }, (_, i) => (i === 0 ? String(this.zapCliente()?.nome || '').split(/\s+/)[0] : '')) : [];
+            },
+            zapModeloOficial() { return (this.zo.modelos || []).find(x => x.nome === this.zo.modelo) || null; },
+            /** Envia pela API: texto livre na janela de 24 h; fora dela, o modelo aprovado escolhido. */
+            async zapResponder(comModelo) {
+                const c = this.zapCliente();
+                if (!c || this.zo.enviando) return;
+                const texto = comModelo ? '' : this.zapPreencher(this.zap.texto, c).trim();
+                if (!comModelo && !texto) { this.zo.erro = 'Escreva a mensagem.'; return; }
+                const m = comModelo ? this.zapModeloOficial() : null;
+                if (comModelo && !m) { this.zo.erro = 'Escolha um modelo aprovado.'; return; }
+                this.zo.enviando = true; this.zo.erro = '';
+                try {
+                    const corpo = { tel: this.zapNumero(c), nome: c.nome, cliente_id: c.id };
+                    if (m) Object.assign(corpo, { modelo: m.nome, idioma: m.idioma, params: this.zo.params });
+                    else corpo.texto = texto;
+                    const { ok, j } = await this.zapApi('/enviar', { method: 'POST', dados: corpo });
+                    if (!ok) {
+                        this.zo.erro = j.erro || (j.message ?? 'Não deu para enviar.');
+                        if (j.janela === false) { if (this.zo.conversa) this.zo.conversa.janela = false; else this.zo.conversa = { janela: false }; if (this.zo.modelos === null) this.zapCarregarModelos(); }
+                    } else {
+                        this.zapEnviou(c);
+                        if (!comModelo) this.zap.texto = '';
+                        await this.zapCarregarConversa(true);
+                        this.zapEstado();
+                    }
+                } catch (e) { this.zo.erro = 'Sem conexão com o servidor.'; }
+                this.zo.enviando = false;
+            },
+            zapStatus(m) { return { sent: '✓', delivered: '✓✓', read: '✓✓ lida', failed: '⚠ falhou', recebida: '' }[m.status] || ''; },
+            async zapSalvarConfig() {
+                this.zo.salvando = true; this.zo.erroCfg = ''; this.zo.okCfg = '';
+                try {
+                    const { ok, j } = await this.zapApi('/config', { method: 'POST', dados: this.zo.form });
+                    if (!ok) this.zo.erroCfg = j.erro || (j.errors ? Object.values(j.errors).flat()[0] : (j.message || 'Não deu para salvar.'));
+                    else { this.zo.okCfg = j.aviso || 'WhatsApp oficial salvo.'; this.zo.form.access_token = ''; this.zo.form.app_secret = ''; this.zo.form.verify_token = ''; await this.zapEstado(); }
+                } catch (e) { this.zo.erroCfg = 'Sem conexão com o servidor.'; }
+                this.zo.salvando = false;
+            },
+            async zapRemoverConfig() {
+                if (!confirm('Desligar o WhatsApp oficial? O token sai do site; as conversas continuam guardadas.')) return;
+                await this.zapApi('/config', { method: 'DELETE' });
+                this.zo.form = { phone_number_id: '', waba_id: '', access_token: '', app_secret: '', verify_token: '' };
+                await this.zapEstado();
+            },
+            zapCopiar(t) { navigator.clipboard?.writeText(t).then(() => this.aviso('Copiado.'), () => this.aviso('Selecione e copie com Ctrl+C.')); },
             async importarClientesLoja() {
                 if (!this.cfg.clientesLoja) return;
                 try {

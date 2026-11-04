@@ -44,6 +44,89 @@
         </form>
     </details>
 
+    @php $brl = fn ($n) => 'R$ ' . number_format((float) $n, 2, ',', '.'); @endphp
+
+    {{-- ========== Pedidos das mini lojas pagos por Pix nesta chave: confirmar vira saldo do dono da loja ========== --}}
+    <section class="space-y-2" id="pedidos-lojas" aria-labelledby="pedidos-lojas-t">
+        <h2 id="pedidos-lojas-t" class="titulo text-lg">Pedidos de lojas
+            <span class="texto-2 text-sm font-normal">· {{ $pedidosLojas->where('status', 'informado')->count() }} avisaram que pagaram · {{ $pedidosLojas->where('status', 'aguardando')->count() }} aguardando</span></h2>
+        <p class="text-xs texto-2">O Pix dos pedidos das lojas cai nesta mesma chave. Ao confirmar, o pedido fica pago e o valor entra no saldo do dono da loja, que pode pedir resgate.</p>
+        @forelse ($pedidosLojas as $p)
+            <article class="card p-4 flex flex-wrap items-center gap-4">
+                <div class="min-w-0 flex-1 space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="tag">{{ \App\Models\LojaPedido::STATUS[$p->status] ?? $p->status }}</span>
+                        <b>{{ $brl($p->total) }}</b>
+                        <span class="texto-2 text-sm">loja {{ $p->loja?->nome }}{{ $p->loja?->trashed() ? ' (excluída)' : '' }} · {{ $p->loja?->user?->email }}</span>
+                    </div>
+                    <p class="text-sm">Cliente: {{ $p->cliente_nome }} · {{ $p->cliente_contato }}</p>
+                    <p class="text-xs texto-2">criado {{ $p->created_at->tz('America/Sao_Paulo')->format('d/m/Y H:i') }}
+                        @if ($p->informado_em) · avisou que pagou {{ $p->informado_em->tz('America/Sao_Paulo')->format('d/m H:i') }} @endif
+                        · identificador no Pix <span class="font-mono">{{ $p->codigo }}</span>
+                        @if ($p->admin_obs) · {{ $p->admin_obs }} @endif</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <form method="POST" action="{{ route('pix.admin.loja.confirmar', $p) }}" onsubmit="return confirm('Confirmar o Pix de {{ $brl($p->total) }} do pedido {{ $p->codigo }}? O valor entra no saldo da loja.')">
+                        @csrf
+                        <button type="submit" class="btn !py-1">Confirmar pagamento</button>
+                    </form>
+                    @if ($p->status === 'informado')
+                        <form method="POST" action="{{ route('pix.admin.loja.recusar', $p) }}" class="flex gap-2">
+                            @csrf
+                            <input name="observacao" class="campo !py-1 !w-48" maxlength="300" placeholder="Motivo (opcional)" aria-label="Motivo">
+                            <button type="submit" class="btn-sec !py-1">Não encontrei</button>
+                        </form>
+                    @endif
+                </div>
+            </article>
+        @empty
+            <p class="texto-2 text-sm">Nenhum pedido de loja esperando confirmação.</p>
+        @endforelse
+    </section>
+
+    {{-- ========== Resgates do saldo das lojas ========== --}}
+    <section class="space-y-2" id="resgates" aria-labelledby="resgates-t">
+        <h2 id="resgates-t" class="titulo text-lg">Resgates pendentes
+            <span class="texto-2 text-sm font-normal">· {{ $resgates->count() }} · {{ $brl($resgates->sum('valor')) }}</span></h2>
+        <p class="text-xs texto-2">Faça o Pix para a chave mostrada e marque como pago. O prometido ao dono da loja é pagar até a data do prazo (7 dias úteis). Recusar devolve o valor ao saldo da pessoa.</p>
+        @forelse ($resgates as $r)
+            <article class="card p-4 flex flex-wrap items-center gap-4" @if ($r->prazo->isPast()) style="border-color:#ef4444" @endif>
+                <div class="min-w-0 flex-1 space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <b>{{ $brl($r->valor) }}</b>
+                        <span class="tag" @if ($r->prazo->isPast()) style="color:#ef4444" @endif>prazo {{ $r->prazo->format('d/m/Y') }}{{ $r->prazo->isPast() ? ' (atrasado)' : '' }}</span>
+                        <span class="texto-2 text-sm">{{ $r->user?->name }} · {{ $r->user?->email }}</span>
+                    </div>
+                    <p class="text-sm">Pix para <b>{{ \App\Support\Pix::TIPOS[$r->pix_tipo] ?? $r->pix_tipo }}</b> <span class="font-mono break-all">{{ $r->pix_chave }}</span> · titular {{ $r->pix_nome }}</p>
+                    <p class="text-xs texto-2">pedido em {{ $r->created_at->tz('America/Sao_Paulo')->format('d/m/Y H:i') }} · resgate #{{ $r->id }}</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <form method="POST" action="{{ route('pix.admin.resgate.pagar', $r) }}" onsubmit="return confirm('Marcar o resgate de {{ $brl($r->valor) }} como pago? Faça o Pix antes.')">
+                        @csrf
+                        <button type="submit" class="btn !py-1">Marcar como pago</button>
+                    </form>
+                    <form method="POST" action="{{ route('pix.admin.resgate.recusar', $r) }}" class="flex gap-2" onsubmit="return confirm('Recusar este resgate? O valor volta ao saldo da pessoa.')">
+                        @csrf
+                        <input name="observacao" class="campo !py-1 !w-48" maxlength="300" placeholder="Motivo (a pessoa vê)" aria-label="Motivo">
+                        <button type="submit" class="btn-sec !py-1">Recusar</button>
+                    </form>
+                </div>
+            </article>
+        @empty
+            <p class="texto-2 text-sm">Nenhum resgate pendente.</p>
+        @endforelse
+        @if ($resgatesFeitos->isNotEmpty())
+            <details class="text-sm"><summary class="cursor-pointer texto-2">Últimos resgates tratados</summary>
+                <ul class="mt-2 space-y-1">
+                    @foreach ($resgatesFeitos as $r)
+                        <li>#{{ $r->id }} · {{ $brl($r->valor) }} · {{ $r->user?->email }} · {{ \App\Models\LojaResgate::STATUS[$r->status] ?? $r->status }} {{ $r->pago_em ? 'em ' . $r->pago_em->format('d/m/Y') : '' }}</li>
+                    @endforeach
+                </ul>
+            </details>
+        @endif
+    </section>
+
+    <h2 class="titulo text-lg">Planos</h2>
     <nav class="flex flex-wrap gap-2" aria-label="Filtrar por situação">
         <a href="{{ route('pix.admin') }}" class="btn-sec !py-1 {{ ! $status ? '!bg-[var(--prim)] !text-[var(--on-prim)]' : '' }}">Em andamento e tratados</a>
         @foreach (PixPagamento::STATUS as $v => $nome)
