@@ -17,6 +17,10 @@
     const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     const num = n => Number(n || 0).toLocaleString('pt-BR');
     const raw = x => (window.Alpine && typeof window.Alpine.raw === 'function' ? window.Alpine.raw(x) : x);
+    // o índice fica em img.<id>.banco: o .htaccess da hospedagem barra endereços terminados em .sql (406);
+    // .sql é o nome antigo, só lido (cartões criados antes da troca, quando o servidor aceitava)
+    const SUF = '.banco';
+    const idxDe = (imagens, id) => (imagens[id + SUF] !== undefined ? imagens[id + SUF] : imagens[id + '.sql']);
     const clone = x => JSON.parse(JSON.stringify(raw(x)));
     const meta = n => document.querySelector(`meta[name="${n}"]`)?.content || '';
 
@@ -238,7 +242,7 @@
     /** Lê de novo o que está guardado (ao montar, e quando outra pessoa troca o arquivo). */
     C.sinc = async function (forcar) {
         const b = this.b, s = this.s;
-        const idx = raw(this.ctx.imagens[b.id + '.sql']);
+        const idx = raw(idxDe(this.ctx.imagens, b.id));
         if (this.lendo) return;
         try {
             if (typeof idx === 'string' && idx.startsWith(PREFIXO)) {
@@ -358,10 +362,10 @@
             const indice = { v: 2, versao, arquivo: arq.name.slice(0, 120), formato, bytes: arq.size, tabelas: res.tabelas, avisos: res.avisos };
             const texto = PREFIXO + await comprimir(JSON.stringify(indice));
             if (texto.length > 5900000) throw Object.assign(new Error('índice'), { status: 413 });
-            await Q.enviar(`${ctx.cfg.url}/img.${b.id}.sql`, JSON.stringify(texto));
+            await Q.enviar(`${ctx.cfg.url}/img.${b.id}${SUF}`, JSON.stringify(texto));
             // tudo no servidor: troca o cartão para o arquivo novo
             s.idx = texto; s.schema = res.tabelas; s.avisos = res.avisos; s.versao = versao; s.formato = formato; s.pos = null; s.semLinhas = false;
-            ctx.imagens[b.id + '.sql'] = texto;
+            ctx.imagens[b.id + SUF] = texto;
             const total = res.tabelas.reduce((a, t) => a + t.total, 0);
             b.dados.versao = versao;
             b.dados.formato = 2;
@@ -386,7 +390,7 @@
             this.lendo = false;
             r.prog.hidden = true;
             r.arquivo.disabled = false;
-            if (s.idx === null && (typeof raw(ctx.imagens[b.id + '.sql']) === 'string' || (b.dados.tabelas || []).length)) await this.sinc(true).catch(() => {});
+            if (s.idx === null && (typeof raw(idxDe(ctx.imagens, b.id)) === 'string' || (b.dados.tabelas || []).length)) await this.sinc(true).catch(() => {});
             this.desenhar();
         }
     };
@@ -840,7 +844,7 @@
             },
             /** x-effect: outra pessoa (ou outra aba) trocou o arquivo do cartão. */
             bdSinc(b, el) {
-                void b.dados.versao; void this.imagens[b.id + '.sql'];
+                void b.dados.versao; void this.imagens[b.id + SUF]; void this.imagens[b.id + '.sql'];
                 if (!el || !el._bd) return;
                 if (!el._bdEfeito) { el._bdEfeito = true; return; }
                 el._bd.sinc(false);
@@ -849,7 +853,7 @@
                 if (!confirm('Tirar o banco deste cartão? A estrutura e os dados saem daqui e do servidor.')) return;
                 delete b.dados.tabelas; delete b.dados.avisos;
                 b.dados.versao = ''; b.dados.arquivo = ''; b.dados.resumo = null; b.dados.pos = {};
-                this.apagarImagens(b.id + '.sql');
+                this.apagarImagens(b.id + (this.imagens[b.id + SUF] !== undefined ? SUF : '.sql'));
                 const s = sessoes.get(b.id);
                 if (s) { s.idx = null; s.schema = []; s.avisos = []; s.versao = ''; if (s.cartao) s.cartao.desenhar(); }
             },
@@ -893,11 +897,11 @@
             return id;
         };
         Object.assign(base, metodos());
-        // os pedaços (sqlz.<id>.*) não ficam em this.imagens: saem junto com o índice img.<id>.sql
+        // os pedaços (sqlz.<id>.*) não ficam em this.imagens: saem junto com o índice img.<id>.banco
         const apagar = base.apagarImagens;
         base.apagarImagens = function (id) {
-            const m = /^(b[A-Za-z0-9]+)(\.sql)?$/.exec(String(id || ''));
-            const tinha = !!m && this.imagens[m[1] + '.sql'] !== undefined;
+            const m = /^(b[A-Za-z0-9]+)(\.banco|\.sql)?$/.exec(String(id || ''));
+            const tinha = !!m && idxDe(this.imagens, m[1]) !== undefined;
             const r = apagar.call(this, id);
             if (!m || !tinha) return r;
             const bloco = m[1], cfg = cfgServidor(this);

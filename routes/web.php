@@ -87,7 +87,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/pagamento/pix/{pix}/cancelar', [AssinaturaController::class, 'cancelar'])
         ->whereNumber('pix')->middleware('throttle:20,1')->name('pix.cancelar');
     Route::middleware(\App\Http\Middleware\SoAdmin::class)->group(function () {
-        Route::get('/admin/pix', [\App\Http\Controllers\PixAdminController::class, 'index'])->name('pix.admin');
+        Route::post('/admin/novos-usuarios/visto', [PainelController::class, 'novosVistos'])->middleware('throttle:30,1')->name('admin.novos.visto');
+        Route::get('/admin/pix',[\App\Http\Controllers\PixAdminController::class, 'index'])->name('pix.admin');
         Route::post('/admin/pix/config', [\App\Http\Controllers\PixAdminController::class, 'config'])->name('pix.admin.config');
         Route::post('/admin/pix/{pix}/confirmar', [\App\Http\Controllers\PixAdminController::class, 'confirmar'])
             ->whereNumber('pix')->name('pix.admin.confirmar');

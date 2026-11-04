@@ -384,7 +384,10 @@
             if (!URL_YT) { ui.ytErro = 'Métricas do YouTube indisponíveis nesta página.'; return; }
             ui.ytCarregando = true; ui.ytErro = '';
             try {
-                const r = await fetch(URL_YT + '?canal=' + encodeURIComponent(canal), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+                // sem "https://dominio/" no endereço: o firewall da hospedagem recusa (406) parâmetro que começa com link de outro site;
+                // o servidor entende "@canal", "channel/UC…" e o id do canal
+                const alvo = canal.replace(/^[a-z]+:\/\/(?:www\.|m\.)?(?:youtube\.com\/)?/i, '').replace(/[?#].*$/, '');
+                const r = await fetch(URL_YT + '?canal=' + encodeURIComponent(alvo), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
                 const j = await r.json().catch(() => ({}));
                 if (!r.ok || !j.ok) ui.ytErro = j.erro || 'Não deu para buscar o canal agora.';
                 else b.dados.ytSnap = { canal: j.canal, videos: j.videos, em: j.em };

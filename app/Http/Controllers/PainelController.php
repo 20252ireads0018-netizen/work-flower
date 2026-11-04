@@ -6,6 +6,8 @@ use App\Models\CarteiraDado;
 use App\Models\CorpoDado;
 use App\Models\DiversoDado;
 use App\Models\Tarefa;
+use App\Support\NovosUsuarios;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -38,7 +40,16 @@ class PainelController extends Controller
             'resumo'       => $resumo,
             'pendentes'    => $pendentes,
             'tutorialAuto' => $tutorialAuto,
+            'novos'        => $request->user()->eAdmin() ? NovosUsuarios::para($request->user()) : null,
         ]);
+    }
+
+    /** POST /admin/novos-usuarios/visto: tira o aviso de contas novas do painel da administração. */
+    public function novosVistos(Request $request): RedirectResponse
+    {
+        NovosUsuarios::marcarVisto($request->user());
+
+        return redirect()->route('painel');
     }
 
     /** true se a conta ainda não guardou nada nas áreas (tema, fundo e preferências não contam). */
