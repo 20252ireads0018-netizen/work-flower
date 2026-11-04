@@ -28,6 +28,7 @@ class Sincronia
         'corpo'    => [CorpoDado::class, ''],
         'mente'    => [CorpoDado::class, 'mente.'],
         'carteira' => [CarteiraDado::class, ''],
+        'negocios' => [\App\Models\NegocioDado::class, ''],
         'diverso'  => [DiversoDado::class, ''],
     ];
 
@@ -101,6 +102,7 @@ class Sincronia
             $classe::updateOrCreate(['user_id' => $donoId, 'chave' => $prefixo . $chave], ['valor' => $valor]);
             $versao = $chave === 'estado' ? self::versao($valor) : null;
             self::marcar($request, $area, $donoId, $versao, str_starts_with($chave, 'img.'));
+            self::historico($request, $area, $donoId, $chave);
 
             return response()->json(['ok' => true, 'versao' => $versao]);
         }
@@ -121,9 +123,21 @@ class Sincronia
         });
         if ($resposta->getStatusCode() === 200) {
             self::marcar($request, $area, $donoId, $resposta->getData(true)['versao'] ?? null, false);
+            self::historico($request, $area, $donoId, $chave);
         }
 
         return $resposta;
+    }
+
+    /** Histórico da equipe (aba Equipe): quem mudou o quê. A aba aberta vem no cabeçalho X-WF-Aba (quadro.js). */
+    private static function historico(Request $request, string $area, int $donoId, string $chave): void
+    {
+        $uid = $request->user()?->id;
+        if (! $uid) {
+            return;
+        }
+        $aba = $request->header('X-WF-Aba');
+        Equipe::registrar($donoId, $area, $uid, str_starts_with($chave, 'img.') ? 'trocou uma imagem' : 'editou os cartões', is_string($aba) ? rawurldecode($aba) : null);
     }
 
     /**

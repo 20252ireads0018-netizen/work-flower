@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('titulo', 'Loja')
-@section('subtitulo', 'Carteira · sua loja virtual: produtos, aparência, Pix e pedidos.')
+@section('subtitulo', 'Negócios · sua loja virtual: produtos, aparência, Pix e pedidos.')
 
 @section('conteudo')
 @php
@@ -29,7 +29,7 @@
 
 <div class="space-y-4">
     <div class="flex flex-wrap items-center gap-2">
-        <a class="btn-sec !py-1.5 !px-3 text-sm" href="{{ route('areas.carteira') }}">← Carteira</a>
+        <a class="btn-sec !py-1.5 !px-3 text-sm" href="{{ route('areas.negocios') }}">← Negócios</a>
         @if ($loja)
             <a class="btn !py-1.5 !px-3 text-sm" href="{{ route('loja.ver', $loja->slug) }}" target="_blank" rel="noopener">{{ $loja->publicada ? 'Ver a loja' : 'Ver prévia' }} ↗</a>
             <span class="lj-st {{ $loja->publicada ? 'pago' : 'aguardando' }}">{{ $loja->publicada ? 'Aberta ao público' : 'Fechada (só você vê)' }}</span>

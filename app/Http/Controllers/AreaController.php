@@ -59,16 +59,24 @@ class AreaController extends Controller
     {
         abort_unless(array_key_exists($area, Tarefa::AREAS), 404);
 
+        $dono = Compartilhar::dono($request, $area); // quem só pode ver recebe 403 aqui
         $dados = $request->validate([
-            'titulo'    => ['required', 'string', 'max:150'],
-            'descricao' => ['nullable', 'string', 'max:1000'],
-            'prazo'     => ['nullable', 'date'],
+            'titulo'         => ['required', 'string', 'max:150'],
+            'descricao'      => ['nullable', 'string', 'max:1000'],
+            'prazo'          => ['nullable', 'date'],
+            'categoria'      => ['nullable', 'string', 'max:40'],
+            'cor'            => ['nullable', \Illuminate\Validation\Rule::in(Tarefa::CORES)],
+            'responsavel_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::in(array_keys(Compartilhar::pessoas($dono, $area)))],
         ], [
-            'titulo.required' => 'Dê um nome à tarefa.',
-            'prazo.date'      => 'Informe uma data válida.',
+            'titulo.required'   => 'Dê um nome à tarefa.',
+            'prazo.date'        => 'Informe uma data válida.',
+            'responsavel_id.in' => 'Essa pessoa não está neste workflow.',
         ]);
+        $dados['categoria'] = trim((string) ($dados['categoria'] ?? '')) ?: null;
 
-        Tarefa::create($dados + ['user_id' => Compartilhar::dono($request, $area), 'area' => $area]);
+        $t = Tarefa::create($dados + ['user_id' => $dono, 'area' => $area]);
+        \App\Support\Equipe::registrar($dono, $area, $request->user()->id, 'criou a tarefa "' . mb_substr($t->titulo, 0, 80) . '"'
+            . ($t->responsavel_id ? ' para ' . ($t->responsavel?->name ?? 'alguém') : ''), 'Tarefas');
 
         return back()->with('ok', 'Tarefa adicionada.');
     }

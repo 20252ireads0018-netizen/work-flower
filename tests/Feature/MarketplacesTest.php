@@ -195,8 +195,11 @@ class MarketplacesTest extends TestCase
         // sem acesso à Carteira do dono
         $this->actingAs($outro)->getJson('/carteira/marketplaces/dados?de=' . $u->id)->assertForbidden();
 
-        // com a Carteira compartilhada, o convidado vê e edita os dados do dono
+        // a Carteira compartilhada não dá acesso aos marketplaces: eles moram na área Negócios
         $this->actingAs($u)->postJson('/compartilhar/carteira', ['email' => $outro->email])->assertOk();
+        $this->actingAs($outro)->withHeader('X-WF-Dono', (string) $u->id)->getJson('/carteira/marketplaces/dados')->assertForbidden();
+        // com Negócios compartilhado, o convidado vê e edita os dados do dono
+        $this->actingAs($u)->postJson('/compartilhar/negocios', ['email' => $outro->email])->assertOk();
         $this->actingAs($outro)->withHeader('X-WF-Dono', (string) $u->id)->getJson('/carteira/marketplaces/dados')->assertOk()->assertJsonCount(2, 'produtos');
     }
 }

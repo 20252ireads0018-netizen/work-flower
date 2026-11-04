@@ -79,6 +79,114 @@ class FundoController extends Controller
         ]);
     }
 
+    /** Até quanto baixa de um link (o mesmo limite dos GIFs enviados do computador). */
+    public const LIMITE_LINK = 4 * 1024 * 1024;
+
+    /**
+     * Baixa a imagem ou GIF de um link (imagem arrastada de outro site, link colado) e devolve os bytes,
+     * para o navegador usar como se o arquivo tivesse sido escolhido. O navegador não baixa sozinho
+     * por causa do CORS dos outros sites. Página em vez de imagem (Tenor, Pinterest...): usa o og:image.
+     * Só endereços públicos (nada de localhost ou rede interna) e no máximo 4 MB.
+     */
+    public function baixar(Request $request): Response
+    {
+        $url = (string) $request->validate(['url' => ['required', 'string', 'max:2000']])['url'];
+        $falha = function (string $m) { throw ValidationException::withMessages(['url' => $m]); };
+
+        for ($tentativa = 0; $tentativa < 5; $tentativa++) {
+            [$tipo, $corpo, $proxima] = self::buscar($url, $falha);
+            if ($proxima) { $url = $proxima; continue; }
+
+            if (str_starts_with($tipo, 'text/html')) {
+                // página: procura a imagem principal (og:image / twitter:image)
+                if (! preg_match('/<meta[^>]+(?:property|name)=["\'](?:og:image(?::url)?|twitter:image)["\'][^>]*content=["\']([^"\']+)["\']/i', $corpo, $m)
+                    && ! preg_match('/<meta[^>]+content=["\']([^"\']+)["\'][^>]*(?:property|name)=["\'](?:og:image(?::url)?|twitter:image)["\']/i', $corpo, $m)) {
+                    $falha('Esse link é de uma página, não de uma imagem. Abra o GIF, clique com o botão direito e use “Copiar endereço da imagem”.');
+                }
+                $url = self::absoluta(html_entity_decode($m[1]), $url);
+                continue;
+            }
+
+            $info = @getimagesizefromstring($corpo);
+            if ($info === false || ! in_array($info['mime'] ?? '', self::TIPOS, true)) {
+                $falha('O link não é de uma imagem JPG, PNG, WebP ou GIF.');
+            }
+
+            return response($corpo, 200, ['Content-Type' => $info['mime'], 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-store']);
+        }
+
+        $falha('O link redireciona demais. Tente o endereço direto da imagem.');
+    }
+
+    /** Uma requisição: [tipo, corpo, próximo endereço se for redirecionamento]. */
+    private static function buscar(string $url, callable $falha): array
+    {
+        $p = parse_url($url);
+        $esquema = strtolower($p['scheme'] ?? '');
+        $host = $p['host'] ?? '';
+        if (! in_array($esquema, ['http', 'https'], true) || $host === '' || isset($p['user'])) {
+            $falha('Use um link que comece com http:// ou https://.');
+        }
+        $porta = (int) ($p['port'] ?? ($esquema === 'https' ? 443 : 80));
+        if (! in_array($porta, [80, 443, 8080, 8443], true)) $falha('Esse endereço não é aceito.');
+
+        // resolve o nome uma vez e prende a conexão nesse IP (evita trocar para um IP interno no meio)
+        $semColchete = trim($host, '[]');
+        $ip = filter_var($semColchete, FILTER_VALIDATE_IP) ? $semColchete : gethostbyname($host);
+        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            $falha('Não consegui encontrar esse endereço.');
+        }
+
+        $tipo = '';
+        $recebido = '';
+        $grande = false;
+        try {
+            $resp = \Illuminate\Support\Facades\Http::withOptions([
+                'allow_redirects' => false,
+                'curl'            => [CURLOPT_RESOLVE => [$semColchete . ':' . $porta . ':' . $ip]],
+                // para no meio se passar do limite (o cURL avisa o quanto já veio)
+                'progress'        => function ($total, $baixado) use (&$grande) {
+                    if ($total > self::LIMITE_LINK || $baixado > self::LIMITE_LINK) { $grande = true; throw new \RuntimeException('grande'); }
+                },
+            ])->withHeaders([
+                'User-Agent'     => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+                // os mesmos cabeçalhos de um <img>: Tenor, Tumblr e outros devolvem uma página de visualização
+                // em vez do GIF quando o pedido aceita HTML
+                'Accept'         => 'image/avif,image/webp,image/apng,image/gif,image/*,*/*;q=0.8',
+                'Sec-Fetch-Dest' => 'image',
+                'Sec-Fetch-Mode' => 'no-cors',
+            ])->connectTimeout(8)->timeout(20)->get($url);
+
+            if (in_array($resp->status(), [301, 302, 303, 307, 308], true) && $resp->header('Location')) {
+                return ['', '', self::absoluta($resp->header('Location'), $url)];
+            }
+            if (! $resp->successful()) $falha('O site respondeu com erro (' . $resp->status() . '). Tente o endereço direto da imagem.');
+
+            $tipo = strtolower($resp->header('Content-Type'));
+            $recebido = $resp->body();
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            if ($grande) $falha('Esse GIF passa de 4 MB. Escolha uma versão menor (ou reduza em ezgif.com/optimize).');
+            report($e);
+            $falha('Não consegui baixar desse link. Salve o GIF no computador e escolha o arquivo.');
+        }
+
+        return [$tipo, $recebido, null];
+    }
+
+    /** Endereço relativo ("/x.gif", "//cdn...") → absoluto, a partir da página onde estava. */
+    private static function absoluta(string $alvo, string $base): string
+    {
+        if (preg_match('#^https?://#i', $alvo)) return $alvo;
+        $b = parse_url($base);
+        if (str_starts_with($alvo, '//')) return $b['scheme'] . ':' . $alvo;
+        $raiz = $b['scheme'] . '://' . $b['host'] . (isset($b['port']) ? ':' . $b['port'] : '');
+        if (str_starts_with($alvo, '/')) return $raiz . $alvo;
+
+        return $raiz . rtrim(str_replace('\\', '/', dirname($b['path'] ?? '/')), '/') . '/' . $alvo;
+    }
+
     /** Tipo e bytes de uma imagem guardada como data URL (404 se estiver estragada). Também usado pelo fundo de cada workflow. */
     public static function decodificar(string $valor): array
     {

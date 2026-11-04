@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class Ambiente
 {
-    public const AREAS = ['corpo', 'mente', 'carteira', 'diverso'];
+    public const AREAS = ['corpo', 'mente', 'carteira', 'negocios', 'diverso'];
 
     public const AUDIO_EXT = ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'webm'];
 

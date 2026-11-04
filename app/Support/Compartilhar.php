@@ -56,15 +56,50 @@ class Compartilhar
         return $membroId === $donoId || self::donoSeTemAcesso($membroId, $donoId, $area) !== null;
     }
 
-    /** O dono, se o convidado $membroId pode abrir a área dele agora; null se não pode. */
+    /** O dono, se o convidado $membroId pode abrir a área dele agora; null se não pode (ou se o dono o bloqueou). */
     private static function donoSeTemAcesso(int $membroId, int $donoId, string $area): ?User
     {
-        if (! WorkflowMembro::where(['dono_id' => $donoId, 'membro_id' => $membroId, 'area' => $area])->exists()) {
+        return self::acesso($membroId, $donoId, $area)[0] ?? null;
+    }
+
+    /** [dono, vínculo] se o convidado pode abrir a área agora; null se não pode. */
+    private static function acesso(int $membroId, int $donoId, string $area): ?array
+    {
+        $vinculo = WorkflowMembro::where(['dono_id' => $donoId, 'membro_id' => $membroId, 'area' => $area])->first();
+        if (! $vinculo || $vinculo->bloqueado) {
             return null;
         }
         $dono = User::find($donoId);
 
-        return $dono && in_array($membroId, self::convidadosAtivos($dono), true) ? $dono : null;
+        return $dono && in_array($membroId, self::convidadosAtivos($dono), true) ? [$dono, $vinculo] : null;
+    }
+
+    /**
+     * true se $userId pode mudar o conteúdo da área do dono: o próprio dono, ou um convidado com a edição liberada.
+     * Sem a edição, o convidado só vê (e mexe só nas tarefas que foram delegadas a ele).
+     */
+    public static function podeEditar(int $userId, int $donoId, string $area): bool
+    {
+        if ($userId === $donoId) {
+            return true;
+        }
+        $a = self::acesso($userId, $donoId, $area);
+
+        return $a !== null && $a[1]->pode_editar;
+    }
+
+    /** Pessoas que podem receber tarefas desta área: o dono e os convidados com acesso agora. [id => nome] */
+    public static function pessoas(int $donoId, string $area): array
+    {
+        $dono = User::find($donoId);
+        if (! $dono) {
+            return [];
+        }
+        $ativos = self::convidadosAtivos($dono);
+        $ids = WorkflowMembro::where(['dono_id' => $donoId, 'area' => $area, 'bloqueado' => false])->pluck('membro_id')
+            ->filter(fn ($id) => in_array((int) $id, $ativos, true))->all();
+
+        return [$dono->id => $dono->name] + User::whereIn('id', $ids)->orderBy('name')->pluck('name', 'id')->all();
     }
 
     /** Id do dono pedido na requisição (ou null = o próprio usuário). */
@@ -93,12 +128,19 @@ class Compartilhar
             return $usuario->id;
         }
 
-        $dono = self::donoSeTemAcesso($usuario->id, $pedido, $area);
-        abort_unless($dono, 403,
-            'Você não tem (ou não tem mais) acesso a este workflow. O dono pode ter removido você ou mudado de plano.');
+        $acesso = self::acesso($usuario->id, $pedido, $area);
+        abort_unless($acesso, 403,
+            'Você não tem (ou não tem mais) acesso a este workflow. O dono pode ter removido, bloqueado você ou mudado de plano.');
+        [$dono, $vinculo] = $acesso;
 
         $request->attributes->set('wf_dono', $pedido);
         $request->attributes->set('wf_dono_nome', (string) ($dono->name ?? 'Outra conta'));
+
+        // o dono liberou só a visualização: abre e lê, mas o servidor recusa qualquer gravação
+        if (! $vinculo->pode_editar) {
+            $request->attributes->set('wf_so_ver', true);
+            abort_unless($request->isMethodSafe(), 403, 'O dono deste workflow liberou só a visualização para você.');
+        }
 
         return $pedido;
     }

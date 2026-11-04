@@ -94,7 +94,7 @@
             volume: 40, _yt: null, _ytId: null, _ytCriando: false, _querTocar: false,
 
             // painel
-            aberto: false, salvando: false, enviando: false, erro: '', arrastando: null,
+            aberto: false, salvando: false, enviando: false, baixando: false, erro: '', arrastando: null,
             escopo: 'area', fSetor: '', fSetorNome: '', f: null, novaImagem: null, removerImagem: false,
 
             get musica() { return this.amb.musica; },
@@ -328,6 +328,16 @@
             },
             idYoutubeForm() { return idYoutube(this.f?.musica.youtube); },
 
+            /** Link colado, imagem colada ou arrastada de outro site: baixa pelo servidor (public/js/baixar-imagem.js). */
+            async usarDe(promessa) {
+                this.erro = ''; this.baixando = true;
+                try { const f = await promessa; if (f) await this.escolherImagem(f); else this.erro = 'Não achei uma imagem aí. Use o link direto do GIF.'; }
+                catch (e) { this.erro = e.message || 'Não consegui baixar essa imagem.'; }
+                finally { this.baixando = false; }
+            },
+            baixarLink(campo) { if (campo.value.trim() && window.wfBaixarImagem) this.usarDe(window.wfBaixarImagem(campo.value)).then(() => { if (!this.erro) campo.value = ''; }); },
+            colarImagem(e) { const d = e.clipboardData; if (d && window.wfArquivoDe && [...d.items].some(i => i.kind === 'file')) { e.preventDefault(); this.usarDe(window.wfArquivoDe(d)); } },
+            soltarImagem(dt) { if (window.wfArquivoDe) this.usarDe(window.wfArquivoDe(dt)); else this.escolherImagem(dt.files[0]); },
             async escolherImagem(arquivo) {
                 if (!arquivo || !arquivo.type.startsWith('image/')) { if (arquivo) this.erro = 'Escolha um arquivo de imagem.'; return; }
                 this.erro = '';

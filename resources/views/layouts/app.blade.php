@@ -52,6 +52,7 @@
     $wfArea     = request()->attributes->get('wf_area');
     $wfDono     = request()->attributes->get('wf_dono');
     $wfDonoNome = request()->attributes->get('wf_dono_nome');
+    $wfSoVer    = (bool) request()->attributes->get('wf_so_ver'); // o dono liberou só a visualização (App\Support\Compartilhar)
 
     // Ambiente do workflow aberto (ver App\Support\Ambiente): fundo próprio troca o fundo geral nesta página
     $papelCor = $fundoIni['cor'];
@@ -123,6 +124,7 @@
         @if ($wfDono)
             <meta name="wf-dono" content="{{ $wfDono }}">
             <meta name="wf-dono-nome" content="{{ $wfDonoNome }}">
+            @if ($wfSoVer)<meta name="wf-so-ver" content="1">@endif
             <script>
                 /* Workflow de outra pessoa aberto: todo pedido desta página e todo formulário vão para os dados dela. */
                 (function () {
@@ -348,6 +350,13 @@
          O ID vem de config('services.adsense.client'), definido por ADSENSE_CLIENT no .env. --}}
     @if ($adsenseClient && ! $semAnuncios)
         <meta name="google-adsense-account" content="{{ $adsenseClient }}">
+        {{-- aviso de cookies (partials/cookies): sem o "Aceitar todos", os anúncios não são personalizados --}}
+        <script>
+            (function () {
+                var aceitou = /(?:^|;\s*)wf_cookies=tudo(?:;|$)/.test(document.cookie);
+                (window.adsbygoogle = window.adsbygoogle || []).requestNonPersonalizedAds = aceitou ? 0 : 1;
+            })();
+        </script>
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ $adsenseClient }}"
                 crossorigin="anonymous"></script>
     @endif
@@ -969,7 +978,11 @@
                         </label>
                         <button type="button" class="link-prim text-sm" x-show="imagemAtual" @click="tirarImagem()">Remover</button>
                     </div>
-                    <p class="text-xs texto-2">JPG e PNG são reduzidos sozinhos. GIF e WebP animados mantêm a animação e podem ter até 4 MB.</p>
+                    <form class="flex gap-2" @submit.prevent="baixarLink($refs.linkFundo)" @paste="colarImagem($event)">
+                        <input x-ref="linkFundo" type="url" class="campo flex-1 !py-1.5 text-sm" maxlength="2000" placeholder="ou cole o link de um GIF (Tenor, Giphy, Pinterest...)" aria-label="Link da imagem ou GIF">
+                        <button class="btn-sec !py-1.5 text-sm" :disabled="baixando" x-text="baixando ? 'Baixando…' : 'Usar link'"></button>
+                    </form>
+                    <p class="text-xs texto-2">JPG e PNG são reduzidos sozinhos. GIF e WebP animados mantêm a animação e podem ter até 4 MB.</p> Também dá para arrastar um GIF de outra página.</p>
                 </div>
 
                 <div class="space-y-4">
@@ -1337,6 +1350,17 @@
                     }
                 },
 
+                baixando: false,
+                /** Link colado, imagem colada ou arrastada de outro site (public/js/baixar-imagem.js). */
+                async usarDe(promessa) {
+                    this.erro = ''; this.baixando = true;
+                    try { const f = await promessa; if (f) await this.escolherImagem(f); else this.erro = 'Não achei uma imagem aí. Use o link direto do GIF.'; }
+                    catch (e) { this.erro = e.message || 'Não consegui baixar essa imagem.'; }
+                    finally { this.baixando = false; }
+                },
+                baixarLink(campo) { if (campo.value.trim()) this.usarDe(window.wfBaixarImagem(campo.value)).then(() => { if (!this.erro) campo.value = ''; }); },
+                colarImagem(e) { const d = e.clipboardData; if (d && [...d.items].some(i => i.kind === 'file')) { e.preventDefault(); this.usarDe(window.wfArquivoDe(d)); } },
+                soltarImagem(dt) { this.usarDe(window.wfArquivoDe(dt)); },
                 async escolherImagem(arquivo) {
                     if (!arquivo || !arquivo.type.startsWith('image/')) return;
                     this.erro = '';
@@ -1707,7 +1731,28 @@
         <script src="{{ asset('js/lembretes.js') }}?v={{ @filemtime(public_path('js/lembretes.js')) }}" defer
                 data-url="{{ route('calendario.lembretes') }}" data-painel="{{ route('painel') }}"></script>
     @endif
+    {{-- cartões favoritos: estrela em cada cartão e barra na borda esquerda (public/js/favoritos.js) --}}
+    <style>
+        .fav-zona { position: fixed; left: 0; top: 4rem; bottom: 0; width: 8px; z-index: 900; }
+        .fav-aba { position: fixed; left: 0; top: 50%; z-index: 901; padding: .5rem .3rem; border-radius: 0 .5rem .5rem 0; font-size: .85rem;
+            background: var(--superficie-2); color: #f2c230; border: 1px solid var(--linha); border-left: 0; opacity: .55; }
+        .fav-aba:hover { opacity: 1; }
+        .fav-barra { position: fixed; left: 0; top: 4rem; bottom: 1rem; width: 15.5rem; z-index: 902; overflow-y: auto; padding: .75rem;
+            background: var(--superficie); border: 1px solid var(--linha); border-left: 0; border-radius: 0 .9rem .9rem 0; box-shadow: 10px 0 30px rgba(0,0,0,.35);
+            transform: translateX(-105%); transition: transform .18s ease; }
+        .fav-barra.aberta { transform: none; }
+        .fav-tit { font-weight: 700; margin: 0 0 .5rem; }
+        .fav-vazio { font-size: .8rem; color: var(--tinta-2); }
+        .fav-item { display: block; padding: .45rem .55rem; border-radius: .5rem; font-size: .85rem; }
+        .fav-item:hover { background: var(--superficie-2); }
+        .fav-item small { display: block; color: var(--tinta-2); font-size: .7rem; }
+        .wf-item.fav-pisca { box-shadow: 0 0 0 3px #f2c230, 0 14px 36px rgba(0,0,0,.4); transition: box-shadow .3s; }
+    </style>
+    <script src="{{ asset('js/favoritos.js') }}?v={{ @filemtime(public_path('js/favoritos.js')) }}" defer></script>
+    {{-- imagem/GIF arrastado de outro site ou link colado no fundo: baixa pelo servidor (public/js/baixar-imagem.js) --}}
+    <script src="{{ asset('js/baixar-imagem.js') }}?v={{ @filemtime(public_path('js/baixar-imagem.js')) }}" data-url="{{ route('fundo.baixar') }}"></script>
 @endauth
+@include('partials.cookies')
 
 @guest
     @yield('conteudo')
@@ -1725,6 +1770,7 @@
             @foreach ($linksLegais as $nome => $url)
                 <a href="{{ $url }}" class="link-prim">{{ $nome }}</a>
             @endforeach
+            <button type="button" class="link-prim" onclick="window.wfCookies && wfCookies()">Cookies</button>
         </nav>
         <p class="text-center mt-3">© {{ date('Y') }} Work Flower</p>
     </footer>

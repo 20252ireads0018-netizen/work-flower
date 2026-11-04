@@ -37,6 +37,20 @@
                 <template x-if="b.tipo === 'habitos'">
                     @include('partials.habitos-cartao')
                 </template>
+                {{-- Editor de PDF (partials/editor-pdf-cartao; editor em js/editor-pdf.js) --}}
+                <template x-if="b.tipo === 'editorpdf'">
+                    @include('partials.editor-pdf-cartao')
+                </template>
+                {{-- Questões de concurso, Criador de conteúdo e RH (partials/*-cartao; js/cartoes-extra.js) --}}
+                <template x-if="b.tipo === 'questoes'">
+                    @include('partials.questoes-cartao')
+                </template>
+                <template x-if="b.tipo === 'criador'">
+                    @include('partials.criador-cartao')
+                </template>
+                <template x-if="b.tipo === 'rh'">
+                    @include('partials.rh-cartao')
+                </template>
                 {{-- Conversa com o Claude, que muda os cartões pedindo permissão (partials/claude-cartao; js/claude.js) --}}
                 <template x-if="b.tipo === 'claude'">
                     @include('partials.claude-cartao')

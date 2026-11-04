@@ -126,6 +126,20 @@ Route::middleware('auth')->group(function () {
     Route::delete('/carteira/dados/{chave}', [CarteiraController::class, 'remover'])
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('carteira.dados.remover');
 
+    // Negócios: vendas, clientes, documentos, loja, marketplaces e equipe. Precisa vir ANTES de /areas/{area}
+    Route::get('/areas/negocios', [\App\Http\Controllers\NegociosController::class, 'show'])->name('areas.negocios');
+    Route::put('/negocios/dados/{chave}', [\App\Http\Controllers\NegociosController::class, 'salvar'])
+        ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('negocios.dados.salvar');
+    Route::delete('/negocios/dados/{chave}', [\App\Http\Controllers\NegociosController::class, 'remover'])
+        ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('negocios.dados.remover');
+    Route::get('/negocios/clientes-da-loja', [\App\Http\Controllers\NegociosController::class, 'clientesDaLoja'])
+        ->middleware('throttle:30,1')->name('negocios.clientes.loja');
+
+    // Equipe (aba da área Negócios): pessoas dos meus workflows, permissões, bloqueio e histórico
+    Route::get('/equipe', [\App\Http\Controllers\EquipeController::class, 'index'])->middleware('throttle:60,1')->name('equipe');
+    Route::patch('/equipe/{membro}/{area}', [\App\Http\Controllers\EquipeController::class, 'alterar'])
+        ->whereNumber('membro')->where('area', '[a-z]+')->middleware('throttle:60,1')->name('equipe.alterar');
+
     // Carteira › Loja: mini loja da conta (aparência, Pix, produtos e pedidos). Página pública em /loja/{slug}.
     Route::prefix('/carteira/loja')->name('carteira.loja')->group(function () {
         Route::get('/', [\App\Http\Controllers\LojaController::class, 'show'])->name('');
@@ -161,7 +175,7 @@ Route::middleware('auth')->group(function () {
     // Diverso: precisa vir ANTES da rota genérica /areas/{area}
     Route::get('/areas/diverso', [DiversoController::class, 'show'])->name('areas.diverso');
 
-    // corpo | mente | carteira | diverso
+    // corpo | mente | carteira | negocios | diverso
     Route::get('/areas/{area}', [AreaController::class, 'show'])
         ->whereIn('area', array_keys(Tarefa::AREAS))->name('areas.show');
     Route::post('/areas/{area}/tarefas', [AreaController::class, 'store'])
@@ -177,6 +191,8 @@ Route::middleware('auth')->group(function () {
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('corpo.dados.remover');
 
     Route::put('/fundo', [FundoController::class, 'salvar'])->middleware('throttle:30,1')->name('fundo.salvar');
+    // imagem ou GIF de um link (arrastado de outro site ou colado), para o fundo geral e o de cada workflow/aba
+    Route::post('/fundo/baixar', [FundoController::class, 'baixar'])->middleware('throttle:20,1')->name('fundo.baixar');
 
     // Preferências da conta: teclas de atalho, organização automática dos cartões, tutorial visto
     Route::put('/preferencias', [PreferenciasController::class, 'salvar'])

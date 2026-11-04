@@ -27,5 +27,37 @@
         <p class="erro" data-erro="prazo">@error('prazo'){{ $message }}@enderror</p>
     </div>
 
+    {{-- cor, categoria e responsável aparecem no quadro de tarefas (partials/lista) --}}
+    @php
+        $tfDono = (int) (request()->attributes->get('wf_dono') ?: auth()->id());
+        $tfPessoas = \App\Support\Compartilhar::pessoas($tfDono, $slug);
+    @endphp
+    <div class="grid gap-3 sm:grid-cols-2">
+        <div>
+            <label for="categoria" class="rotulo">Categoria <span class="texto-2 font-normal">(opcional)</span></label>
+            <input id="categoria" name="categoria" type="text" maxlength="40" class="campo" placeholder="Ex.: Casa, Trabalho" list="tq-cats">
+            <p class="erro" data-erro="categoria"></p>
+        </div>
+        @if (count($tfPessoas) > 1)
+            <div>
+                <label for="responsavel_id" class="rotulo">Responsável</label>
+                <select id="responsavel_id" name="responsavel_id" class="campo">
+                    <option value="">Ninguém em especial</option>
+                    @foreach ($tfPessoas as $id => $nome)
+                        <option value="{{ $id }}">{{ $nome }}{{ $id === auth()->id() ? ' (você)' : '' }}</option>
+                    @endforeach
+                </select>
+                <p class="erro" data-erro="responsavel_id"></p>
+            </div>
+        @endif
+    </div>
+    <div class="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Cor da tarefa">
+        <span class="rotulo !mb-0 mr-1">Cor</span>
+        <label class="tq-cor" style="--c: var(--linha)" title="Sem cor"><input type="radio" name="cor" value="" checked></label>
+        @foreach (\App\Models\Tarefa::CORES as $c)
+            <label class="tq-cor" style="--c: {{ $c }}"><input type="radio" name="cor" value="{{ $c }}" aria-label="Cor {{ $c }}"></label>
+        @endforeach
+    </div>
+
     <button type="submit" class="btn">Adicionar</button>
 </form>

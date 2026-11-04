@@ -111,6 +111,8 @@ class CompartilharController extends Controller
     {
         $area = $this->area($area);
         $dono = Compartilhar::dono($request, $area);
+        // quem está com o workflow aberto agora e em qual aba (painel da equipe)
+        \App\Support\Equipe::presenca($dono, $area, $request->user()->id, is_string($a = $request->query('aba')) ? $a : null);
 
         return response()->json(Sincronia::mudancas($area, $dono, (string) $request->query('versao', ''), $request->query('desde')));
     }

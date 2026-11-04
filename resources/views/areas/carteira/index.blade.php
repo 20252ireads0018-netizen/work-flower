@@ -4,18 +4,18 @@
 @section('subtitulo', $area['descricao'])
 
 @section('conteudo')
+{{-- Esta página serve duas áreas: Carteira (finanças pessoais, investimentos, trabalho) e Negócios (vendas, clientes,
+     documentos, loja, marketplaces e equipe). $modo escolhe as abas; os dados de cada uma ficam separados. --}}
+@php $modo = $modo ?? 'carteira'; @endphp
 {{-- várias pessoas no mesmo workflow (partials/compartilhar, js/compartilhar.js) --}}
-@include('partials.compartilhar', ['area' => 'carteira'])
-{{-- Mercado Livre, Shopee e Amazon (MarketplaceController) --}}
-<div class="mb-4">
-    <a class="btn-sec !py-1.5 !px-3 text-sm" href="{{ route('carteira.mkt', request()->attributes->get('wf_dono') ? ['de' => request()->attributes->get('wf_dono')] : []) }}">🛒 Marketplaces</a>
-    {{-- mini loja da conta com página pública e Pix (LojaController) --}}
-    <a class="btn-sec !py-1.5 !px-3 text-sm" href="{{ route('carteira.loja') }}">🏪 Loja</a>
-</div>
+@include('partials.compartilhar', ['area' => $modo])
 @php
     $cfg = [
-        'url'     => url('/carteira/dados'),
+        'modo'    => $modo,
+        'url'     => url('/' . $modo . '/dados'),
         'cotacao' => route('carteira.cotacao'),
+        'negocios' => route('areas.negocios'),
+        'clientesLoja' => $modo === 'negocios' ? route('negocios.clientes.loja') : null,
         'dados'   => (object) $dados->all(),
         'tarefas' => $tarefasJs,
     ];
@@ -150,6 +150,9 @@
 <script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
 <script src="{{ asset('js/tela-cheia.js') }}?v={{ @filemtime(public_path('js/tela-cheia.js')) }}"></script>
 <script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
+@if ($modo === 'negocios')
+<script src="{{ asset('js/equipe.js') }}?v={{ @filemtime(public_path('js/equipe.js')) }}"></script>
+@endif
 
 <div x-data="carteiraAbas()" class="space-y-6">
 
@@ -163,7 +166,7 @@
     </datalist>
 
     {{-- Mini cards circulares --}}
-    <nav class="flex flex-wrap gap-x-5 gap-y-4" aria-label="Seções de Carteira">
+    <nav class="flex flex-wrap gap-x-5 gap-y-4" aria-label="Seções de {{ $area['nome'] }}">
         <template x-for="a in abas" :key="a.id">
             <button type="button" class="circ" :class="{ 'ativo': aba === a.id, 'wf-novo': novidades[a.id] }" @click="aba = a.id" :aria-pressed="aba === a.id" :title="a.nome">
                 <span class="circ-bola">
@@ -177,7 +180,7 @@
     {{-- Barra de ferramentas --}}
     <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-xs texto-2" x-text="rotuloSalvo()" aria-live="polite"></p>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2" x-show="!['loja', 'equipe'].includes(aba)">
             <button type="button" class="btn-sec" @click="reorganizar()">Reorganizar</button>
             <div class="relative" @click.outside="menuBloco = false" @keydown.escape.window="menuBloco = false">
                 <button type="button" class="btn" @click="menuBloco = !menuBloco" aria-haspopup="menu" :aria-expanded="menuBloco">+ Bloco</button>
@@ -195,6 +198,7 @@
     @include('partials.pasta-barra')
     <div x-ref="area" class="w-full">
 
+        @if ($modo === 'carteira')
         {{-- ================= CARTEIRA INDIVIDUAL ================= --}}
         <section class="wf-quadro" x-show="aba === 'carteira'" x-cloak :style="{ minHeight: alturaQuadro('carteira') + 'px' }">
 
@@ -423,6 +427,9 @@
             @include('areas.carteira.partials.blocos', ['sec' => 'invest'])
         </section>
 
+        @endif
+
+        @if ($modo === 'negocios')
         {{-- ================= NEGÓCIOS ================= --}}
         <section class="wf-quadro" x-show="aba === 'negocios'" x-cloak :style="{ minHeight: alturaQuadro('negocios') + 'px' }">
 
@@ -575,13 +582,15 @@
             @include('areas.carteira.partials.blocos', ['sec' => 'negocios'])
         </section>
 
+        @endif
+
         {{-- ================= TAREFAS (mesmo layout das outras áreas) ================= --}}
         <section class="wf-quadro" x-show="aba === 'tarefas'" x-cloak :style="{ minHeight: alturaQuadro('tarefas') + 'px' }">
 
             <x-carteira.item sec="'tarefas'" bid="'tarefa-form'" titulo="Nova tarefa" :minw="260" :minh="200">
                 @include('areas.partials.formulario', [
                     'slug'        => $slug,
-                    'placeholder' => 'Ex.: Pagar fatura, revisar investimentos…',
+                    'placeholder' => $modo === 'negocios' ? 'Ex.: Responder pedido, ligar para cliente…' : 'Ex.: Pagar fatura, revisar investimentos…',
                 ])
             </x-carteira.item>
 
@@ -595,6 +604,7 @@
             @include('areas.carteira.partials.blocos', ['sec' => 'tarefas'])
         </section>
 
+        @if ($modo === 'carteira')
         {{-- ================= TRABALHO ================= --}}
         <section class="wf-quadro" x-show="aba === 'trabalho'" x-cloak :style="{ minHeight: alturaQuadro('trabalho') + 'px' }">
 
@@ -649,6 +659,9 @@
             @include('areas.carteira.partials.blocos', ['sec' => 'trabalho'])
         </section>
 
+        @endif
+
+        @if ($modo === 'negocios')
         {{-- ================= DOCUMENTOS ================= --}}
         <section class="wf-quadro" x-show="aba === 'docs'" x-cloak :style="{ minHeight: alturaQuadro('docs') + 'px' }">
 
@@ -658,10 +671,17 @@
             @include('areas.carteira.partials.blocos', ['sec' => 'docs'])
         </section>
 
+        {{-- ================= CLIENTES, LOJA E MARKETPLACES, EQUIPE ================= --}}
+        @include('areas.negocios.partials.secoes')
+        @endif
+
+        @if ($modo === 'carteira')
         {{-- ================= MAPA MENTAL (só blocos) ================= --}}
         <section class="wf-quadro" x-show="aba === 'mapa'" x-cloak :style="{ minHeight: alturaQuadro('mapa') + 'px' }">
             @include('areas.carteira.partials.blocos', ['sec' => 'mapa'])
         </section>
+
+        @endif
 
         {{-- ================= QUADRO LIVRE (só blocos) ================= --}}
         <section class="wf-quadro" x-show="aba === 'livre'" x-cloak :style="{ minHeight: alturaQuadro('livre') + 'px' }">

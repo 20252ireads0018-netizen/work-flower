@@ -20,7 +20,7 @@
     const VERSAO = 1;
     const EXTENSAO = '.workflower.json';
     const LIMITE_BYTES = 80 * 1024 * 1024; // imagens e PDFs entram no arquivo
-    const AREAS = ['corpo', 'mente', 'carteira', 'diverso'];
+    const AREAS = ['corpo', 'mente', 'carteira', 'negocios', 'diverso'];
 
     const meta = nome => document.querySelector('meta[name="' + nome + '"]')?.content || '';
 

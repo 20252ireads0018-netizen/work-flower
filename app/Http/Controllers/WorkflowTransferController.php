@@ -19,6 +19,7 @@ use Illuminate\Validation\ValidationException;
  *   corpo    -> corpo_dados   (chaves sem prefixo, exceto as listadas em PREFIXOS_FORA_DO_CORPO)
  *   mente    -> corpo_dados   (chaves "mente.*")  + PDFs em storage/app/mente/pdf/{usuario}/{id}.pdf
  *   carteira -> carteira_dados
+ *   negocios -> negocio_dados
  *   diverso  -> diverso_dados
  *
  * Fora do arquivo ficam: tema e fundo da página ("fundo", "fundo.img") e a biblioteca.
@@ -31,6 +32,7 @@ class WorkflowTransferController extends Controller
         'corpo'    => 'Corpo',
         'mente'    => 'Mente',
         'carteira' => 'Carteira',
+        'negocios' => 'Negócios',
         'diverso'  => 'Diverso',
     ];
 
@@ -82,7 +84,7 @@ class WorkflowTransferController extends Controller
     {
         $dados = $request->validate([
             'ids'   => ['required', 'array', 'min:1', 'max:4'],
-            'ids.*' => ['string', 'in:corpo,mente,carteira,diverso'],
+            'ids.*' => ['string', 'in:corpo,mente,carteira,negocios,diverso'],
         ]);
 
         $uid     = $request->user()->id;
@@ -287,6 +289,7 @@ class WorkflowTransferController extends Controller
     {
         switch ($area) {
             case 'carteira': return CarteiraDado::class;
+            case 'negocios': return \App\Models\NegocioDado::class;
             case 'diverso':  return DiversoDado::class;
             default:         return CorpoDado::class; // corpo e mente
         }

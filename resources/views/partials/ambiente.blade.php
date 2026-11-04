@@ -224,12 +224,16 @@
                     <div class="wf-amb-bloco" x-show="f.modo === 'cor' || f.modo === 'imagem'">
                         <div x-show="f.modo === 'imagem'" class="space-y-3">
                             <label class="wf-amb-solta" :class="{ 'arrastando': arrastando === 'img' }"
-                                   @dragover.prevent="arrastando = 'img'" @dragleave="arrastando = null" @drop.prevent="arrastando = null; escolherImagem($event.dataTransfer.files[0])">
+                                   @dragover.prevent="arrastando = 'img'" @dragleave="arrastando = null" @drop.prevent="arrastando = null; soltarImagem($event.dataTransfer)">
                                 <input type="file" accept="image/*" class="sr-only" @change="escolherImagem($event.target.files[0]); $event.target.value = ''">
                                 <template x-if="urlImagemForm()"><img :src="urlImagemForm()" alt=""></template>
                                 <b x-text="urlImagemForm() ? 'Trocar a imagem' : 'Solte uma imagem aqui ou clique'"></b>
-                                <small>JPG, PNG ou GIF e WebP animados (até 4 MB)</small>
+                                <small x-text="baixando ? 'Baixando a imagem…' : 'JPG, PNG ou GIF e WebP animados (até 4 MB). Pode arrastar de outra página.'"></small>
                             </label>
+                            <form class="flex gap-2" @submit.prevent="baixarLink($refs.linkAmb)" @paste="colarImagem($event)">
+                                <input x-ref="linkAmb" type="url" class="campo flex-1 !py-1.5 text-sm" maxlength="2000" placeholder="ou cole o link de um GIF (Tenor, Giphy, Pinterest...)" aria-label="Link da imagem ou GIF">
+                                <button class="btn-sec !py-1.5 text-sm" :disabled="baixando" x-text="baixando ? 'Baixando…' : 'Usar link'"></button>
+                            </form>
                             <div class="flex flex-wrap items-center justify-between gap-2" x-show="urlImagemForm()">
                                 <div class="wf-amb-seg" role="group" aria-label="Como encaixar a imagem">
                                     <button type="button" :aria-pressed="f.fundo.ajuste === 'cover'" @click="f.fundo.ajuste = 'cover'; previa()">Preencher</button>

@@ -1,14 +1,14 @@
 @extends('layouts.app')
 
 @section('titulo', 'Marketplaces')
-@section('subtitulo', 'Carteira · contas, anúncios, custos, comissões e margem do Mercado Livre, Shopee e Amazon.')
+@section('subtitulo', 'Negócios · contas, anúncios, custos, comissões e margem do Mercado Livre, Shopee e Amazon.')
 
 @section('conteudo')
 @php
     $de = request()->attributes->get('wf_dono');
     $cfg = [
         'base'     => url('/carteira/marketplaces'),
-        'carteira' => route('areas.carteira', $de ? ['de' => $de] : []),
+        'carteira' => route('areas.negocios', $de ? ['de' => $de] : []),
         'planos'   => route('planos'),
         'ok'       => session('mkt_ok'),
         'erro'     => session('mkt_erro'),
@@ -47,7 +47,7 @@
 
 <div x-data="wfMarketplaces(@js($cfg))" x-init="iniciar()" x-cloak class="space-y-4">
     <div class="flex flex-wrap items-center gap-2">
-        <a class="btn-sec !py-1.5 !px-3 text-sm" :href="cfg.carteira">← Carteira</a>
+        <a class="btn-sec !py-1.5 !px-3 text-sm" :href="cfg.carteira">← Negócios</a>
         <button type="button" class="btn-sec !py-1.5 !px-3 text-sm" @click="sincronizarTodas()" :disabled="ocupado || !contasAtivas.length">
             ⟳ Sincronizar todas
         </button>

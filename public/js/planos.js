@@ -38,7 +38,7 @@
     };
     const NOMES = { gratuito: 'Gratuito', basico: 'Básico', pro: 'Pró', premium: 'Premium' };
     const EM_BREVE = ['pro', 'premium'];
-    const AREAS = ['corpo', 'mente', 'carteira', 'diverso'];
+    const AREAS = ['corpo', 'mente', 'carteira', 'negocios', 'diverso'];
     const ACOES = ['importar', 'exportar', 'baixar'];
     const AVISAR_TESTE_ULTIMOS_DIAS = 7; // banner de "seu teste acaba em X dias" nos últimos N dias
 

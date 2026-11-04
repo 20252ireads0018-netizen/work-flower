@@ -1,5 +1,6 @@
-/* Work Flower · área Carteira
-   Carteira individual, investimentos, negócios, tarefas, trabalho, documentos, quadro e blocos livres.
+/* Work Flower · áreas Carteira e Negócios (a mesma página, areas/carteira/index, com cfg.modo)
+   Carteira: carteira individual, investimentos, tarefas, trabalho, mapa e quadro livre.
+   Negócios: negócios (vendas e caixa), clientes, documentos, loja e marketplaces, equipe, tarefas e quadro livre.
    Depende de quadro.js e documentos.js (carregue antes). A lógica de documentos fica em documentos.js. */
 (function () {
     'use strict';
@@ -59,8 +60,17 @@
             'doc-editor': { x: 248, y: 0, w: 400, h: 860 },
             'doc-previa': { x: 664, y: 0, w: 424, h: 860 },
         },
+        clientes: {
+            'cli-lista': { x: 0, y: 0, w: 1088, h: 520 },
+        },
         mapa: {},
         livre: {},
+    };
+
+    /* Abas de cada modo (as de Negócios saíram da Carteira em 04/11/2026; os dados antigos continuam guardados lá). */
+    const ABAS_DO_MODO = {
+        carteira: ['tarefas', 'carteira', 'invest', 'trabalho', 'mapa', 'livre'],
+        negocios: ['negocios', 'clientes', 'docs', 'loja', 'equipe', 'tarefas', 'livre'],
     };
 
     /* ================= estado inicial ================= */
@@ -78,6 +88,7 @@
         e.lanc ??= []; e.invest ??= []; e.radar ??= [];
         e.negocios ??= []; e.negAtivo ??= null;
         e.projetos ??= []; e.docs ??= []; e.docAtivo ??= null;
+        e.clientes ??= [];
         e.docs.forEach(d => D.migrar(d));   // documentos antigos ganham os novos campos sem perder nada
         if (!e.mapaSemeado) {
             e.mapaSemeado = true;
@@ -104,6 +115,7 @@
     /* ================= componente da página ================= */
     window.carteiraAbas = function () {
         const cfg = lerCfg();
+        const MODO = cfg.modo === 'negocios' ? 'negocios' : 'carteira';
         const estado = carregar(cfg);
         const imagens = {};
         Object.keys(cfg.dados).filter(k => k.startsWith('img.')).forEach(k => {
@@ -119,7 +131,8 @@
             paleta: PALETA, formatos: FORMATOS, catsCusto: CATS_CUSTO, tiposInvest: TIPOS_INVEST,
             fontes: D.FONTES_LISTA,
             colunas: [{ id: 'fazer', nome: 'A fazer' }, { id: 'andando', nome: 'Em andamento' }, { id: 'feito', nome: 'Concluído' }],
-            aba: 'carteira',
+            modo: MODO,
+            aba: MODO === 'negocios' ? 'negocios' : 'carteira',
             abas: [
                 { id: 'tarefas', nome: 'Tarefas', icone: '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>' },
                 { id: 'carteira', nome: 'Carteira', icone: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/>' },
@@ -129,7 +142,10 @@
                 { id: 'docs', nome: 'Documentos', icone: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>' },
                 { id: 'mapa', nome: 'Mapa mental', icone: '<circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="20" r="2"/><path d="M10 10.5L6.5 7.5M14 10.5l3.5-3M12 14.5v3.5"/>' },
                 { id: 'livre', nome: 'Quadro livre', icone: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4" rx="1.5"/><rect x="13" y="10" width="7" height="10" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/>' },
-            ],
+                { id: 'clientes', nome: 'Clientes', icone: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.3-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.9.7 3.1 2.5 3.5 5.2"/>' },
+                { id: 'loja', nome: 'Loja e marketplaces', icone: '<path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/>' },
+                { id: 'equipe', nome: 'Equipe', icone: '<circle cx="12" cy="7" r="3"/><circle cx="5" cy="10" r="2.2"/><circle cx="19" cy="10" r="2.2"/><path d="M6.5 20c.6-3.4 2.8-5.5 5.5-5.5s4.9 2.1 5.5 5.5M1.5 19c.3-2 1.5-3.4 3.5-3.6M22.5 19c-.3-2-1.5-3.4-3.5-3.6"/>' },
+            ].filter(a => ABAS_DO_MODO[MODO].includes(a.id)).sort((a, b) => ABAS_DO_MODO[MODO].indexOf(a.id) - ABAS_DO_MODO[MODO].indexOf(b.id)),
             tiposBloco: [
                 { id: 'texto', nome: 'Campo de texto' }, { id: 'tabela', nome: 'Tabela' },
                 { id: 'lista', nome: 'Lista de itens' }, { id: 'imagem', nome: 'Imagem' },
@@ -146,11 +162,12 @@
             mv: { modo: 'venda', d: hoje(), item: '', valor: '', canal: '', cat: 'Variável' }, mvErro: '',
             cn: { tipo: 'marketplace', nome: '', gasto: '', nota: '' },
             novoProj: '',
+            cl: { nome: '', contato: '', tags: '' }, clErro: '', clBusca: '',
 
             init() {
-                const guardada = sessionStorage.getItem('carteira.aba');
-                this.aba = this.abas.some(a => a.id === guardada) ? guardada : 'carteira';
-                this.$watch('aba', v => { sessionStorage.setItem('carteira.aba', v); this.menuBloco = false; });
+                const guardada = sessionStorage.getItem(MODO + '.aba');
+                this.aba = this.abas.some(a => a.id === guardada) ? guardada : this.aba;
+                this.$watch('aba', v => { sessionStorage.setItem(MODO + '.aba', v); this.menuBloco = false; });
                 // avisa o ambiente (partials/ambiente) de qual setor está aberto: cada aba pode ter fundo e música próprios
                 const avisarSetor = () => { const a = (this.abas).find(x => x.id === this.aba); window.wfSetorAtual = { id: this.aba || '', nome: a ? a.nome : '' }; window.dispatchEvent(new CustomEvent('wf-setor', { detail: window.wfSetorAtual })); };
                 this.$watch('aba', avisarSetor); avisarSetor();
@@ -407,6 +424,47 @@
             },
             remConexao(n, id) { const i = n.conexoes.findIndex(x => x.id === id); if (i >= 0) n.conexoes.splice(i, 1); },
 
+            /* ================= clientes (área Negócios) ================= */
+            addCliente() {
+                const f = this.cl;
+                if (!f.nome.trim()) { this.clErro = 'Digite o nome do cliente.'; return; }
+                this.estado.clientes.push({ id: uid(), nome: f.nome.trim().slice(0, 120), contato: f.contato.trim().slice(0, 120), tags: f.tags.trim().slice(0, 120), nota: '', pedidos: 0, total: 0 });
+                this.cl = { nome: '', contato: '', tags: '' }; this.clErro = '';
+            },
+            remCliente(c) {
+                if (!confirm(`Remover "${c.nome}" dos clientes?`)) return;
+                const i = this.estado.clientes.findIndex(x => x.id === c.id);
+                if (i >= 0) this.estado.clientes.splice(i, 1);
+            },
+            clientesFiltrados() {
+                const q = norm(this.clBusca || '');
+                const l = [...this.estado.clientes].sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+                return q ? l.filter(c => norm(`${c.nome} ${c.contato} ${c.tags}`).includes(q)) : l;
+            },
+            /** WhatsApp (só números, com DDD) ou e-mail; nada de link para o que não for nenhum dos dois. */
+            linkContato(c) {
+                const t = String(c.contato || '').trim();
+                if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(t)) return 'mailto:' + t;
+                const d = t.replace(/\D/g, '');
+                return d.length >= 10 ? 'https://wa.me/' + (d.length <= 11 ? '55' + d : d) : '';
+            },
+            async importarClientesLoja() {
+                if (!this.cfg.clientesLoja) return;
+                try {
+                    const r = await fetch(this.cfg.clientesLoja, { credentials: 'same-origin', headers: { Accept: 'application/json', 'X-WF-Dono': '' } });
+                    if (!r.ok) throw new Error(String(r.status));
+                    const j = await r.json();
+                    const chave = t => String(t || '').toLowerCase().replace(/\s+/g, '');
+                    let novos = 0, atualizados = 0;
+                    (j.clientes || []).forEach(n => {
+                        const ja = this.estado.clientes.find(c => chave(c.contato) && chave(c.contato) === chave(n.contato));
+                        if (ja) { ja.pedidos = n.pedidos; ja.total = n.total; atualizados++; }
+                        else { this.estado.clientes.push({ id: uid(), nome: n.nome, contato: n.contato, tags: 'loja', nota: '', pedidos: n.pedidos, total: n.total }); novos++; }
+                    });
+                    this.aviso(novos || atualizados ? `${novos} clientes novos e ${atualizados} atualizados com os pedidos da loja.` : 'Ninguém comprou na sua loja ainda.');
+                } catch { this.aviso('Não consegui buscar os pedidos da loja.'); }
+            },
+
             /* ================= trabalho: projetos ================= */
             addProjeto() {
                 const t = this.novoProj.trim();
@@ -473,7 +531,11 @@
             },
             abrirLink(l) {
                 if (l.t === 'negocio') { this.estado.negAtivo = l.id; this.ir('negocios'); }
-                else if (l.t === 'doc') { this.estado.docAtivo = l.id; this.ir('docs'); }
+                else if (l.t === 'doc') {
+                    // os documentos moram na área Negócios; na Carteira o vínculo antigo leva para lá
+                    if (MODO !== 'negocios') { location.href = this.cfg.negocios || '/areas/negocios'; return; }
+                    this.estado.docAtivo = l.id; this.ir('docs');
+                }
                 else this.ir('tarefas');
             },
 

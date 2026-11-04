@@ -17,6 +17,7 @@
             url: meta('wf-compartilhar-url'),
             donoNome: meta('wf-dono-nome'),
             dono: meta('wf-dono'),
+            soVer: meta('wf-so-ver') === '1', // o dono liberou só a visualização
             aberto: false, carregando: false, enviando: false,
             email: '', erro: '', ok: '',
             membros: [], comigo: [], pessoas: 1, limite: 1, plano: '', semAcesso: 0,

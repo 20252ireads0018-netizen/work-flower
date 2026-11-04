@@ -563,6 +563,7 @@
             },
             agendar() {
                 if (this._silencio) return; // mudança que veio de outra pessoa: não precisa gravar de volta
+                if (metaWF('wf-so-ver') === '1') return; // o dono liberou só a visualização: nada é gravado
                 this._v++;
                 this.salvo = 'pendente';
                 clearTimeout(this._t);
@@ -583,6 +584,8 @@
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
                     };
                     if (this._versao !== undefined) cab['X-WF-Versao'] = this._versao;
+                    // histórico da equipe (aba Equipe): em qual aba a mudança foi feita
+                    try { if (this.aba) cab['X-WF-Aba'] = encodeURIComponent(this.nomeAba ? this.nomeAba(this.aba) : this.aba); } catch { /* sem nome */ }
                     const r = await fetch(this.cfg.url + '/estado', {
                         method: 'PUT', credentials: 'same-origin', keepalive: texto.length < 50000,
                         headers: cab, body: JSON.stringify({ valor: texto }),
@@ -657,7 +660,8 @@
                     if (this._sincOcupado || document.hidden) return;
                     this._sincOcupado = true;
                     try {
-                        const q = `?versao=${encodeURIComponent(this._versao || '')}` + (this._desde ? `&desde=${encodeURIComponent(this._desde)}` : '');
+                        const q = `?versao=${encodeURIComponent(this._versao || '')}` + (this._desde ? `&desde=${encodeURIComponent(this._desde)}` : '')
+                            + (this.aba ? `&aba=${encodeURIComponent(this.nomeAba ? this.nomeAba(this.aba) : this.aba)}` : ''); // quem está onde (aba Equipe)
                         const r = await fetch(url + q, { credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
                         if (r.status === 403) { clearInterval(this._sincT); this.aviso('Você não tem mais acesso a este workflow.'); return; }
                         if (!r.ok) return;

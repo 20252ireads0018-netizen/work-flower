@@ -24,7 +24,7 @@ use Illuminate\Validation\Rule;
  */
 class MarketplaceController extends Controller
 {
-    private const AREA = 'carteira';
+    private const AREA = 'negocios'; // os marketplaces moram na área Negócios (compartilhamento próprio)
     private const MAX_DEMO = 3;
 
     private function dono(Request $request): int

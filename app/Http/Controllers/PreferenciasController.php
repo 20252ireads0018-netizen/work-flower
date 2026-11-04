@@ -32,6 +32,7 @@ class PreferenciasController extends Controller
             'organizarAuto' => ['sometimes', 'boolean'],
             'tutorialVisto' => ['sometimes', 'boolean'],
             'atalhos'       => ['sometimes', 'nullable', 'array', 'max:80'],
+            'favoritos'     => ['sometimes', 'nullable', 'array', 'max:60'],
         ]);
 
         $atual = self::de($request->user()->id);
@@ -51,6 +52,24 @@ class PreferenciasController extends Controller
                 $atalhos[$id] = $tecla;
             }
             $atual['atalhos'] = $atalhos;
+        }
+
+        if ($request->has('favoritos')) {
+            // cartões favoritos (barra dos cantos, js/favoritos.js): só endereços do próprio site e textos curtos
+            $favs = [];
+            foreach ((array) $request->input('favoritos', []) as $f) {
+                if (! is_array($f)) continue;
+                $url = (string) ($f['url'] ?? '');
+                $bid = (string) ($f['bid'] ?? '');
+                if (! preg_match('#^/[A-Za-z0-9/_.\-]*(\?[A-Za-z0-9=&_\-]*)?$#', $url) || ! preg_match('/^[A-Za-z0-9_.\-]{1,60}$/', $bid)) continue;
+                $favs[] = [
+                    'url'   => $url, 'bid' => $bid,
+                    'sec'   => preg_match('/^[A-Za-z0-9_\-]{1,60}$/', (string) ($f['sec'] ?? '')) ? (string) $f['sec'] : '',
+                    'nome'  => mb_substr(trim((string) ($f['nome'] ?? 'Cartão')), 0, 80) ?: 'Cartão',
+                    'area'  => mb_substr(trim((string) ($f['area'] ?? '')), 0, 40),
+                ];
+            }
+            $atual['favoritos'] = array_slice($favs, 0, 60);
         }
 
         CorpoDado::updateOrCreate(

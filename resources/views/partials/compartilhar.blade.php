@@ -5,7 +5,8 @@
     {{-- workflow de outra pessoa aberto --}}
     <template x-if="vendoOutro">
         <div class="aviso-ok flex flex-wrap items-center gap-x-3 gap-y-2 text-sm" role="status">
-            <span>👥 Você está no workflow de <b x-text="donoNome"></b>. Tudo o que você muda fica salvo para as pessoas dele.</span>
+            <span x-show="!soVer">👥 Você está no workflow de <b x-text="donoNome"></b>. Tudo o que você muda fica salvo para as pessoas dele.</span>
+            <span x-show="soVer">👁 Você está no workflow de <b x-text="donoNome"></b> só para ver: o dono não liberou a edição, então o que você mudar aqui não é salvo.</span>
             <a class="link-prim" :href="location.pathname">Voltar para o meu</a>
             <button type="button" class="link-prim" @click="sairDoWorkflow()">Sair deste workflow</button>
         </div>

@@ -7,9 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Tarefa extends Model
 {
-    protected $fillable = ['user_id', 'area', 'titulo', 'descricao', 'status', 'prazo'];
+    protected $fillable = ['user_id', 'area', 'titulo', 'descricao', 'status', 'prazo', 'categoria', 'cor', 'responsavel_id'];
 
-    protected $casts = ['prazo' => 'date'];
+    protected $casts = ['prazo' => 'date', 'responsavel_id' => 'integer'];
+
+    /** Cores do quadro de tarefas (a mesma paleta dos cartões). */
+    public const CORES = ['#2f6fc7', '#2dd4bf', '#4ade80', '#f2c230', '#fb923c', '#f472b6', '#a78bfa', '#94a3b8'];
 
     public const STATUS = [
         'pendente'  => 'Pendente',
@@ -36,6 +39,12 @@ class Tarefa extends Model
             'exemplo'   => 'Ex.: Pagar fatura do cartão',
             'icone'     => 'M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3',
         ],
+        'negocios' => [
+            'nome'      => 'Negócios',
+            'descricao' => 'Vendas, loja, clientes e documentos.',
+            'exemplo'   => 'Ex.: Responder pedido da loja',
+            'icone'     => 'M3.75 9l1.5-5.25h13.5L20.25 9M3.75 9h16.5v11.25H3.75V9zm5.25 11.25v-6h6v6',
+        ],
         'diverso' => [
             'nome'      => 'Diverso',
             'descricao' => 'Trabalho, casa e tudo que não cabe nas outras áreas.',
@@ -47,6 +56,12 @@ class Tarefa extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Pessoa do workflow a quem a tarefa foi delegada (null = ninguém em especial). */
+    public function responsavel(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'responsavel_id');
     }
 
     public function scopeDaArea($query, int $userId, string $area)

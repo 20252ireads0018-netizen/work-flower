@@ -10,7 +10,10 @@ class WorkflowMembro extends Model
 {
     protected $table = 'workflow_membros';
 
-    protected $fillable = ['dono_id', 'membro_id', 'area'];
+    protected $fillable = ['dono_id', 'membro_id', 'area', 'pode_editar', 'bloqueado'];
+
+    /** pode_editar: false = só vê (o servidor recusa as gravações). bloqueado: perde o acesso até o dono liberar. */
+    protected $casts = ['pode_editar' => 'boolean', 'bloqueado' => 'boolean'];
 
     public function dono(): BelongsTo
     {

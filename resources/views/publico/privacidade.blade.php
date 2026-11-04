@@ -39,14 +39,14 @@
     </ul>
     <p>Não vendemos os seus dados pessoais.</p>
 
-    <h2 class="titulo text-xl pt-4">4. Cookies e tecnologias semelhantes</h2>
+    <h2 id="cookies" class="titulo text-xl pt-4">4. Cookies e tecnologias semelhantes</h2>
     <p>Usamos cookies para o site funcionar e, nas páginas públicas, para exibir anúncios:</p>
     <ul class="list-disc pl-6 space-y-1.5">
         <li><strong>Essenciais:</strong> mantêm você conectado durante a sessão e protegem formulários contra ataques. Sem eles, o serviço não funciona.</li>
         <li><strong>Lembrar de mim:</strong> se você marcar “Manter conectado neste aparelho”, um cookie permite que você continue logado depois de fechar o navegador.</li>
         <li><strong>Publicidade:</strong> cookies de terceiros usados para veicular anúncios, descritos na próxima seção.</li>
     </ul>
-    <p>Você pode apagar ou bloquear cookies nas configurações do seu navegador. Isso pode afetar o funcionamento do login.</p>
+    <p>No primeiro acesso, um aviso pergunta se os anúncios podem ser personalizados. Você muda essa escolha quando quiser pelo link “Cookies” no rodapé. Também pode apagar ou bloquear cookies nas configurações do seu navegador. Isso pode afetar o funcionamento do login.</p>
 
     <h2 class="titulo text-xl pt-4">5. Publicidade e Google AdSense</h2>
     <p>
