@@ -42,6 +42,18 @@ Route::get('/conheca/motivos.pdf', fn () => response(\App\Support\MotivosPdf::ge
     'Cache-Control'       => 'public, max-age=3600',
 ]))->middleware('throttle:30,1')->name('demo.motivos');
 
+// Mini lojas (Carteira › Loja): vitrine pública, pedido e Pix na chave do dono da loja. Abertas para qualquer pessoa.
+Route::prefix('/loja/{slug}')->where(['slug' => '[a-z0-9-]{3,40}'])->name('loja.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\LojaPublicaController::class, 'ver'])->middleware('throttle:120,1')->name('ver');
+    Route::post('/pedido', [\App\Http\Controllers\LojaPublicaController::class, 'pedir'])->middleware('throttle:10,1')->name('pedir');
+    Route::get('/pedido/{codigo}', [\App\Http\Controllers\LojaPublicaController::class, 'pedido'])
+        ->where('codigo', 'LJ[A-Z0-9]{14}')->middleware('throttle:60,1')->name('pedido');
+    Route::post('/pedido/{codigo}/paguei', [\App\Http\Controllers\LojaPublicaController::class, 'paguei'])
+        ->where('codigo', 'LJ[A-Z0-9]{14}')->middleware('throttle:20,1')->name('paguei');
+    Route::get('/img/{arquivo}', [\App\Http\Controllers\LojaPublicaController::class, 'imagem'])
+        ->where('arquivo', '[A-Za-z0-9]{24}\.(jpg|png|webp)')->middleware('throttle:300,1')->name('img');
+});
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'formLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
@@ -113,6 +125,20 @@ Route::middleware('auth')->group(function () {
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('carteira.dados.salvar');
     Route::delete('/carteira/dados/{chave}', [CarteiraController::class, 'remover'])
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('carteira.dados.remover');
+
+    // Carteira › Loja: mini loja da conta (aparência, Pix, produtos e pedidos). Página pública em /loja/{slug}.
+    Route::prefix('/carteira/loja')->name('carteira.loja')->group(function () {
+        Route::get('/', [\App\Http\Controllers\LojaController::class, 'show'])->name('');
+        Route::post('/', [\App\Http\Controllers\LojaController::class, 'salvar'])->middleware('throttle:30,1')->name('.salvar');
+        Route::post('/pix', [\App\Http\Controllers\LojaController::class, 'pix'])->middleware('throttle:20,1')->name('.pix');
+        Route::post('/produtos', [\App\Http\Controllers\LojaController::class, 'salvarProduto'])->middleware('throttle:60,1')->name('.produtos.criar');
+        Route::post('/produtos/{produto}', [\App\Http\Controllers\LojaController::class, 'salvarProduto'])
+            ->whereNumber('produto')->middleware('throttle:60,1')->name('.produtos.salvar');
+        Route::delete('/produtos/{produto}', [\App\Http\Controllers\LojaController::class, 'removerProduto'])
+            ->whereNumber('produto')->middleware('throttle:60,1')->name('.produtos.remover');
+        Route::post('/pedidos/{pedido}/status', [\App\Http\Controllers\LojaController::class, 'statusPedido'])
+            ->whereNumber('pedido')->middleware('throttle:60,1')->name('.pedidos.status');
+    });
 
     // Carteira › Marketplaces (Mercado Livre, Shopee, Amazon). Limite de contas vem do plano do dono.
     Route::prefix('/carteira/marketplaces')->name('carteira.mkt')->group(function () {

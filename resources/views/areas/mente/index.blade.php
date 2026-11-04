@@ -182,6 +182,8 @@
 <script type="application/json" id="mente-cfg">{!! json_encode($cfg, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) !!}</script>
 {{-- Precisa vir antes do Alpine iniciar (o Alpine do layout usa defer) --}}
 <script src="{{ asset('js/quadro.js') }}?v={{ @filemtime(public_path('js/quadro.js')) }}"></script>
+{{-- cartões Gráfico e Hábitos (estende o quadro.js) --}}
+@include('partials.graficos')
 <script src="{{ asset('js/mente.js') }}?v={{ @filemtime(public_path('js/mente.js')) }}"></script>
 {{-- tabela.js estende menteAbas(): precisa vir DEPOIS de mente.js (importar/exportar CSV) --}}
 <script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>

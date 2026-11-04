@@ -109,10 +109,13 @@ class Pix
         return 'WF' . strtoupper(Str::random(14));
     }
 
-    /** Código "Pix copia e cola" com valor fixo (é o mesmo texto que vira o QR Code). */
-    public static function copiaECola(float $valor, string $txid): string
+    /**
+     * Código "Pix copia e cola" com valor fixo (é o mesmo texto que vira o QR Code).
+     * $cfg troca o recebedor (['chave', 'nome', 'cidade']): as mini lojas recebem na chave do dono da loja.
+     */
+    public static function copiaECola(float $valor, string $txid, ?array $cfg = null): string
     {
-        $c = self::config();
+        $c = $cfg ?? self::config();
 
         $conta = self::campo('00', 'br.gov.bcb.pix') . self::campo('01', $c['chave']);
 

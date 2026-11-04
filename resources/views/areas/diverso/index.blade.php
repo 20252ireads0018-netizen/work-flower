@@ -365,12 +365,16 @@
 <script type="application/json" id="diverso-cfg">{!! json_encode($cfg, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) !!}</script>
 {{-- Precisam vir antes do Alpine iniciar (o Alpine do layout usa defer) --}}
 <script src="{{ asset('js/quadro.js') }}?v={{ @filemtime(public_path('js/quadro.js')) }}"></script>
+{{-- cartões Gráfico e Hábitos (estende o quadro.js) --}}
+@include('partials.graficos')
 <script src="{{ asset('js/diverso.js') }}?v={{ @filemtime(public_path('js/diverso.js')) }}&r=2"></script>
 <script src="{{ asset('js/tabletopVivo.js') }}?v={{ @filemtime(public_path('js/tabletopVivo.js')) }}"></script>
 {{-- Estende o diverso.js (editor de diagramas); precisa vir depois dele --}}
 <script src="{{ asset('js/diagrama.js') }}?v={{ @filemtime(public_path('js/diagrama.js')) }}"></script>
 {{-- cartão "Banco de dados (.sql)"; estende o diversoAbasDiagrama, então vem depois do diagrama.js --}}
 <script src="{{ asset('js/banco-sql.js') }}?v={{ @filemtime(public_path('js/banco-sql.js')) }}"></script>
+{{-- "Mapa do código" do cartão GitHub / VS Code (gera um cartão de Mapa mental) --}}
+<script src="{{ asset('js/mapa-codigo.js') }}?v={{ @filemtime(public_path('js/mapa-codigo.js')) }}"></script>
 <script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
 {{-- Botão de tela cheia em cada cartão --}}
 <script src="{{ asset('js/tela-cheia.js') }}?v={{ @filemtime(public_path('js/tela-cheia.js')) }}"></script>

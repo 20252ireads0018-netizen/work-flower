@@ -129,6 +129,13 @@
             <template x-if="b.tipo === 'musica'">
                 @include('partials.estudio-musica-cartao')
             </template>
+            {{-- Gráfico e Hábitos (partials/grafico-cartao e habitos-cartao; js/graficos.js) --}}
+            <template x-if="b.tipo === 'grafico'">
+                @include('partials.grafico-cartao')
+            </template>
+            <template x-if="b.tipo === 'habitos'">
+                @include('partials.habitos-cartao')
+            </template>
             {{-- Conversa com o Claude, que muda os cartões pedindo permissão (partials/claude-cartao; js/claude.js) --}}
             <template x-if="b.tipo === 'claude'">
                 @include('partials.claude-cartao')

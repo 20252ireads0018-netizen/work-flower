@@ -9,6 +9,8 @@
 {{-- Mercado Livre, Shopee e Amazon (MarketplaceController) --}}
 <div class="mb-4">
     <a class="btn-sec !py-1.5 !px-3 text-sm" href="{{ route('carteira.mkt', request()->attributes->get('wf_dono') ? ['de' => request()->attributes->get('wf_dono')] : []) }}">🛒 Marketplaces</a>
+    {{-- mini loja da conta com página pública e Pix (LojaController) --}}
+    <a class="btn-sec !py-1.5 !px-3 text-sm" href="{{ route('carteira.loja') }}">🏪 Loja</a>
 </div>
 @php
     $cfg = [
@@ -141,6 +143,8 @@
 {{-- Precisam vir antes do Alpine iniciar (o Alpine do layout usa defer).
      Ordem: quadro → documentos → carteira → tabela (envolve carteiraAbas) → tela cheia → arquivos --}}
 <script src="{{ asset('js/quadro.js') }}?v={{ @filemtime(public_path('js/quadro.js')) }}"></script>
+{{-- cartões Gráfico e Hábitos (estende o quadro.js) --}}
+@include('partials.graficos')
 <script src="{{ asset('js/documentos.js') }}?v={{ @filemtime(public_path('js/documentos.js')) }}"></script>
 <script src="{{ asset('js/carteira.js') }}?v={{ @filemtime(public_path('js/carteira.js')) }}"></script>
 <script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>

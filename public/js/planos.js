@@ -31,10 +31,10 @@
     'use strict';
 
     const PADRAO = {
-        gratuito: { biblioteca: 5,    workflows: 3,    elementos: 10,   usuarios: 1,  marketplaces: 1 },
-        basico:   { biblioteca: null, workflows: null, elementos: null, usuarios: 5,  marketplaces: 5 },
-        pro:      { biblioteca: null, workflows: null, elementos: null, usuarios: 10, marketplaces: 20 },
-        premium:  { biblioteca: null, workflows: null, elementos: null, usuarios: 25, marketplaces: null },
+        gratuito: { biblioteca: 5,    workflows: 3,    elementos: 10,   usuarios: 1,  marketplaces: 1,    loja: 10 },
+        basico:   { biblioteca: null, workflows: null, elementos: null, usuarios: 5,  marketplaces: 5,    loja: null },
+        pro:      { biblioteca: null, workflows: null, elementos: null, usuarios: 10, marketplaces: 20,   loja: null },
+        premium:  { biblioteca: null, workflows: null, elementos: null, usuarios: 25, marketplaces: null, loja: null },
     };
     const NOMES = { gratuito: 'Gratuito', basico: 'Básico', pro: 'Pró', premium: 'Premium' };
     const EM_BREVE = ['pro', 'premium'];

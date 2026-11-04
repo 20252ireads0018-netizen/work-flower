@@ -73,6 +73,9 @@
             $l['marketplaces'] === null
                 ? 'Contas de marketplace ilimitadas (Mercado Livre, Shopee, Amazon)'
                 : "Até {$l['marketplaces']} " . ($l['marketplaces'] === 1 ? 'conta' : 'contas') . ' de marketplace (Mercado Livre, Shopee, Amazon)',
+            ($l['loja'] ?? null) === null
+                ? 'Loja virtual com produtos ilimitados e sem a marca Work Flower'
+                : "Loja virtual com até {$l['loja']} produtos",
         ];
     };
 @endphp

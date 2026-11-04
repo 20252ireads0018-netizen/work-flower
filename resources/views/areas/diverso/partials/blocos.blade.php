@@ -821,6 +821,20 @@
                 const nome = String(b.titulo || 'projeto').replace(/[^\w.-]+/g, '_').slice(0, 40) || 'projeto';
                 baixarBlob(criarZip(I.arquivos), nome + '.zip');
             },
+            /** Cria, logo abaixo, um cartão de Mapa mental com as pastas, arquivos, classes, funções e imports (js/mapa-codigo.js). */
+            mapaDoCodigo() {
+                if (!I.arquivos.length) { this.aviso('O projeto está vazio.'); return; }
+                if (!window.WFMapaCodigo || typeof this.criarBloco !== 'function') { this.aviso('Recarregue a página (Ctrl+F5) para usar o mapa do código.'); return; }
+                const r = window.WFMapaCodigo.gerar(I.arquivos, b.titulo);
+                const L = this.estado && this.estado.layout && this.estado.layout[b.secao] && this.estado.layout[b.secao][b.id];
+                const id = this.criarBloco(b.secao, 'mapa', L ? { x: L.x, y: L.y + L.h + 16 } : null,
+                    { titulo: (b.titulo || 'Projeto') + ' (mapa do código)', dados: { nos: r.nos, lig: r.lig, tracos: [] } });
+                if (!id) return;
+                const N = this.estado.layout[b.secao][id];
+                // aqui "this.col" é a coluna do cursor da IDE: a largura sai do próprio cartão de código
+                if (N) { N.w = Math.max(L ? L.w : 720, 960); N.h = 640; }
+                this.aviso('Mapa do código criado logo abaixo: ' + r.resumo + '.');
+            },
 
             /* ---------- pasta real do computador (Chrome / Edge) ---------- */
             async abrirPasta() {
@@ -1783,6 +1797,13 @@
                 <template x-if="b.tipo === 'musica'">
                     @include('partials.estudio-musica-cartao')
                 </template>
+                {{-- Gráfico e Hábitos (partials/grafico-cartao e habitos-cartao; js/graficos.js) --}}
+                <template x-if="b.tipo === 'grafico'">
+                    @include('partials.grafico-cartao')
+                </template>
+                <template x-if="b.tipo === 'habitos'">
+                    @include('partials.habitos-cartao')
+                </template>
                 {{-- Conversa com o Claude, que muda os cartões pedindo permissão (partials/claude-cartao; js/claude.js) --}}
                 <template x-if="b.tipo === 'claude'">
                     @include('partials.claude-cartao')
@@ -2217,6 +2238,7 @@
                                         <button type="button" class="btn-sec" @click="salvar()" title="Salvar (Ctrl+S)">Salvar</button>
                                         <button type="button" class="btn-sec" @click="baixar()" x-show="arqAtivo()" title="Baixar o arquivo aberto">Baixar arquivo</button>
                                         <button type="button" class="btn-sec" @click="baixarZip()" title="Baixar o projeto inteiro em ZIP">Baixar ZIP</button>
+                                        <button type="button" class="btn-sec" @click="mapaDoCodigo()" title="Cria um cartão de Mapa mental com as pastas, arquivos, classes, funções e o que cada arquivo importa">Mapa do código</button>
                                         <span class="sep" x-show="suporteDisco"></span>
                                         <button type="button" class="btn-sec" x-show="suporteDisco" @click="abrirPasta()" title="Abrir uma pasta do computador (Chrome/Edge)">Abrir pasta</button>
                                         <button type="button" class="btn-sec" x-show="disco" x-cloak @click="salvarDisco()" :title="'Gravar tudo em ' + disco">Salvar na pasta</button>
