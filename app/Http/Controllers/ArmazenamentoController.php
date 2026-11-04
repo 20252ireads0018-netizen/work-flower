@@ -142,7 +142,7 @@ class ArmazenamentoController extends Controller
         $estado = Str::random(40);
         $request->session()->put('armazenamento.google_estado', $estado);
 
-        return redirect()->away(GoogleDrive::urlAutorizacao($estado, route('armazenamento.google.retorno')));
+        return redirect()->away(GoogleDrive::urlAutorizacao($estado, GoogleDrive::retorno()));
     }
 
     public function googleRetorno(Request $request): RedirectResponse
@@ -157,7 +157,7 @@ class ArmazenamentoController extends Controller
 
         try {
             $this->exigirVaga($request);
-            $credenciais = GoogleDrive::trocarCodigo((string) $request->query('code'), route('armazenamento.google.retorno'));
+            $credenciais = GoogleDrive::trocarCodigo((string) $request->query('code'), GoogleDrive::retorno());
             $destino = new ArmazenamentoDestino([
                 'user_id'     => $request->user()->id,
                 'tipo'        => 'gdrive',

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Voltando para o Work Flower</title>
+<style>body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;display:grid;place-items:center;min-height:100vh;margin:0}a{color:#93c5fd}</style>
+</head>
+<body>
+<p id="msg">Voltando para o Work Flower…</p>
+<script>
+// Repasse do retorno do Google (Gmail em Negócios › E-mails). O firewall da hospedagem (mod_security) recusa com 406 o parâmetro
+// iss=https://accounts.google.com que o Google acrescenta; aqui só passam code, state e error, e o destino é fixo.
+(function () {
+  var DESTINO = 'https://websight.com.br/work-flower/negocios/emails/google/retorno';
+  var de = new URLSearchParams(location.search), para = new URLSearchParams();
+  ['code', 'state', 'error'].forEach(function (k) { if (de.has(k)) para.set(k, de.get(k)); });
+  var url = DESTINO + '?' + para.toString();
+  document.getElementById('msg').innerHTML = 'Voltando para o Work Flower… <a href="' + url.replace(/"/g, '&quot;') + '">continuar</a>';
+  location.replace(url);
+})();
+</script>
+</body>
+</html>

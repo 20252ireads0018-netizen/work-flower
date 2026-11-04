@@ -38,6 +38,14 @@ class GoogleDrive implements Destino
         return (string) config('armazenamento.google.client_id') !== '' && (string) config('armazenamento.google.client_secret') !== '';
     }
 
+    /** Endereço de retorno cadastrado no Google: a página de repasse (sem o iss que o mod_security barra) ou a rota direta. */
+    public static function retorno(): string
+    {
+        $relay = (string) config('services.google.relay');
+
+        return $relay !== '' ? $relay . '/drive/' : route('armazenamento.google.retorno');
+    }
+
     public static function urlAutorizacao(string $estado, string $retorno): string
     {
         return self::AUTH . '?' . http_build_query([

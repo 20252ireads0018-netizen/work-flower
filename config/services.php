@@ -45,6 +45,9 @@ return [
         'client_id'     => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect'      => env('GOOGLE_REDIRECT_URI'),
+        // página de repasse (GitHub Pages, pasta docs/google): o mod_security da HostGator barra o retorno do Google
+        // com 406 por causa do parâmetro iss=https://accounts.google.com; o repasse tira o iss e volta para o site
+        'relay'         => rtrim((string) env('GOOGLE_RELAY_URL', ''), '/'),
     ],
     // App da Meta (Instagram Graph API pelo Login do Facebook e assinatura do webhook do WhatsApp) e app do TikTok
     'meta'   => ['id' => env('META_APP_ID'), 'secret' => env('META_APP_SECRET'), 'versao' => env('META_GRAPH_VERSION', 'v21.0')],

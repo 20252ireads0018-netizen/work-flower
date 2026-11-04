@@ -23,7 +23,9 @@ class Google
 
     public static function retorno(): string
     {
-        return (string) (config('services.google.redirect') ?: route('emails.google.retorno'));
+        $relay = (string) config('services.google.relay');
+
+        return (string) (config('services.google.redirect') ?: ($relay !== '' ? $relay . '/emails/' : route('emails.google.retorno')));
     }
 
     public static function urlAutorizacao(string $state): string
