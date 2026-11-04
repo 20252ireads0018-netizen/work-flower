@@ -16,7 +16,7 @@
         {{-- não configurado no site, conta não conectada ou erro da rede --}}
         <div x-show="crRdUI(b).erro" class="qz-ed" style="gap:.35rem">
             <p class="text-red-500 break-words" x-text="crRdUI(b).erro"></p>
-            <p class="texto-2" x-show="crRdUI(b).configurar">Quem administra este Work Flower precisa criar o app de desenvolvedor da rede e colocar as chaves no arquivo .env do servidor. Enquanto isso, o resto do cartão funciona normalmente.</p>
+            <p class="texto-2" x-show="crRdUI(b).configurar">Esta rede chega em breve ao Work Flower. Enquanto isso, o resto do cartão funciona normalmente.</p>
             <template x-if="crRdUI(b).conectar">
                 <div class="flex flex-col gap-1.5">
                     <a class="btn self-start !py-1" :href="crRdUI(b).conectar" x-text="'Conectar minha conta do ' + crRedeNome(b)"></a>

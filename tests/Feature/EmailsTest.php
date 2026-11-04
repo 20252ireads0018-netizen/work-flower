@@ -184,7 +184,7 @@ class EmailsTest extends TestCase
         $this->actingAs($u)->get('/negocios/emails')->assertDontSee('Entrar com Google');
         $this->actingAs($u)->get('/negocios/emails/google')->assertRedirect(route('emails'));
 
-        config(['services.google.client_id' => 'cid', 'services.google.client_secret' => 'seg']);
+        config(['services.google.client_id' => 'cid', 'services.google.client_secret' => 'seg', 'services.google.gmail_publico' => true]);
         $ida = $this->actingAs($u)->get('/negocios/emails/google');
         $this->assertStringStartsWith('https://accounts.google.com/', $ida->headers->get('Location'));
         parse_str(parse_url($ida->headers->get('Location'), PHP_URL_QUERY), $q);

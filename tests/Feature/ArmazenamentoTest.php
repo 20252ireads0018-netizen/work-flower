@@ -280,6 +280,7 @@ class ArmazenamentoTest extends TestCase
         ]);
         $u = User::factory()->create();
 
+        config(['services.google.publico' => true]);
         $ida = $this->actingAs($u)->get('/armazenamento/google/conectar');
         $ida->assertRedirectContains('https://accounts.google.com/o/oauth2/v2/auth');
         parse_str(parse_url($ida->headers->get('Location'), PHP_URL_QUERY), $q);
@@ -309,7 +310,7 @@ class ArmazenamentoTest extends TestCase
         $u = User::factory()->create();
 
         $this->actingAs($u)->get('/armazenamento/google/conectar')->assertRedirect('/armazenamento')->assertSessionHasErrors('destino');
-        $this->actingAs($u)->get('/armazenamento')->assertOk()->assertSee('Google Drive (ainda não liberado)');
+        $this->actingAs($u)->get('/armazenamento')->assertOk()->assertSee('Google Drive (em breve)');
     }
 
     // ------------------------------------------------------------------ uso

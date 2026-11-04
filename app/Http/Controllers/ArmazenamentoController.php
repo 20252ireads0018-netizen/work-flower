@@ -10,6 +10,7 @@ use App\Support\Armazenamento\Backups;
 use App\Support\Armazenamento\GoogleDrive;
 use App\Support\Armazenamento\S3;
 use App\Support\Armazenamento\Uso;
+use App\Support\EmBreve;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -36,7 +37,7 @@ class ArmazenamentoController extends Controller
             'backups'    => ArmazenamentoBackup::where('user_id', $uid)->with('destino:id,nome')->latest('id')->take(30)->get(),
             'movidos'    => ArmazenamentoArquivo::where('user_id', $uid)->count(),
             'pendentes'  => Arquivos::pendentes($uid),
-            'googleOk'   => GoogleDrive::configurado(),
+            'googleOk'   => EmBreve::driveLiberado($request->user()),
             'areas'      => WorkflowTransferController::AREAS,
         ]);
     }
@@ -134,7 +135,7 @@ class ArmazenamentoController extends Controller
 
     public function googleConectar(Request $request): RedirectResponse
     {
-        if (! GoogleDrive::configurado()) {
+        if (! EmBreve::driveLiberado($request->user())) {
             return redirect()->route('armazenamento')->withErrors(['destino' => 'O Google Drive ainda não foi liberado neste site.']);
         }
         $this->exigirVaga($request);

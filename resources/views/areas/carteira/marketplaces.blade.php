@@ -68,7 +68,7 @@
         <template x-if="!contas.length && carregado">
             <div class="card p-5 space-y-2">
                 <h2 class="titulo text-lg">Comece conectando uma conta</h2>
-                <p class="text-sm texto-2">Conecte suas contas do Mercado Livre, Shopee ou Amazon para ver anúncios, vendas, comissões e margem num lugar só, e alterar preço e estoque de muitos anúncios de uma vez. Sem as chaves de API, experimente com uma conta de demonstração.</p>
+                <p class="text-sm texto-2">Conecte suas contas do Mercado Livre, Shopee ou Amazon para ver anúncios, vendas, comissões e margem num lugar só, e alterar preço e estoque de muitos anúncios de uma vez. Enquanto um canal não chega, experimente com uma conta de demonstração.</p>
                 <button type="button" class="btn" @click="irPara('contas')">Conectar uma conta</button>
             </div>
         </template>
@@ -135,7 +135,7 @@
                 <div class="card p-4 space-y-2">
                     <span class="mk-canal" :style="'--c:' + cor(c.canal)" x-text="c.nome"></span>
                     <p class="text-xs texto-2" x-show="c.configurado">Você vai para o site do marketplace autorizar o Work Flower a ler e alterar seus anúncios e pedidos.</p>
-                    <p class="text-xs texto-2" x-show="!c.configurado">A conexão real precisa das chaves do app de desenvolvedor no servidor. Enquanto isso, use a demonstração.</p>
+                    <p class="text-xs texto-2" x-show="!c.configurado">A conexão com este marketplace chega em breve. Enquanto isso, experimente a demonstração.</p>
                     <div class="flex flex-wrap gap-2">
                         <a class="btn !py-1.5 !px-3 text-sm" x-show="c.configurado" :href="urlConectar(c.canal)" :class="{ 'opacity-50 pointer-events-none': cheio }" @click="if (cheio) { $event.preventDefault(); avisarLimite(); }">Conectar conta</a>
                         <button type="button" class="btn-sec !py-1.5 !px-3 text-sm" @click="criarDemo(c.canal)" :disabled="ocupado">Demonstração</button>

@@ -10,6 +10,7 @@ use App\Support\Emails\EmailErro;
 use App\Support\Emails\Google;
 use App\Support\Emails\LeitorEmails;
 use App\Support\Emails\Sincronizar;
+use App\Support\EmBreve;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,7 +48,7 @@ class EmailController extends Controller
     {
         return view('areas.negocios.emails', [
             'estado' => $this->estado($request->user()->id),
-            'google' => Google::configurado(),
+            'google' => EmBreve::gmailLiberado($request->user()),
             'envio'  => $request->user()->eAdmin() ? self::envio() : null,
         ]);
     }
@@ -249,7 +250,7 @@ class EmailController extends Controller
 
     public function google(Request $request): RedirectResponse
     {
-        if (! Google::configurado()) {
+        if (! EmBreve::gmailLiberado($request->user())) {
             return redirect()->route('emails')->with('emails_erro', 'O login pelo Google ainda não foi configurado neste Work Flower. Use o Gmail com senha de app.');
         }
         if (EmailConta::where('user_id', $request->user()->id)->count() >= self::MAX_CONTAS) {

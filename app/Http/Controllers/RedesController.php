@@ -52,7 +52,7 @@ class RedesController extends Controller
     {
         $voltar = $this->voltar($request);
         if ($f = self::faltando($rede)) {
-            return redirect($voltar)->with('ok', self::REDES[$rede] . ' ainda não foi configurado neste site (falta ' . implode(' e ', $f) . ' no .env).');
+            return redirect($voltar)->with('ok', self::REDES[$rede] . ' chega em breve ao Work Flower. Enquanto isso, o resto do cartão funciona normalmente.');
         }
 
         $state = Str::random(40);
@@ -87,7 +87,7 @@ class RedesController extends Controller
             return redirect($voltar)->with('ok', "A conexão com o {$nome} foi cancelada.");
         }
         if ($f = self::faltando($rede)) {
-            return redirect($voltar)->with('ok', "{$nome} ainda não foi configurado neste site (falta " . implode(' e ', $f) . ' no .env).');
+            return redirect($voltar)->with('ok', "{$nome} chega em breve ao Work Flower.");
         }
 
         try {
@@ -111,7 +111,7 @@ class RedesController extends Controller
     {
         $nome = self::REDES[$rede];
         if ($f = self::faltando($rede)) {
-            return response()->json(['ok' => false, 'configurado' => false, 'erro' => "O {$nome} ainda não foi configurado neste site (falta " . implode(' e ', $f) . ' no .env).'], 503);
+            return response()->json(['ok' => false, 'configurado' => false, 'erro' => "O {$nome} chega em breve ao Work Flower."], 503);
         }
         $conta = RedeConta::where(['user_id' => $request->user()->id, 'rede' => $rede])->first();
         if (! $conta) {

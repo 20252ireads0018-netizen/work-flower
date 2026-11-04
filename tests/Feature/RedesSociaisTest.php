@@ -35,7 +35,7 @@ class RedesSociaisTest extends TestCase
         config(['services.meta.id' => '', 'services.meta.secret' => '', 'services.tiktok.key' => '', 'services.tiktok.secret' => '']);
 
         $this->actingAs($u)->getJson('/redes/instagram/metricas')->assertStatus(503)
-            ->assertJson(['ok' => false, 'configurado' => false])->assertJsonFragment(['erro' => 'O Instagram ainda não foi configurado neste site (falta META_APP_ID e META_APP_SECRET no .env).']);
+            ->assertJson(['ok' => false, 'configurado' => false])->assertJsonFragment(['erro' => 'O Instagram chega em breve ao Work Flower.']);
         $this->actingAs($u)->getJson('/redes/tiktok/metricas')->assertStatus(503);
         $this->actingAs($u)->get('/redes/tiktok/conectar')->assertRedirect()->assertSessionHas('ok');
         $this->actingAs($u)->getJson('/redes/facebook/metricas')->assertNotFound();

@@ -169,7 +169,7 @@
                 @if ($googleOk)
                     <a href="{{ route('armazenamento.google') }}" class="btn-sec">Google Drive</a>
                 @else
-                    <span class="btn-sec opacity-60 cursor-not-allowed" aria-disabled="true">Google Drive (ainda não liberado)</span>
+                    <span class="btn-sec opacity-60 cursor-not-allowed" aria-disabled="true">Google Drive (em breve)</span>
                 @endif
             </div>
             @if (! $googleOk)
@@ -184,7 +184,7 @@
                         </ol>
                     </div>
                 @else
-                    <p class="text-xs texto-2">O Google Drive ainda não foi liberado pela administração do site. Enquanto isso, use um bucket.</p>
+                    <p class="text-xs texto-2">O Google Drive chega em breve para todas as contas. Enquanto isso, use um bucket.</p>
                 @endif
             @endif
 

@@ -97,8 +97,10 @@
         </div>
     </aside>
 
+    {{-- Coluna do meio: áreas e, embaixo, as integrações que chegam em breve --}}
+    <div class="order-1 lg:col-start-2 lg:row-start-1 min-w-0" style="display:flex;flex-direction:column;gap:1.5rem">
     {{-- Áreas --}}
-    <div class="grid gap-4 sm:grid-cols-2 order-1 lg:col-start-2 lg:row-start-1" data-atualiza="painel-areas">
+    <div class="grid gap-4 sm:grid-cols-2" data-atualiza="painel-areas">
         @foreach ($areas as $slug => $a)
             @php
                 $r      = $resumo[$slug] ?? null;
@@ -129,6 +131,9 @@
                 </div>
             </a>
         @endforeach
+    </div>
+
+    @include('painel.partials.em-breve')
     </div>
 
     {{-- Calendário: arrastável pelo cabeçalho e redimensionável pelo canto (desktop). Lógica em public/js/calendario.js --}}
