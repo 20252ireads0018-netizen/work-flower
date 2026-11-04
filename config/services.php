@@ -37,6 +37,9 @@ return [
 
     'brapi' => ['token' => env('BRAPI_TOKEN')],
     
+    // métricas do cartão Criador de conteúdo (YouTube Data API v3; chave em console.cloud.google.com)
+    'youtube' => ['key' => env('YOUTUBE_API_KEY')],
+
     'adsense' => [
         'client' => env('ADSENSE_CLIENT'),
     ],

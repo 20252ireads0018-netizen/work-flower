@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Loja;
+use App\Models\LojaCupom;
 use App\Models\LojaPedido;
 use App\Models\LojaProduto;
+use App\Support\MercadoPago;
 use App\Support\Pix;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,7 +24,7 @@ use Illuminate\View\View;
 class LojaController extends Controller
 {
     public const MAX_IMG_KB = 3072;
-    private const ABAS = ['pedidos', 'produtos', 'aparencia', 'pix'];
+    private const ABAS = ['pedidos', 'produtos', 'cupons', 'entrega', 'aparencia', 'pix'];
 
     public function show(Request $request): View
     {
@@ -35,6 +37,7 @@ class LojaController extends Controller
             'aba'      => $aba,
             'status'   => $status,
             'produtos' => $loja ? $loja->produtos()->get() : collect(),
+            'cupons'   => $loja ? $loja->cupons()->get() : collect(),
             'pedidos'  => $loja ? $loja->pedidos()->when($status, fn ($q) => $q->where('status', $status))->paginate(25)->withQueryString() : null,
             'contagem' => $loja ? $loja->pedidos()->reorder()->selectRaw('status, count(*) n')->groupBy('status')->pluck('n', 'status') : collect(),
             'sugestao' => $loja ? null : $this->slugLivre(Str::slug($request->user()->name) ?: 'minha-loja'),
@@ -219,6 +222,93 @@ class LojaController extends Controller
         });
 
         return back()->with('ok', 'Pedido ' . $pedido->codigo . ': ' . LojaPedido::STATUS[$d['status']] . '.');
+    }
+
+    /** Cria ou edita um cupom de desconto. */
+    public function salvarCupom(Request $request, ?LojaCupom $cupom = null): RedirectResponse
+    {
+        $loja = $this->loja($request);
+        abort_unless($loja, 404);
+        if ($cupom) abort_unless($cupom->loja_id === $loja->id, 404);
+        elseif ($loja->cupons()->count() >= 100) return back()->withErrors(['codigo' => 'Limite de 100 cupons por loja. Apague os antigos.']);
+        $request->merge(['codigo' => LojaCupom::normalizar($request->input('codigo'))]);
+        $d = $request->validate([
+            'codigo'   => ['required', 'string', 'min:3', 'max:30', Rule::unique('loja_cupons', 'codigo')->where('loja_id', $loja->id)->ignore($cupom?->id)],
+            'tipo'     => ['required', Rule::in(['pct', 'valor'])],
+            'valor'    => ['required', 'numeric', 'min:0.01', 'max:999999'],
+            'minimo'   => ['nullable', 'numeric', 'min:0', 'max:999999'],
+            'usos_max' => ['nullable', 'integer', 'min:1', 'max:1000000'],
+            'validade' => ['nullable', 'date'],
+            'ativo'    => ['nullable', 'boolean'],
+        ], [], ['codigo' => 'código do cupom', 'usos_max' => 'limite de usos']);
+        if ($d['tipo'] === 'pct' && (float) $d['valor'] > 100) return back()->withErrors(['valor' => 'A porcentagem vai até 100.'])->withInput();
+
+        $cupom ??= new LojaCupom();
+        $cupom->loja_id = $loja->id;
+        $cupom->fill([
+            'codigo' => $d['codigo'], 'tipo' => $d['tipo'], 'valor' => round((float) $d['valor'], 2),
+            'minimo' => $request->filled('minimo') ? round((float) $d['minimo'], 2) : null,
+            'usos_max' => $request->filled('usos_max') ? (int) $d['usos_max'] : null,
+            'validade' => $d['validade'] ?? null, 'ativo' => $request->boolean('ativo'),
+        ])->save();
+
+        return redirect()->route('carteira.loja', ['aba' => 'cupons'])->with('ok', 'Cupom ' . $cupom->codigo . ' salvo.');
+    }
+
+    public function removerCupom(Request $request, LojaCupom $cupom): RedirectResponse
+    {
+        $loja = $this->loja($request);
+        abort_unless($loja && $cupom->loja_id === $loja->id, 404);
+        $cupom->delete();
+
+        return redirect()->route('carteira.loja', ['aba' => 'cupons'])->with('ok', 'Cupom removido.');
+    }
+
+    /** Opções de entrega: nome, preço e "grátis a partir de" (linhas em branco são ignoradas). */
+    public function entrega(Request $request): RedirectResponse
+    {
+        $loja = $this->loja($request);
+        abort_unless($loja, 404);
+        $d = $request->validate([
+            'fretes'                => ['nullable', 'array', 'max:' . Loja::MAX_FRETES],
+            'fretes.*.nome'         => ['nullable', 'string', 'max:60'],
+            'fretes.*.preco'        => ['nullable', 'numeric', 'min:0', 'max:99999'],
+            'fretes.*.gratis_acima' => ['nullable', 'numeric', 'min:0', 'max:999999'],
+            'entrega'               => ['nullable', 'string', 'max:300'],
+        ]);
+        $v = is_array($loja->visual) ? $loja->visual : [];
+        $v['fretes'] = array_values(array_filter(array_map(fn ($f) => trim((string) ($f['nome'] ?? '')) === '' ? null : [
+            'nome' => trim($f['nome']), 'preco' => round((float) ($f['preco'] ?? 0), 2),
+            'gratis_acima' => ($f['gratis_acima'] ?? '') !== '' && $f['gratis_acima'] !== null ? round((float) $f['gratis_acima'], 2) : null,
+        ], $d['fretes'] ?? [])));
+        $v['entrega'] = trim((string) ($d['entrega'] ?? '')) ?: null;
+        $loja->visual = $v;
+        $loja->save();
+
+        return redirect()->route('carteira.loja', ['aba' => 'entrega'])->with('ok', $v['fretes'] ? 'Opções de entrega salvas.' : 'Sem opções de entrega: o cliente não escolhe frete.');
+    }
+
+    /** Conecta a conta do Mercado Pago da pessoa pelo Access Token de produção (conferido na API antes de salvar). */
+    public function mercadoPago(Request $request): RedirectResponse
+    {
+        $loja = $this->loja($request);
+        abort_unless($loja, 404);
+        $d = $request->validate(['token' => ['required', 'string', 'min:20', 'max:200', 'regex:/^(APP_USR|TEST)-[A-Za-z0-9-]+$/']],
+            ['token.regex' => 'Cole o Access Token inteiro: ele começa com APP_USR- (produção) ou TEST- (teste).'], ['token' => 'Access Token']);
+        $conta = MercadoPago::conta(trim($d['token']));
+        if (! $conta) return back()->withErrors(['token' => 'O Mercado Pago não aceitou este Access Token. Confira se copiou o de produção inteiro.']);
+        $loja->forceFill(['mp_token' => trim($d['token']), 'mp_conta' => mb_substr($conta['nome'], 0, 120)])->save();
+
+        return redirect()->route('carteira.loja', ['aba' => 'pix'])->with('ok', 'Mercado Pago conectado (' . $conta['nome'] . '). Os clientes já podem pagar com cartão.');
+    }
+
+    public function desconectarMp(Request $request): RedirectResponse
+    {
+        $loja = $this->loja($request);
+        abort_unless($loja, 404);
+        $loja->forceFill(['mp_token' => null, 'mp_conta' => null])->save();
+
+        return redirect()->route('carteira.loja', ['aba' => 'pix'])->with('ok', 'Mercado Pago desconectado. A loja volta a receber só por Pix.');
     }
 
     /* ---------- apoio ---------- */

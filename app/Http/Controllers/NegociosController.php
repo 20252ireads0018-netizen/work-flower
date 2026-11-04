@@ -43,6 +43,7 @@ class NegociosController extends Controller
                 'produtos'  => $loja->produtos()->count(),
                 'abertos'   => LojaPedido::where('loja_id', $loja->id)->whereIn('status', ['aguardando', 'informado'])->count(),
                 'publicada' => $loja->publicada,
+                'nome'      => $loja->nome,
             ] : null,
             'wfVersao'      => Sincronia::versao($dados['estado'] ?? null),
             'wfSincronizar' => Compartilhar::temOutrasPessoas($donoId, self::SLUG, $request->user()->id),

@@ -15,6 +15,79 @@
     const ETAPAS_RH = ['Triagem', 'Entrevista', 'Teste', 'Proposta', 'Contratado', 'Recusado'];
     const PASSOS_RH = ['Documentos recebidos', 'Contrato assinado', 'Acessos e e-mail criados', 'Apresentação à equipe', 'Treinamento inicial', 'Conversa de 30 dias'];
     const MAX = 400;
+    // endereço das métricas do YouTube (vem da tag do script, porque o site pode estar numa subpasta)
+    const URL_YT = (document.currentScript && document.currentScript.dataset.yt) || '';
+    const curto = n => (n == null ? '—' : n >= 1e6 ? (n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi' : n >= 1e4 ? (n / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mil' : n.toLocaleString('pt-BR'));
+
+    /* ---------- prova em PDF → questões ---------- */
+    /** Texto de um PDF com as quebras de linha certas; páginas em duas colunas são lidas coluna por coluna. */
+    async function textoDoPdf(arquivo) {
+        const lib = await window.WFEditorPdf.pdfjs();
+        const doc = await lib.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()) }).promise;
+        const paginas = [];
+        for (let n = 1; n <= Math.min(doc.numPages, 120); n++) {
+            const pg = await doc.getPage(n), larg = pg.getViewport({ scale: 1 }).width;
+            const itens = (await pg.getTextContent()).items.filter(i => i.str && i.str.trim()).map(i => ({ s: i.str, x: i.transform[4], y: i.transform[5], w: i.width || 0 }));
+            if (!itens.length) continue;
+            // duas colunas: quase nenhum pedaço de texto atravessa o meio da página
+            const meio = larg / 2, atravessa = itens.filter(i => i.x < meio - 4 && i.x + i.w > meio + 4).length;
+            const duas = itens.length > 30 && atravessa < itens.length * 0.04 && itens.some(i => i.x > meio + 10) && itens.some(i => i.x + i.w < meio - 10);
+            const colunas = duas ? [itens.filter(i => i.x < meio), itens.filter(i => i.x >= meio)] : [itens];
+            for (const col of colunas) {
+                const linhas = new Map();
+                col.forEach(i => { const k = Math.round(i.y / 3); (linhas.get(k) || linhas.set(k, []).get(k)).push(i); });
+                [...linhas.entries()].sort((a, b) => b[0] - a[0])
+                    .forEach(([, l]) => paginas.push(l.sort((a, b) => a.x - b.x).map(i => i.s).join(' ').replace(/\s+/g, ' ').trim()));
+            }
+        }
+        return paginas.join('\n');
+    }
+    /** Gabarito "1 C 2 A", "01-D", "Questão 3: B" (X ou * = anulada) → { 1: 'C', 2: 'A' }. */
+    function lerGabarito(texto) {
+        const g = {};
+        for (const m of String(texto || '').toUpperCase().matchAll(/(?:QUEST[ÃA]O\s*)?\b(\d{1,3})\s*[-–:.)=]?\s*\b([A-E]|X|\*)(?![A-Z])/g)) {
+            if (!(m[1] in g)) g[+m[1]] = m[2];
+        }
+        return g;
+    }
+    /** Questões numeradas em sequência ("1." / "Questão 01"), alternativas "(A)", "A)" ou "a." e o gabarito. */
+    function questoesDoTexto(texto, gabarito) {
+        const linhas = String(texto || '').split('\n').map(l => l.trim()).filter(Boolean);
+        const inicio = /^(?:QUEST[ÃA]O\s*)?(\d{1,3})\s*(?:[.)\-–:]\s*|\s+(?=[A-ZÀ-Ú“"(])|\s*$)(.*)$/i;
+        const alt = /^\(?([A-Ea-e])\s*[).\-–]\s*(.*)$/;
+        const saida = [];
+        let atual = null, ultimo = 0;
+        const fechar = () => { if (atual && atual.enun.join(' ').trim().length > 8) saida.push(atual); atual = null; };
+        for (const l of linhas) {
+            const m = l.match(inicio);
+            // só conta como nova questão se seguir a numeração (evita "1990 foi o ano..." no meio do texto)
+            if (m && (+m[1] === ultimo + 1 || (!ultimo && +m[1] <= 5))) {
+                fechar();
+                ultimo = +m[1];
+                atual = { n: ultimo, enun: [m[2]], alts: [], uAlt: -1 };
+                continue;
+            }
+            if (!atual) continue;
+            const a = l.match(alt);
+            if (a && LETRAS.indexOf(a[1].toUpperCase()) === atual.alts.length) {
+                atual.alts.push(a[2]);
+                atual.uAlt = atual.alts.length - 1;
+            } else if (atual.uAlt >= 0) atual.alts[atual.uAlt] += ' ' + l;
+            else atual.enun.push(l);
+        }
+        fechar();
+        return saida.map(q => {
+            const letra = gabarito[q.n];
+            if (letra === 'X' || letra === '*') return null; // anulada
+            let alts = q.alts.slice(0, 5), certa = letra ? LETRAS.indexOf(letra) : 0;
+            if (!alts.length) {
+                // estilo Cebraspe (Certo/Errado): sem alternativas, gabarito C ou E
+                alts = ['Certo', 'Errado'];
+                certa = letra === 'E' ? 1 : 0;
+            }
+            return { n: q.n, enunciado: q.enun.join(' ').replace(/\s+/g, ' ').trim(), alts: LETRAS.map((_, k) => (alts[k] || '').trim()), certa: Math.max(0, certa), temGabarito: !!letra };
+        }).filter(Boolean);
+    }
 
     const extras = {
         /* ---------- Questões ---------- */
@@ -90,6 +163,34 @@
             this.aviso(n ? `${n} ${n === 1 ? 'questão importada' : 'questões importadas'}.` : 'Não achei questões no texto. Veja o modelo no campo.');
             return n;
         },
+        /** Importa a prova em PDF (com texto, não escaneada) e o gabarito (PDF ou digitado). Devolve a mensagem para a tela. */
+        async qzImportarPdf(b, prova, arqGabarito, txtGabarito, materia) {
+            if (!prova) return 'Escolha o PDF da prova.';
+            if (!window.WFEditorPdf || !window.WFEditorPdf.pdfjs) return 'O leitor de PDF não carregou. Recarregue a página.';
+            if (prova.size > 30 * 1024 * 1024) return 'O PDF passa de 30 MB.';
+            let texto, gab;
+            try {
+                texto = await textoDoPdf(prova);
+                gab = lerGabarito((arqGabarito ? await textoDoPdf(arqGabarito) : '') + '\n' + (txtGabarito || ''));
+            } catch (e) {
+                return 'Não consegui ler esse PDF. Ele pode estar protegido ou corrompido.';
+            }
+            if (texto.replace(/\s/g, '').length < 80) return 'Esse PDF não tem texto (deve ser uma prova escaneada, em imagem). Use um PDF com texto selecionável.';
+            // gabarito dentro da própria prova (última página)
+            if (!Object.keys(gab).length) {
+                const m = texto.match(/GABARITO[\s\S]{0,4000}$/i);
+                if (m) gab = lerGabarito(m[0]);
+            }
+            const achadas = questoesDoTexto(texto.replace(/GABARITO[\s\S]{0,4000}$/i, ''), gab);
+            if (!achadas.length) return 'Não achei questões numeradas nesse PDF. Use “Colar várias” com o texto da prova.';
+            b.dados.questoes ??= [];
+            const cabe = Math.max(0, MAX - b.dados.questoes.length), novas = achadas.slice(0, cabe);
+            const nome = (materia || '').trim().slice(0, 60) || (prova.name || '').replace(/\.pdf$/i, '').slice(0, 60);
+            novas.forEach(q => b.dados.questoes.push({ id: uid(), materia: nome, enunciado: q.enunciado.slice(0, 4000), alts: q.alts.map(a => a.slice(0, 800)), certa: q.certa, expl: '' }));
+            const semGab = novas.filter(q => !q.temGabarito).length;
+            this.qzUI(b).materia = '';
+            return `${novas.length} ${novas.length === 1 ? 'questão importada' : 'questões importadas'}` + (semGab ? ` (${semGab} sem gabarito: confira a alternativa certa em cada uma)` : '') + (achadas.length > novas.length ? `. O cartão já está no limite de ${MAX}.` : '.');
+        },
         qzLetra(k) { return LETRAS[k]; },
 
         /* ---------- Criador ---------- */
@@ -103,7 +204,7 @@
         },
         crEtapas() { return ETAPAS_POST; },
         crRedes() { return Object.keys(REDES); },
-        crUI(b) { return (this.wfCxUI[b.id] ??= { aberto: null, rede: '' }); },
+        crUI(b) { return (this.wfCxUI[b.id] ??= { aberto: null, rede: '', ver: 'posts', ytCarregando: false, ytErro: '' }); },
         crDa(b, etapa) {
             const ui = this.crUI(b);
             return (b.dados.posts || []).filter(p => p.etapa === etapa && (!ui.rede || p.rede === ui.rede))
@@ -126,6 +227,28 @@
         async crCopiar(p) {
             try { await navigator.clipboard.writeText(this.crTexto(p)); this.aviso('Legenda e hashtags copiadas.'); }
             catch (e) { this.aviso('Não deu para copiar. Selecione o texto e use Ctrl+C.'); }
+        },
+        /* YouTube: canal em b.dados.yt, última leitura em b.dados.ytSnap (aparece sem buscar de novo) */
+        async crYtAtualizar(b) {
+            const ui = this.crUI(b), canal = String(b.dados.yt || '').trim();
+            if (!canal) { ui.ytErro = 'Cole o @ do seu canal (ex.: @seucanal).'; return; }
+            if (!URL_YT) { ui.ytErro = 'Métricas do YouTube indisponíveis nesta página.'; return; }
+            ui.ytCarregando = true; ui.ytErro = '';
+            try {
+                const r = await fetch(URL_YT + '?canal=' + encodeURIComponent(canal), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+                const j = await r.json().catch(() => ({}));
+                if (!r.ok || !j.ok) ui.ytErro = j.erro || 'Não deu para buscar o canal agora.';
+                else b.dados.ytSnap = { canal: j.canal, videos: j.videos, em: j.em };
+            } catch (e) { ui.ytErro = 'Sem conexão com o servidor.'; }
+            ui.ytCarregando = false;
+        },
+        crYtNum(n) { return curto(n); },
+        crYtQuando(b) { const s = b.dados.ytSnap; return s ? new Date(s.em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : ''; },
+        crYtTaxa(v) { return v.views ? ((v.curtidas + v.comentarios) / v.views * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%' : '—'; },
+        /** Métricas do vídeo ligado ao post (link do YouTube no post), se ele estiver entre os últimos lidos. */
+        crYtDoPost(b, p) {
+            const m = String(p.link || '').match(/(?:v=|youtu\.be\/|shorts\/)([A-Za-z0-9_-]{11})/);
+            return m && b.dados.ytSnap ? (b.dados.ytSnap.videos || []).find(v => v.id === m[1]) || null : null;
         },
         crSemana(b) {
             const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
@@ -204,4 +327,5 @@
         };
         return Object.assign(m, extras, { wfCxUI: {} });
     };
+    window.WFQuestoes = { textoDoPdf, lerGabarito, questoesDoTexto };
 })();

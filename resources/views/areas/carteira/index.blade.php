@@ -16,6 +16,7 @@
         'cotacao' => route('carteira.cotacao'),
         'negocios' => route('areas.negocios'),
         'clientesLoja' => $modo === 'negocios' ? route('negocios.clientes.loja') : null,
+        'nomeLoja' => $lojaResumo['nome'] ?? null,
         'dados'   => (object) $dados->all(),
         'tarefas' => $tarefasJs,
     ];

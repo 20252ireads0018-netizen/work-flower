@@ -50,6 +50,13 @@ Route::prefix('/loja/{slug}')->where(['slug' => '[a-z0-9-]{3,40}'])->name('loja.
         ->where('codigo', 'LJ[A-Z0-9]{14}')->middleware('throttle:60,1')->name('pedido');
     Route::post('/pedido/{codigo}/paguei', [\App\Http\Controllers\LojaPublicaController::class, 'paguei'])
         ->where('codigo', 'LJ[A-Z0-9]{14}')->middleware('throttle:20,1')->name('paguei');
+    Route::get('/cupom', [\App\Http\Controllers\LojaPublicaController::class, 'cupom'])->middleware('throttle:30,1')->name('cupom');
+    Route::post('/pedido/{codigo}/cartao', [\App\Http\Controllers\LojaPublicaController::class, 'pagarMp'])
+        ->where('codigo', 'LJ[A-Z0-9]{14}')->middleware('throttle:20,1')->name('cartao');
+    // aviso do Mercado Pago (vem do servidor deles, sem token de formulário; o pagamento é relido na API)
+    Route::post('/mp/aviso', [\App\Http\Controllers\LojaPublicaController::class, 'avisoMp'])
+        ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class, \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class])
+        ->middleware('throttle:120,1')->name('mp.aviso');
     Route::get('/img/{arquivo}', [\App\Http\Controllers\LojaPublicaController::class, 'imagem'])
         ->where('arquivo', '[A-Za-z0-9]{24}\.(jpg|png|webp)')->middleware('throttle:300,1')->name('img');
 });
@@ -152,6 +159,14 @@ Route::middleware('auth')->group(function () {
             ->whereNumber('produto')->middleware('throttle:60,1')->name('.produtos.remover');
         Route::post('/pedidos/{pedido}/status', [\App\Http\Controllers\LojaController::class, 'statusPedido'])
             ->whereNumber('pedido')->middleware('throttle:60,1')->name('.pedidos.status');
+        Route::post('/cupons', [\App\Http\Controllers\LojaController::class, 'salvarCupom'])->middleware('throttle:60,1')->name('.cupons.criar');
+        Route::post('/cupons/{cupom}', [\App\Http\Controllers\LojaController::class, 'salvarCupom'])
+            ->whereNumber('cupom')->middleware('throttle:60,1')->name('.cupons.salvar');
+        Route::delete('/cupons/{cupom}', [\App\Http\Controllers\LojaController::class, 'removerCupom'])
+            ->whereNumber('cupom')->middleware('throttle:60,1')->name('.cupons.remover');
+        Route::post('/entrega', [\App\Http\Controllers\LojaController::class, 'entrega'])->middleware('throttle:30,1')->name('.entrega');
+        Route::post('/mercadopago', [\App\Http\Controllers\LojaController::class, 'mercadoPago'])->middleware('throttle:10,1')->name('.mp');
+        Route::delete('/mercadopago', [\App\Http\Controllers\LojaController::class, 'desconectarMp'])->middleware('throttle:10,1')->name('.mp.sair');
     });
 
     // Carteira › Marketplaces (Mercado Livre, Shopee, Amazon). Limite de contas vem do plano do dono.
@@ -195,6 +210,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/fundo/baixar', [FundoController::class, 'baixar'])->middleware('throttle:20,1')->name('fundo.baixar');
 
     // Preferências da conta: teclas de atalho, organização automática dos cartões, tutorial visto
+    // métricas públicas de um canal do YouTube (cartão Criador de conteúdo)
+    Route::get('/youtube/canal', [\App\Http\Controllers\YoutubeController::class, 'canal'])->middleware('throttle:30,1')->name('youtube.canal');
     Route::put('/preferencias', [PreferenciasController::class, 'salvar'])
         ->middleware('throttle:60,1')->name('preferencias.salvar');
     Route::get('/fundo/imagem', [FundoController::class, 'imagem'])->name('fundo.imagem');

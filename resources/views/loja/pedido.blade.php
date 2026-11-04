@@ -18,6 +18,12 @@
             @foreach ($pedido->itens as $i)
                 <p style="display:flex;justify-content:space-between;gap:8px;margin:6px 0"><span>{{ $i['qtd'] }} × {{ $i['nome'] }}</span><span>{{ $brl($i['preco'] * $i['qtd']) }}</span></p>
             @endforeach
+            @if ((float) $pedido->desconto > 0)
+                <p style="display:flex;justify-content:space-between;gap:8px;margin:6px 0"><span>Cupom {{ $pedido->cupom }}</span><span>− {{ $brl($pedido->desconto) }}</span></p>
+            @endif
+            @if ($pedido->frete_nome)
+                <p style="display:flex;justify-content:space-between;gap:8px;margin:6px 0"><span>{{ $pedido->frete_nome }}</span><span>{{ (float) $pedido->frete > 0 ? $brl($pedido->frete) : 'Grátis' }}</span></p>
+            @endif
             <p style="display:flex;justify-content:space-between;font-weight:800;font-size:1.15rem;border-top:1px solid color-mix(in srgb, var(--texto) 15%, transparent);padding-top:8px">
                 <span>Total</span><span>{{ $brl($pedido->total) }}</span>
             </p>
@@ -25,7 +31,17 @@
             <p style="font-size:.8rem;opacity:.6">Guarde o endereço desta página para acompanhar o pedido.</p>
         </section>
 
-        @if ($codigo)
+        @if ($pedido->aberto() && $loja->mpPronto() && ($pedido->pagamento === 'mp' || ! $codigo))
+            <section class="lj-cartao" style="padding:18px;text-align:center">
+                <p class="lj-preco" style="margin:0 0 6px">{{ $brl($pedido->total) }}</p>
+                <p style="font-size:.85rem;opacity:.8;margin:0 0 12px">Pague com cartão de crédito, débito ou boleto na página segura do Mercado Pago. Assim que for aprovado, este pedido aparece como pago.</p>
+                <form method="POST" action="{{ route('loja.cartao', [$loja->slug, $pedido->codigo]) }}">
+                    @csrf
+                    <button type="submit" class="lj-btn" style="width:100%">Pagar com Mercado Pago</button>
+                </form>
+            </section>
+        @endif
+        @if ($codigo && ($pedido->pagamento !== 'mp' || ! $loja->mpPronto()))
             <section class="lj-cartao" style="padding:18px;text-align:center">
                 <div id="lj-qr" style="width:220px;height:220px;margin:0 auto;background:#fff;padding:10px;border-radius:10px" role="img" aria-label="QR Code do Pix"></div>
                 <p class="lj-preco" style="margin:10px 0 4px">{{ $brl($pedido->total) }}</p>
@@ -47,6 +63,8 @@
                        href="https://wa.me/{{ strlen($v['whatsapp']) <= 11 ? '55' . $v['whatsapp'] : $v['whatsapp'] }}?text={{ rawurlencode('Olá! Fiz o pedido ' . $pedido->codigo . ' (' . $brl($pedido->total) . '). Segue o comprovante do Pix.') }}">Mandar o comprovante pelo WhatsApp</a>
                 @endif
             </section>
+        @elseif ($pedido->aberto())
+            {{-- só Mercado Pago: o botão de pagar está acima --}}
         @elseif ($pedido->status === 'cancelado')
             <section class="lj-cartao" style="padding:18px"><p style="margin:0">Este pedido foi cancelado pela loja.</p></section>
         @else

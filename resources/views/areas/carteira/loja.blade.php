@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('titulo', 'Loja')
-@section('subtitulo', 'Negócios · sua loja virtual: produtos, aparência, Pix e pedidos.')
+@section('subtitulo', 'Negócios · sua loja virtual: produtos, cupons, entrega, aparência, pagamento e pedidos.')
 
 @section('conteudo')
 @php
@@ -11,7 +11,7 @@
     $img = fn ($a) => $a && $loja ? route('loja.img', [$loja->slug, $a]) : null;
     $limite = $loja?->limiteProdutos();
     $brl = fn ($n) => 'R$ ' . number_format((float) $n, 2, ',', '.');
-    $abas = ['pedidos' => 'Pedidos', 'produtos' => 'Produtos', 'aparencia' => 'Aparência', 'pix' => 'Pix'];
+    $abas = ['pedidos' => 'Pedidos', 'produtos' => 'Produtos', 'cupons' => 'Cupons', 'entrega' => 'Entrega', 'aparencia' => 'Aparência', 'pix' => 'Pagamento'];
 @endphp
 <style>
     .lj-abas { display: flex; flex-wrap: wrap; gap: .35rem; border-bottom: 1px solid var(--linha); margin-bottom: 1rem; }
@@ -34,8 +34,8 @@
             <a class="btn !py-1.5 !px-3 text-sm" href="{{ route('loja.ver', $loja->slug) }}" target="_blank" rel="noopener">{{ $loja->publicada ? 'Ver a loja' : 'Ver prévia' }} ↗</a>
             <span class="lj-st {{ $loja->publicada ? 'pago' : 'aguardando' }}">{{ $loja->publicada ? 'Aberta ao público' : 'Fechada (só você vê)' }}</span>
             <span class="text-xs texto-2 break-all">{{ route('loja.ver', $loja->slug) }}</span>
-            @if (! $loja->pixPronto())
-                <a href="{{ route('carteira.loja', ['aba' => 'pix']) }}" class="lj-st aguardando">Falta a chave Pix: sem ela a loja não recebe pedidos</a>
+            @if (! $loja->recebePedidos())
+                <a href="{{ route('carteira.loja', ['aba' => 'pix']) }}" class="lj-st aguardando">Falta a forma de pagamento (Pix ou Mercado Pago): sem ela a loja não recebe pedidos</a>
             @endif
         @endif
     </div>
@@ -89,6 +89,14 @@
                         <li>{{ $i['qtd'] }} × {{ $i['nome'] }} <span class="texto-2">({{ $brl($i['preco']) }})</span></li>
                     @endforeach
                 </ul>
+                @if ((float) $p->desconto > 0 || $p->frete_nome)
+                    <p class="text-xs texto-2">
+                        @if ($p->subtotal !== null) Produtos {{ $brl($p->subtotal) }} @endif
+                        @if ((float) $p->desconto > 0) · cupom {{ $p->cupom }} −{{ $brl($p->desconto) }} @endif
+                        @if ($p->frete_nome) · {{ $p->frete_nome }} {{ (float) $p->frete > 0 ? $brl($p->frete) : 'grátis' }} @endif
+                    </p>
+                @endif
+                @if ($p->pagamento === 'mp') <p class="text-xs texto-2">Pagamento por Mercado Pago{{ $p->mp_pagamento ? ' (aprovado, nº ' . $p->mp_pagamento . ')' : ': aguardando o cliente concluir' }}.</p> @endif
                 @if ($p->informado_em) <p class="text-xs texto-2">O cliente avisou que pagou em {{ $p->informado_em->tz('America/Sao_Paulo')->format('d/m H:i') }}. Confira no extrato do banco.</p> @endif
                 <div class="flex flex-wrap gap-2">
                     @foreach (['pago' => 'Marcar como pago', 'enviado' => 'Marcar como enviado', 'cancelado' => 'Cancelar pedido', 'aguardando' => 'Voltar para aguardando'] as $st => $rot)
@@ -140,6 +148,63 @@
         @endforeach
     @endif
 
+    {{-- ===================== Cupons ===================== --}}
+    @if ($loja && $aba === 'cupons')
+        <p class="text-sm texto-2">O cliente digita o código no carrinho. O desconto é conferido de novo na hora do pedido (validade, limite de usos e pedido mínimo).</p>
+        @foreach ([null, ...$cupons] as $c)
+            <form method="POST" action="{{ $c ? route('carteira.loja.cupons.salvar', $c) : route('carteira.loja.cupons.criar') }}" class="card p-4 space-y-3">
+                @csrf
+                <div class="flex flex-wrap items-center gap-2">
+                    <b>{{ $c ? $c->codigo : '+ Novo cupom' }}</b>
+                    @if ($c) <span class="lj-st {{ $c->erro(PHP_FLOAT_MAX) ? 'cancelado' : 'pago' }}">{{ $c->rotulo() }}</span>
+                        <span class="text-xs texto-2">usado {{ $c->usos }}{{ $c->usos_max ? ' de ' . $c->usos_max : '' }} {{ $c->usos === 1 ? 'vez' : 'vezes' }}</span> @endif
+                </div>
+                <div class="lj-grade">
+                    <label class="lj-campo"><span>Código</span><input name="codigo" class="campo uppercase" maxlength="30" required value="{{ $c?->codigo }}" placeholder="Ex.: BEMVINDO10"></label>
+                    <label class="lj-campo"><span>Tipo</span>
+                        <select name="tipo" class="campo"><option value="pct" @selected(($c->tipo ?? 'pct') === 'pct')>Porcentagem (%)</option><option value="valor" @selected(($c->tipo ?? '') === 'valor')>Valor fixo (R$)</option></select>
+                    </label>
+                    <label class="lj-campo"><span>Desconto</span><input name="valor" type="number" step="0.01" min="0.01" class="campo" required value="{{ $c ? (float) $c->valor : '' }}"></label>
+                    <label class="lj-campo"><span>Pedido mínimo (R$, opcional)</span><input name="minimo" type="number" step="0.01" min="0" class="campo" value="{{ $c && $c->minimo !== null ? (float) $c->minimo : '' }}"></label>
+                    <label class="lj-campo"><span>Limite de usos (opcional)</span><input name="usos_max" type="number" min="1" class="campo" value="{{ $c?->usos_max }}"></label>
+                    <label class="lj-campo"><span>Vale até (opcional)</span><input name="validade" type="date" class="campo" value="{{ $c?->validade?->format('Y-m-d') }}"></label>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="ativo" value="1" @checked($c ? $c->ativo : true)> Valendo</label>
+                    <button type="submit" class="btn !py-1 text-sm">{{ $c ? 'Salvar' : 'Criar cupom' }}</button>
+                    @if ($c)
+                        <button type="submit" form="tirar-cupom-{{ $c->id }}" class="text-xs underline" style="color:#ef4444">Apagar</button>
+                    @endif
+                </div>
+            </form>
+            @if ($c)
+                <form method="POST" action="{{ route('carteira.loja.cupons.remover', $c) }}" id="tirar-cupom-{{ $c->id }}" onsubmit="return confirm('Apagar o cupom {{ $c->codigo }}?')" hidden>@csrf @method('DELETE')</form>
+            @endif
+        @endforeach
+    @endif
+
+    {{-- ===================== Entrega ===================== --}}
+    @if ($loja && $aba === 'entrega')
+        @php $fr = $loja->fretes(); @endphp
+        <form method="POST" action="{{ route('carteira.loja.entrega') }}" class="card p-4 space-y-3">
+            @csrf
+            <p class="text-sm texto-2">Cada linha vira uma opção que o cliente escolhe no carrinho, com o preço somado ao pedido. Deixe o nome em branco para tirar a linha. Sem nenhuma opção, o cliente não escolhe entrega.</p>
+            <div class="space-y-2">
+                @for ($i = 0; $i < \App\Models\Loja::MAX_FRETES; $i++)
+                    @php $x = $fr[$i] ?? null; @endphp
+                    <div class="grid gap-2 sm:grid-cols-3" @if (! $x && $i > count($fr)) data-extra hidden @endif>
+                        <input name="fretes[{{ $i }}][nome]" class="campo" maxlength="60" value="{{ $x['nome'] ?? '' }}" placeholder="{{ ['Retirada na loja', 'Entrega no bairro', 'Correios (PAC)'][$i] ?? 'Outra opção' }}" aria-label="Nome da opção {{ $i + 1 }}">
+                        <input name="fretes[{{ $i }}][preco]" type="number" step="0.01" min="0" class="campo" value="{{ $x ? $x['preco'] : '' }}" placeholder="Preço (R$)" aria-label="Preço da opção {{ $i + 1 }}">
+                        <input name="fretes[{{ $i }}][gratis_acima]" type="number" step="0.01" min="0" class="campo" value="{{ $x['gratis_acima'] ?? '' }}" placeholder="Grátis a partir de (R$, opcional)" aria-label="Grátis a partir de, opção {{ $i + 1 }}">
+                    </div>
+                @endfor
+            </div>
+            <button type="button" class="btn-sec !py-1 text-sm" onclick="const l = this.form.querySelector('[data-extra][hidden]'); if (l) l.hidden = false; else this.disabled = true">+ Mais uma opção</button>
+            <label class="lj-campo"><span>Aviso sobre entrega e retirada (aparece no carrinho)</span><input name="entrega" class="campo" maxlength="300" value="{{ $v['entrega'] ?? '' }}" placeholder="Ex.: Entregamos de terça a sábado, das 9h às 18h"></label>
+            <button type="submit" class="btn">Salvar entrega</button>
+        </form>
+    @endif
+
     {{-- ===================== Aparência (e criação da loja) ===================== --}}
     @if (! $loja || $aba === 'aparencia')
         @unless ($loja)
@@ -157,7 +222,7 @@
                 <label class="lj-campo"><span>Texto do botão de compra</span><input name="botao" class="campo" maxlength="20" value="{{ old('botao', $v['botao'] ?? 'Comprar') }}"></label>
             </div>
             <label class="lj-campo"><span>Sobre a loja (aparece no fim da página)</span><textarea name="sobre" class="campo" rows="3" maxlength="3000">{{ old('sobre', $loja->sobre ?? '') }}</textarea></label>
-            <label class="lj-campo"><span>Entrega e retirada</span><input name="entrega" class="campo" maxlength="300" value="{{ old('entrega', $v['entrega'] ?? '') }}" placeholder="Ex.: Entrega grátis no bairro · retirada no centro"></label>
+
 
             <div class="lj-grade">
                 @foreach (['cor' => ['Cor principal', '#2f6fc7'], 'fundo' => ['Fundo', '#f7f5f0'], 'texto' => ['Texto', '#1f2328'], 'cartao' => ['Cartões dos produtos', '#ffffff']] as $k => [$rot, $pad])
@@ -201,7 +266,7 @@
     @if ($loja && $aba === 'pix')
         <form method="POST" action="{{ route('carteira.loja.pix') }}" class="card p-4 grid sm:grid-cols-2 gap-3">
             @csrf
-            <p class="sm:col-span-2 text-sm texto-2">Os clientes pagam por Pix direto nesta chave: o dinheiro vai para a sua conta, sem passar pelo Work Flower. Confira os pagamentos no extrato do seu banco e marque o pedido como pago.</p>
+            <p class="sm:col-span-2 text-sm texto-2"><b>Pix na sua chave</b> (sem taxa): os clientes pagam por Pix direto nesta chave: o dinheiro vai para a sua conta, sem passar pelo Work Flower. Confira os pagamentos no extrato do seu banco e marque o pedido como pago.</p>
             <label class="lj-campo"><span>Tipo de chave</span>
                 <select name="tipo" class="campo">@foreach (Pix::TIPOS as $k => $n)<option value="{{ $k }}" @selected(old('tipo', $loja->pix_tipo) === $k)>{{ $n }}</option>@endforeach</select>
             </label>
@@ -210,6 +275,31 @@
             <label class="lj-campo"><span>Cidade</span><input name="cidade" class="campo" maxlength="40" required value="{{ old('cidade', $loja->pix_cidade) }}"></label>
             <div class="sm:col-span-2"><button type="submit" class="btn">Salvar chave Pix</button></div>
         </form>
+
+        <section class="card p-4 space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <h3 class="font-semibold">Cartão pelo Mercado Pago</h3>
+                <span class="lj-st {{ $loja->mpPronto() ? 'pago' : 'cancelado' }}">{{ $loja->mpPronto() ? 'Conectado' . ($loja->mp_conta ? ': ' . $loja->mp_conta : '') : 'Não conectado' }}</span>
+            </div>
+            <p class="text-sm texto-2">Com o Mercado Pago, o cliente paga com cartão de crédito (até em parcelas), débito, Pix ou boleto na página deles, e o pedido é marcado como pago sozinho. O dinheiro cai na sua conta do Mercado Pago, com as taxas deles.</p>
+            @if ($loja->mpPronto())
+                <form method="POST" action="{{ route('carteira.loja.mp.sair') }}" onsubmit="return confirm('Desconectar o Mercado Pago? Os clientes voltam a pagar só por Pix.')">
+                    @csrf @method('DELETE')
+                    <button type="submit" class="btn-sec !py-1 text-sm">Desconectar</button>
+                </form>
+            @else
+                <ol class="text-sm list-decimal pl-5 space-y-1">
+                    <li>Entre em <a class="underline" href="https://www.mercadopago.com.br/developers/panel/app" target="_blank" rel="noopener">mercadopago.com.br/developers/panel/app</a> com a sua conta e crie uma aplicação (tipo “Pagamentos on-line”, produto “Checkout Pro”).</li>
+                    <li>Na aplicação, abra <b>Credenciais de produção</b> e copie o <b>Access Token</b> (começa com APP_USR-).</li>
+                    <li>Cole abaixo e salve. O Work Flower confere o token com o Mercado Pago e guarda criptografado.</li>
+                </ol>
+                <form method="POST" action="{{ route('carteira.loja.mp') }}" class="flex flex-wrap gap-2">
+                    @csrf
+                    <input name="token" type="password" class="campo flex-1 min-w-[16rem]" maxlength="200" required autocomplete="off" placeholder="APP_USR-..." aria-label="Access Token do Mercado Pago">
+                    <button type="submit" class="btn">Conectar</button>
+                </form>
+            @endif
+        </section>
     @endif
 </div>
 @endsection

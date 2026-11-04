@@ -14,7 +14,13 @@ class Loja extends Model
 
     protected $fillable = ['slug', 'nome', 'chamada', 'sobre', 'visual', 'pix_tipo', 'pix_chave', 'pix_nome', 'pix_cidade', 'publicada'];
 
-    protected $casts = ['visual' => 'array', 'publicada' => 'boolean'];
+    protected $casts = ['visual' => 'array', 'publicada' => 'boolean', 'mp_token' => 'encrypted'];
+
+    /** O Access Token do Mercado Pago nunca vai para a tela nem para JSON. */
+    protected $hidden = ['mp_token'];
+
+    /** Até quantas opções de entrega a loja pode ter. */
+    public const MAX_FRETES = 8;
 
     /** Endereços que não podem virar loja (rotas e nomes que confundiriam). */
     public const RESERVADOS = ['admin', 'api', 'loja', 'lojas', 'work-flower', 'workflower', 'websight', 'planos', 'login', 'pedido', 'carrinho', 'suporte'];
@@ -41,12 +47,48 @@ class Loja extends Model
             'estoque'     => (bool) ($v['estoque'] ?? true),
             'entrega'     => $v['entrega'] ?? null, // texto livre: "Retirada ou entrega no bairro…"
             'botao'       => $v['botao'] ?? 'Comprar',
+            'fretes'      => $this->fretes(),
         ];
     }
 
     private function cor(?string $c, string $padrao): string
     {
         return is_string($c) && preg_match('/^#[0-9a-f]{6}$/i', $c) ? strtolower($c) : $padrao;
+    }
+
+    /** Opções de entrega com preço: [{ nome, preco, gratis_acima }]. Vazio = o cliente não escolhe entrega. */
+    public function fretes(): array
+    {
+        $l = is_array($this->visual['fretes'] ?? null) ? $this->visual['fretes'] : [];
+
+        return array_values(array_slice(array_filter(array_map(fn ($f) => is_array($f) && trim((string) ($f['nome'] ?? '')) !== '' ? [
+            'nome'         => mb_substr(trim((string) $f['nome']), 0, 60),
+            'preco'        => round(max(0, (float) ($f['preco'] ?? 0)), 2),
+            'gratis_acima' => isset($f['gratis_acima']) && $f['gratis_acima'] !== null && $f['gratis_acima'] !== '' ? round(max(0, (float) $f['gratis_acima']), 2) : null,
+        ] : null, $l)), 0, self::MAX_FRETES));
+    }
+
+    /** Preço de uma opção de entrega para este subtotal (grátis acima do valor, se tiver). */
+    public static function precoFrete(array $f, float $subtotal): float
+    {
+        return $f['gratis_acima'] !== null && $subtotal >= $f['gratis_acima'] ? 0.0 : (float) $f['preco'];
+    }
+
+    /** Recebe cartão pelo Mercado Pago (o dono conectou a conta). */
+    public function mpPronto(): bool
+    {
+        return (string) $this->getRawOriginal('mp_token') !== '';
+    }
+
+    /** Tem algum jeito de receber: Pix na chave ou Mercado Pago. */
+    public function recebePedidos(): bool
+    {
+        return $this->pixPronto() || $this->mpPronto();
+    }
+
+    public function cupons(): HasMany
+    {
+        return $this->hasMany(LojaCupom::class)->orderByDesc('id');
     }
 
     public function pixPronto(): bool

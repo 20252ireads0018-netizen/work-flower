@@ -78,4 +78,4 @@
 {{-- cartão "Editor de PDF" (estende o quadro.js do mesmo jeito) --}}
 <script src="{{ asset('js/editor-pdf.js') }}?v={{ @filemtime(public_path('js/editor-pdf.js')) }}"></script>
 {{-- cartões Questões, Criador e RH (usa o wfNovoCartao do graficos.js) --}}
-<script src="{{ asset('js/cartoes-extra.js') }}?v={{ @filemtime(public_path('js/cartoes-extra.js')) }}"></script>
+<script src="{{ asset('js/cartoes-extra.js') }}?v={{ @filemtime(public_path('js/cartoes-extra.js')) }}" data-yt="{{ \Illuminate\Support\Facades\Route::has('youtube.canal') ? route('youtube.canal') : '' }}"></script>

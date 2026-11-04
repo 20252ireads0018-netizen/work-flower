@@ -380,5 +380,5 @@
         };
         return Object.assign(m, extras);
     };
-    window.WFEditorPdf = { gerarPdf, CORES };
+    window.WFEditorPdf = { gerarPdf, CORES, pdfjs };
 })();

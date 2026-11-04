@@ -89,6 +89,13 @@
         e.negocios ??= []; e.negAtivo ??= null;
         e.projetos ??= []; e.docs ??= []; e.docAtivo ??= null;
         e.clientes ??= [];
+        // mensagens prontas para WhatsApp: {nome}, {primeiro_nome} e {loja} são trocados pelo cliente na hora
+        e.msgModelos ??= [
+            { id: 'm1', nome: 'Boas-vindas', texto: 'Olá, {primeiro_nome}! Obrigado por comprar com a gente. Qualquer dúvida, é só chamar por aqui.' },
+            { id: 'm2', nome: 'Pedido pronto', texto: 'Oi, {primeiro_nome}! Seu pedido está pronto. Quando fica bom para você receber ou retirar?' },
+            { id: 'm3', nome: 'Lembrete de pagamento', texto: 'Olá, {primeiro_nome}, tudo bem? Passando para lembrar do pagamento do seu pedido. Se já pagou, pode desconsiderar.' },
+            { id: 'm4', nome: 'Novidade', texto: 'Oi, {primeiro_nome}! Chegaram novidades na {loja}. Quer que eu te mande as fotos?' },
+        ];
         e.docs.forEach(d => D.migrar(d));   // documentos antigos ganham os novos campos sem perder nada
         if (!e.mapaSemeado) {
             e.mapaSemeado = true;
@@ -163,6 +170,7 @@
             cn: { tipo: 'marketplace', nome: '', gasto: '', nota: '' },
             novoProj: '',
             cl: { nome: '', contato: '', tags: '' }, clErro: '', clBusca: '',
+            zap: { aberto: false, cli: null, modelo: '', texto: '', fila: [], editar: false },
 
             init() {
                 const guardada = sessionStorage.getItem(MODO + '.aba');
@@ -447,6 +455,45 @@
                 if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(t)) return 'mailto:' + t;
                 const d = t.replace(/\D/g, '');
                 return d.length >= 10 ? 'https://wa.me/' + (d.length <= 11 ? '55' + d : d) : '';
+            },
+            /* ---------- mensagens prontas (WhatsApp) ---------- */
+            zapNumero(c) { const d = String(c?.contato || '').replace(/\D/g, ''); return !String(c?.contato || '').includes('@') && d.length >= 10 ? (d.length <= 11 ? '55' + d : d) : ''; },
+            zapPreencher(texto, c) {
+                const nome = String(c?.nome || '').trim(), loja = this.cfg.nomeLoja || 'nossa loja';
+                return String(texto || '').replace(/\{primeiro_nome\}/g, nome.split(/\s+/)[0] || nome).replace(/\{nome\}/g, nome).replace(/\{loja\}/g, loja);
+            },
+            /** Abre o painel para um cliente (ou para a fila dos filtrados, quando c é null). */
+            zapAbrir(c) {
+                const m = this.estado.msgModelos[0];
+                const fila = c ? [] : this.clientesFiltrados().filter(x => this.zapNumero(x)).map(x => x.id);
+                if (!c && !fila.length) { this.aviso('Nenhum cliente da busca tem WhatsApp com DDD.'); return; }
+                this.zap = { aberto: true, cli: c ? c.id : null, modelo: m ? m.id : '', texto: m ? m.texto : '', fila, feitos: [], editar: false };
+            },
+            zapCliente() { return this.estado.clientes.find(c => c.id === this.zap.cli) || null; },
+            zapEscolher(id) { const m = this.estado.msgModelos.find(x => x.id === id); this.zap.modelo = id; if (m) this.zap.texto = m.texto; },
+            zapLink(c) { const n = this.zapNumero(c); return n ? 'https://wa.me/' + n + '?text=' + encodeURIComponent(this.zapPreencher(this.zap.texto, c)) : ''; },
+            /** Registra o envio no histórico do cliente (o WhatsApp abre em outra aba, já com o texto). */
+            zapEnviou(c) {
+                c.msgs ??= [];
+                const m = this.estado.msgModelos.find(x => x.id === this.zap.modelo);
+                c.msgs.unshift({ em: new Date().toISOString(), modelo: m ? m.nome : 'Mensagem', texto: this.zapPreencher(this.zap.texto, c).slice(0, 1000) });
+                c.msgs.splice(20);
+                if (!this.zap.cli) this.zap.feitos = [...(this.zap.feitos || []), c.id];
+            },
+            zapUltima(c) { const m = (c.msgs || [])[0]; return m ? m.modelo + ' · ' + new Date(m.em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''; },
+            zapNovoModelo() {
+                if (this.estado.msgModelos.length >= 30) { this.aviso('Limite de 30 mensagens prontas.'); return; }
+                const m = { id: uid(), nome: 'Nova mensagem', texto: this.zap.texto || 'Olá, {primeiro_nome}!' };
+                this.estado.msgModelos.push(m);
+                this.zap.modelo = m.id;
+                this.zap.editar = true;
+            },
+            zapSalvarModelo() { const m = this.estado.msgModelos.find(x => x.id === this.zap.modelo); if (m) { m.texto = this.zap.texto.slice(0, 1500); this.aviso('Mensagem pronta atualizada.'); } },
+            zapTirarModelo() {
+                const i = this.estado.msgModelos.findIndex(x => x.id === this.zap.modelo);
+                if (i < 0 || !confirm('Apagar esta mensagem pronta?')) return;
+                this.estado.msgModelos.splice(i, 1);
+                this.zapEscolher(this.estado.msgModelos[0]?.id || '');
             },
             async importarClientesLoja() {
                 if (!this.cfg.clientesLoja) return;
