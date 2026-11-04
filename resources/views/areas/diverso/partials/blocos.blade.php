@@ -2457,6 +2457,100 @@
                 {{-- Cartão ativo (de outra página) --}}
                 @include('areas.partials.bloco-vivo')
 
+                {{-- Banco de dados: arquivo .sql lido no navegador, com diagrama das tabelas e os dados.
+                     Lógica em public/js/banco-sql.js (métodos bd*); as linhas ficam em img.<id>.sql. --}}
+                <template x-if="b.tipo === 'banco'">
+                    <div class="bd h-full flex flex-col gap-2" x-init="bdUI(b)"
+                         @dragover.prevent.stop @drop.prevent.stop="bdLer(b, $event.dataTransfer.files[0])">
+                        <div class="flex flex-wrap items-center gap-1.5 text-xs">
+                            <label class="btn-sec !py-1 cursor-pointer" :class="{ 'opacity-60 pointer-events-none': bdUI(b).lendo }">
+                                <span x-text="(b.dados.tabelas || []).length ? 'Trocar .sql' : 'Abrir arquivo .sql'"></span>
+                                <input type="file" accept=".sql,application/sql,text/plain" class="sr-only"
+                                       @change="bdLer(b, $event.target.files[0]); $event.target.value = ''">
+                            </label>
+                            <template x-if="(b.dados.tabelas || []).length">
+                                <div class="contents">
+                                    <div class="flex gap-1" role="tablist" aria-label="Ver">
+                                        <button type="button" class="btn-sec !py-1" role="tab" :aria-selected="b.dados.visao !== 'dados'"
+                                                :class="{ 'bd-on': b.dados.visao !== 'dados' }" @click="b.dados.visao = 'diagrama'">Diagrama</button>
+                                        <button type="button" class="btn-sec !py-1" role="tab" :aria-selected="b.dados.visao === 'dados'"
+                                                :class="{ 'bd-on': b.dados.visao === 'dados' }" @click="b.dados.visao = 'dados'">Dados</button>
+                                    </div>
+                                    <template x-if="b.dados.visao !== 'dados'">
+                                        <div class="contents">
+                                            <button type="button" class="mini-btn" title="Diminuir" aria-label="Diminuir" @click="bdZoom(b, -0.1)">−</button>
+                                            <button type="button" class="mini-btn !w-auto px-1.5" title="Tamanho normal" @click="bdZoom(b, 0)" x-text="Math.round(bdUI(b).z * 100) + '%'"></button>
+                                            <button type="button" class="mini-btn" title="Aumentar" aria-label="Aumentar" @click="bdZoom(b, 0.1)">+</button>
+                                            <button type="button" class="btn-sec !py-1" title="Arrumar as tabelas de novo" @click="bdRearrumar(b)">Arrumar</button>
+                                            <button type="button" class="btn-sec !py-1" title="Cria um cartão de Mapa mental com as tabelas, para editar" @click="bdParaMapa(b)">Copiar para Mapa mental</button>
+                                        </div>
+                                    </template>
+                                    <button type="button" class="mini-btn perigo ml-auto" title="Tirar o banco do cartão" aria-label="Tirar o banco do cartão" @click="bdLimpar(b)">✕</button>
+                                </div>
+                            </template>
+                        </div>
+                        <p class="text-xs texto-2" x-show="(b.dados.tabelas || []).length" x-text="bdResumo(b)"></p>
+                        <p class="text-xs" role="status" x-show="bdUI(b).msg" x-text="bdUI(b).msg"></p>
+                        <template x-for="a in (b.dados.avisos || [])" :key="a">
+                            <p class="text-xs texto-2" x-text="'⚠ ' + a"></p>
+                        </template>
+
+                        {{-- sem arquivo ainda --}}
+                        <div class="bd-vazio flex-1" x-show="!(b.dados.tabelas || []).length">
+                            <p class="font-semibold text-sm">Solte aqui um arquivo .sql</p>
+                            <p class="text-xs texto-2 mt-1">Dump do phpMyAdmin/MySQL, SQLite ou PostgreSQL (com INSERTs). O Work Flower lê as tabelas,
+                                desenha as ligações entre elas e guarda os dados para você consultar. O arquivo é lido no seu navegador.</p>
+                        </div>
+
+                        {{-- diagrama: arraste as tabelas; clique duplo abre os dados da tabela --}}
+                        <div class="bd-area flex-1 min-h-0 overflow-auto" x-show="(b.dados.tabelas || []).length && b.dados.visao !== 'dados'"
+                             @pointerdown="bdPegar(b, $event)" @dblclick="bdAbrirTabela(b, $event)" x-html="bdSvg(b)"></div>
+
+                        {{-- dados da tabela escolhida --}}
+                        <template x-if="(b.dados.tabelas || []).length && b.dados.visao === 'dados'">
+                            <div class="flex-1 min-h-0 flex flex-col gap-2">
+                                <div class="flex flex-wrap items-center gap-2 text-xs">
+                                    <select class="campo !py-1 !w-auto" style="max-width: 14rem" aria-label="Tabela" @change="bdUI(b).tab = $event.target.value; bdUI(b).pag = 0">
+                                        <template x-for="t in b.dados.tabelas" :key="t.nome">
+                                            <option :value="t.nome" :selected="bdTabela(b) && bdTabela(b).nome === t.nome" x-text="t.nome + ' (' + (t.total || 0).toLocaleString('pt-BR') + ')'"></option>
+                                        </template>
+                                    </select>
+                                    <input class="campo !py-1" style="width: 11rem" type="search" placeholder="Buscar nas linhas" aria-label="Buscar nas linhas"
+                                           x-model.debounce.250ms="bdUI(b).busca" @input="bdUI(b).pag = 0">
+                                    <button type="button" class="btn-sec !py-1" @click="bdBaixarCsv(b)" title="Baixa a tabela (ou só o que a busca achou) em CSV">Baixar CSV</button>
+                                </div>
+                                <div class="bd-dados flex-1 min-h-0 overflow-auto">
+                                    <table class="bd-tab">
+                                        <thead>
+                                            <tr>
+                                                <template x-for="c in (bdTabela(b)?.colunas || [])" :key="c.n">
+                                                    <th :title="(c.pk ? 'Chave primária · ' : '') + (c.fk ? 'Liga com ' + c.fk.t + '.' + (c.fk.c || '') + ' · ' : '') + (c.tipo || '')">
+                                                        <span x-text="c.n"></span><small x-show="c.pk || c.fk" x-text="' ' + [c.pk && 'PK', c.fk && 'FK'].filter(Boolean).join(',')"></small>
+                                                    </th>
+                                                </template>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="(l, i) in bdPagina(b)" :key="bdUI(b).tab + ':' + bdUI(b).pag + ':' + i">
+                                                <tr>
+                                                    <template x-for="(v, j) in l" :key="j">
+                                                        <td :class="{ 'nulo': v === null }" x-text="v === null ? 'NULL' : (v.length > 200 ? v.slice(0, 200) + '…' : v)" :title="v && v.length > 200 ? v.slice(0, 2000) : null"></td>
+                                                    </template>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2 text-xs texto-2">
+                                    <button type="button" class="mini-btn" aria-label="Página anterior" :disabled="bdUI(b).pag === 0" @click="bdUI(b).pag--">‹</button>
+                                    <button type="button" class="mini-btn" aria-label="Próxima página" :disabled="!bdTemMais(b)" @click="bdUI(b).pag++">›</button>
+                                    <span x-text="bdRodape(b)"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
                 {{-- Mapa mental e diagramas (BPMN, fluxogramas, ER/UML). Lógica em public/js/diagrama.js (métodos dd*). --}}
                 <template x-if="b.tipo === 'mapa'">
                     <div class="wf-dd h-full" data-dd x-init="dd(b)">

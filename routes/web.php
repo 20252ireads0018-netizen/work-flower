@@ -67,10 +67,27 @@ Route::middleware('auth')->group(function () {
             ->whereNumber('pix')->name('pix.admin.confirmar');
         Route::post('/admin/pix/{pix}/recusar', [\App\Http\Controllers\PixAdminController::class, 'recusar'])
             ->whereNumber('pix')->name('pix.admin.recusar');
+        // Promoções relâmpago dos planos
+        Route::get('/admin/promocoes', [\App\Http\Controllers\PromocaoAdminController::class, 'index'])->name('promocoes.admin');
+        Route::post('/admin/promocoes', [\App\Http\Controllers\PromocaoAdminController::class, 'criar'])
+            ->middleware('throttle:30,1')->name('promocoes.admin.criar');
+        Route::post('/admin/promocoes/{promocao}/encerrar', [\App\Http\Controllers\PromocaoAdminController::class, 'encerrar'])
+            ->whereNumber('promocao')->middleware('throttle:30,1')->name('promocoes.admin.encerrar');
     });
     Route::post('/sair', [AuthController::class, 'logout'])->name('logout');
     
     Route::get('/painel', [PainelController::class, 'index'])->name('painel');
+
+    // Calendário do painel (eventos com repetição e lembretes no navegador e por e-mail)
+    Route::prefix('/calendario')->name('calendario.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\CalendarioController::class, 'lista'])->middleware('throttle:120,1')->name('lista');
+        Route::get('/lembretes', [\App\Http\Controllers\CalendarioController::class, 'lembretes'])->middleware('throttle:30,1')->name('lembretes');
+        Route::post('/eventos', [\App\Http\Controllers\CalendarioController::class, 'criar'])->middleware('throttle:60,1')->name('criar');
+        Route::put('/eventos/{evento}', [\App\Http\Controllers\CalendarioController::class, 'atualizar'])
+            ->whereNumber('evento')->middleware('throttle:gravar')->name('atualizar');
+        Route::delete('/eventos/{evento}', [\App\Http\Controllers\CalendarioController::class, 'apagar'])
+            ->whereNumber('evento')->middleware('throttle:gravar')->name('apagar');
+    });
 
     // Animações curtas (9:16) para anúncios, com download em MP4: só as contas em Anuncios::CONTAS; as outras recebem 404
     Route::get('/admin/anuncios', function () {

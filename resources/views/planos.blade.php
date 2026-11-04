@@ -34,6 +34,7 @@
         } catch (\Throwable $e) { report($e); }
     }
     $emBreve   = ['pro', 'premium'];                 // Coming soon
+    $promos    = \App\Models\Promocao::vigentes();   // promoções relâmpago valendo agora (/admin/promocoes)
     $destaque  = $planos->contains('slug', 'basico') ? 'basico' : null;
 
     // classes escritas por extenso para o Tailwind enxergar
@@ -113,7 +114,9 @@
                     $incluido   = $planoAtual && ($ordemPl[$planoAtual] ?? 0) > ($ordemPl[$plano->slug] ?? 0);
                     $ehDestaque = $destaque && $plano->slug === $destaque;
                     $gratis     = (float) $plano->price <= 0;
-                    $preco      = number_format((float) $plano->price, 2, ',', '.');
+                    $promo      = ! $breve && ! $gratis && isset($promos[$plano->slug]) && (float) $promos[$plano->slug]->preco < (float) $plano->price
+                        ? $promos[$plano->slug] : null;
+                    $preco      = number_format((float) ($promo->preco ?? $plano->price), 2, ',', '.');
                     [$reais, $centavos] = explode(',', $preco);
                     $recursos   = $listaRecursos($plano);
                 @endphp
@@ -128,6 +131,9 @@
                     @elseif ($ehAtual)
                         <span class="absolute -top-3 left-6 text-xs font-semibold px-3 py-1 rounded-full"
                               style="background: var(--prim); color: var(--on-prim);">Seu plano</span>
+                    @elseif ($promo)
+                        <span class="absolute -top-3 left-6 text-xs font-semibold px-3 py-1 rounded-full"
+                              style="background: #dc2626; color: #fff;">{{ $promo->titulo ?: 'Promoção relâmpago' }}</span>
                     @elseif ($ehDestaque)
                         <span class="absolute -top-3 left-6 text-xs font-semibold px-3 py-1 rounded-full"
                               style="background: var(--prim); color: var(--on-prim);">Mais escolhido</span>
@@ -144,12 +150,20 @@
                     @elseif ($gratis)
                         <p class="mt-5 titulo text-4xl">Grátis</p>
                     @else
-                        <p class="mt-5 flex items-baseline gap-1">
+                        @if ($promo)
+                            <p class="mt-5 texto-2 text-sm" style="text-decoration: line-through;">R$ {{ number_format((float) $plano->price, 2, ',', '.') }}/mês</p>
+                        @endif
+                        <p class="{{ $promo ? 'mt-1' : 'mt-5' }} flex items-baseline gap-1">
                             <span class="texto-2 text-sm">R$</span>
                             <span class="titulo text-4xl">{{ $reais }}</span>
                             <span class="titulo text-lg">,{{ $centavos }}</span>
                             <span class="texto-2 text-sm">/mês</span>
                         </p>
+                        @if ($promo)
+                            <p class="text-xs mt-1.5 font-semibold" style="color: #dc2626;" data-promo-fim="{{ $promo->termina_em->toIso8601String() }}">
+                                Termina em <span data-promo-falta>{{ $promo->termina_em->diffForHumans(null, true) }}</span>
+                            </p>
+                        @endif
                     @endif
 
                     @if (! $breve && (int) $plano->trial_days > 0)
@@ -189,6 +203,28 @@
         </div>
 
         <p class="texto-2 text-xs mt-6 text-center">Valores em reais, por mês, pagos por Pix. Os planos Pró e Premium chegam em breve.</p>
+        @if ($promos->isNotEmpty())
+            <p class="texto-2 text-xs mt-1 text-center">O preço da promoção vale para o Pix gerado até o fim dela; a renovação depois volta ao preço normal.</p>
+            <script>
+                // contagem regressiva das promoções; quando uma termina, a página recarrega com o preço normal
+                (function () {
+                    const els = document.querySelectorAll('[data-promo-fim]');
+                    const dois = n => String(n).padStart(2, '0');
+                    function tique() {
+                        let acabou = false;
+                        els.forEach(el => {
+                            const s = Math.max(0, Math.floor((new Date(el.dataset.promoFim) - Date.now()) / 1000));
+                            if (!s) acabou = true;
+                            const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+                            el.querySelector('[data-promo-falta]').textContent = (d ? d + 'd ' : '') + dois(h) + ':' + dois(m) + ':' + dois(s % 60);
+                        });
+                        if (acabou) { setTimeout(() => location.reload(), 1500); return; }
+                        setTimeout(tique, 1000);
+                    }
+                    tique();
+                })();
+            </script>
+        @endif
     @endif
 </div>
 @endsection

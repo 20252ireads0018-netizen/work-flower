@@ -834,6 +834,10 @@
                                 Pagamentos Pix (admin)
                                 @if ($pixAvisados)<span class="ml-auto text-xs px-2 rounded-full" style="background: var(--prim); color: var(--on-prim)">{{ $pixAvisados }}</span>@endif
                             </a>
+                            <a href="{{ route('promocoes.admin') }}" class="menu-item" role="menuitem">
+                                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>
+                                Promoções (admin)
+                            </a>
                         @endif
                         @if (\App\Support\Anuncios::podeVer(auth()->user()))
                             <a href="{{ route('anuncios.index') }}" class="menu-item" role="menuitem">
@@ -1698,6 +1702,11 @@
             ver();
         })();
     </script>
+    {{-- lembretes do calendário (aviso do navegador em qualquer página): public/js/lembretes.js --}}
+    @if (\Illuminate\Support\Facades\Route::has('calendario.lembretes'))
+        <script src="{{ asset('js/lembretes.js') }}?v={{ @filemtime(public_path('js/lembretes.js')) }}" defer
+                data-url="{{ route('calendario.lembretes') }}" data-painel="{{ route('painel') }}"></script>
+    @endif
 @endauth
 
 @guest

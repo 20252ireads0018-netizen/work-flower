@@ -238,6 +238,30 @@
     .wf-vazio { position: absolute; left: var(--ox); top: var(--oy); }
     @media (max-width: 899px) { .wf-vazio { position: static; } }
 
+    /* ===== Banco de dados (.sql) — usado com banco-sql.js ===== */
+    .bd-on { background: var(--prim) !important; color: var(--on-prim) !important; border-color: var(--prim) !important; }
+    .bd-vazio { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 1rem; border: 2px dashed var(--linha); border-radius: .75rem; }
+    .bd-area { border: 1px solid var(--linha); border-radius: .6rem; background: var(--superficie-2); }
+    .bd-svg { display: block; user-select: none; -webkit-user-select: none; }
+    .bd-svg [data-bd-t] { cursor: grab; }
+    .bd-svg .bd-caixa { fill: var(--superficie); stroke: var(--linha); }
+    .bd-svg .bd-cab { fill: color-mix(in srgb, var(--prim) 30%, var(--superficie)); }
+    .bd-svg text { font-family: 'DM Sans', sans-serif; fill: var(--tinta); }
+    .bd-svg .bd-nome { font-size: 12.5px; font-weight: 700; }
+    .bd-svg .bd-qtd, .bd-svg .bd-tipo { font-size: 10px; fill: var(--tinta-2); }
+    .bd-svg .bd-col { font-size: 11.5px; }
+    .bd-svg .bd-col.pk { font-weight: 700; }
+    .bd-svg .bd-tag { font-size: 9px; font-weight: 700; fill: var(--prim-forte, var(--prim)); }
+    .bd-svg .bd-lig { fill: none; stroke: var(--tinta-2); stroke-width: 1.4; opacity: .85; }
+    .bd-svg .bd-lig:hover { stroke: var(--prim); stroke-width: 2.4; opacity: 1; }
+    .bd-svg .bd-pt, .bd-svg .bd-seta { fill: var(--tinta-2); }
+    .bd-dados { border: 1px solid var(--linha); border-radius: .6rem; }
+    .bd-tab { border-collapse: collapse; font-size: .75rem; min-width: 100%; }
+    .bd-tab th, .bd-tab td { padding: .3rem .55rem; border-bottom: 1px solid var(--linha); text-align: left; white-space: nowrap; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
+    .bd-tab th { position: sticky; top: 0; background: var(--superficie-2); font-weight: 600; z-index: 1; }
+    .bd-tab th small { color: var(--prim-forte, var(--prim)); font-size: .6rem; }
+    .bd-tab td.nulo { color: var(--tinta-2); font-style: italic; }
+
     /* ===== Diagramas (mapa mental, BPMN, fluxograma, ER/UML) — usado com diagrama.js ===== */
     .wf-dd { display: flex; flex-direction: column; gap: .5rem; min-height: 0; }
     .wf-dd .wf-mapa-col { min-height: 16rem; border: 1px solid var(--linha); border-radius: .5rem; background: var(--superficie); }
@@ -345,6 +369,8 @@
 <script src="{{ asset('js/tabletopVivo.js') }}?v={{ @filemtime(public_path('js/tabletopVivo.js')) }}"></script>
 {{-- Estende o diverso.js (editor de diagramas); precisa vir depois dele --}}
 <script src="{{ asset('js/diagrama.js') }}?v={{ @filemtime(public_path('js/diagrama.js')) }}"></script>
+{{-- cartão "Banco de dados (.sql)"; estende o diversoAbasDiagrama, então vem depois do diagrama.js --}}
+<script src="{{ asset('js/banco-sql.js') }}?v={{ @filemtime(public_path('js/banco-sql.js')) }}"></script>
 <script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
 {{-- Botão de tela cheia em cada cartão --}}
 <script src="{{ asset('js/tela-cheia.js') }}?v={{ @filemtime(public_path('js/tela-cheia.js')) }}"></script>
