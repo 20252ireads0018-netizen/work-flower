@@ -1,6 +1,6 @@
 {{-- Esqueleto das páginas públicas de uma mini loja (vitrine e pedido). Cores e letra vêm de $v (Loja::visual()).
      A tag do cabeçalho e o meta do conjunto de caracteres saem por Blade de propósito: o editor de arquivos do cPanel
-     reescreve esses dois quando aparecem escritos por extenso no arquivo. --}}
+     reescreve esses dois (e qualquer tag que comece com "head", como a do topo) quando aparecem escritos por extenso. --}}
 @php
     $fontes = [
         'sans'        => "'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif",
@@ -54,7 +54,7 @@
         <div style="background:#fbbf24;color:#000;text-align:center;padding:6px;font-size:.85rem">Prévia: a loja está fechada e só você vê esta página.</div>
     @endif
     <div class="lj-max">
-        <header class="lj-topo">
+        <{{ 'header' }} class="lj-topo">
             @if ($v['logo']) <img src="{{ $img($v['logo']) }}" alt="" class="lj-logo"> @endif
             <div style="min-width:0;flex:1">
                 <a href="{{ route('loja.ver', $loja->slug) }}" style="text-decoration:none"><h1 class="lj-nome">{{ $loja->nome }}</h1></a>
