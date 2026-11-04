@@ -284,7 +284,7 @@ class AutomacoesTest extends TestCase
     public function test_baixar_agente_gera_zip_valido_sem_config(): void
     {
         $u = User::factory()->create();
-        $r = $this->actingAs($u)->get('/automacoes/agente.zip')->assertOk()->assertHeader('Content-Type', 'application/zip');
+        $r = $this->actingAs($u)->get('/automacoes/agente/baixar')->assertOk()->assertHeader('Content-Type', 'application/zip');
         $bin = $r->getContent();
         $this->assertStringStartsWith("PK\x03\x04", $bin);
         $this->assertStringContainsString('work-flower-agente/agente.ps1', $bin);

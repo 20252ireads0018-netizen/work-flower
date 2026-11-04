@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth')->prefix('automacoes')->name('automacoes.')->group(function () {
     Route::get('/', [AutomacaoController::class, 'index'])->name('index');
     Route::get('/historico', [AutomacaoController::class, 'historico'])->middleware('throttle:60,1')->name('historico');
-    Route::get('/agente.zip', [AutomacaoController::class, 'baixarAgente'])->middleware('throttle:10,1')->name('agente');
+    // sem ".zip" no endereço: o .htaccess do servidor bloqueia URLs terminadas em .zip (403); o nome do arquivo vem no Content-Disposition
+    Route::get('/agente/baixar', [AutomacaoController::class, 'baixarAgente'])->middleware('throttle:10,1')->name('agente');
 
     Route::post('/', [AutomacaoController::class, 'salvar'])->middleware('throttle:60,1')->name('criar');
     Route::post('/{automacao}', [AutomacaoController::class, 'salvar'])->whereNumber('automacao')->middleware('throttle:60,1')->name('salvar');
