@@ -268,6 +268,13 @@ Route::middleware('auth')->group(function () {
     Route::put('/fundo', [FundoController::class, 'salvar'])->middleware('throttle:30,1')->name('fundo.salvar');
     // imagem ou GIF de um link (arrastado de outro site ou colado), para o fundo geral e o de cada workflow/aba
     Route::post('/fundo/baixar', [FundoController::class, 'baixar'])->middleware('throttle:20,1')->name('fundo.baixar');
+    // imagens e GIFs grandes (até 25 MB) em pedaços de ~4 MB, para os fundos da área, das abas e de cada cartão
+    Route::post('/midia', [\App\Http\Controllers\MidiaController::class, 'iniciar'])->middleware('throttle:30,1')->name('midia.iniciar');
+    Route::put('/midia/{token}/{n}', [\App\Http\Controllers\MidiaController::class, 'pedaco'])
+        ->where(['token' => '[A-Za-z0-9]{32}', 'n' => '[0-9]{1,3}'])->middleware('throttle:120,1')->name('midia.pedaco');
+    Route::post('/midia/{token}/fim', [\App\Http\Controllers\MidiaController::class, 'concluir'])->where('token', '[A-Za-z0-9]{32}')->middleware('throttle:30,1')->name('midia.concluir');
+    Route::get('/midia/{token}', [\App\Http\Controllers\MidiaController::class, 'ver'])->where('token', '[A-Za-z0-9]{32}')->name('midia.ver');
+    Route::delete('/midia/{token}', [\App\Http\Controllers\MidiaController::class, 'apagar'])->where('token', '[A-Za-z0-9]{32}')->middleware('throttle:60,1')->name('midia.apagar');
 
     // Preferências da conta: teclas de atalho, organização automática dos cartões, tutorial visto
     // métricas públicas de um canal do YouTube (cartão Criador de conteúdo)

@@ -69,6 +69,7 @@ class AmbienteController extends Controller
             'fundo.escurecer'      => ['required', 'integer', 'between:0,90'],
             'fundo.desfoque'       => ['required', 'integer', 'between:0,20'],
             'fundo.imagem'         => ['nullable', 'string', 'max:6000000'],
+            'fundo.midia'          => ['nullable', 'string', 'size:32'],
             'fundo.remover_imagem' => ['nullable', 'boolean'],
             'musica.tipo'          => ['required', $setor === null ? 'in:nenhuma,arquivo,youtube' : 'in:herdar,nenhuma,arquivo,youtube'],
             'musica.youtube'       => ['nullable', 'string', 'max:300'],
@@ -90,13 +91,8 @@ class AmbienteController extends Controller
             throw ValidationException::withMessages(['musica.tipo' => 'Envie um arquivo de áudio antes de escolher essa opção.']);
         }
 
-        $chaveImg = Ambiente::chave($area, $setor) . '.img';
-        if (! empty($d['fundo']['imagem'])) {
-            FundoController::validarImagem($d['fundo']['imagem']);
-            CorpoDado::updateOrCreate(['user_id' => $dono, 'chave' => $chaveImg], ['valor' => $d['fundo']['imagem']]);
-        } elseif (! empty($d['fundo']['remover_imagem'])) {
-            CorpoDado::where('user_id', $dono)->where('chave', $chaveImg)->delete();
-        }
+        // imagem pequena (data URL) ou arquivo grande já enviado em pedaços (fundo.midia, até 25 MB)
+        FundoController::gravarImagem($dono, Ambiente::chave($area, $setor) . '.img', $d['fundo']);
 
         $antes = Ambiente::opcoes($dono, $area, $setor);
         Ambiente::gravar($dono, $area, $setor, [
@@ -192,16 +188,12 @@ class AmbienteController extends Controller
     }
 
     /** Imagem ou GIF do fundo da área ou do setor. */
-    public function imagem(Request $request, string $area): Response
+    public function imagem(Request $request, string $area): \Symfony\Component\HttpFoundation\Response
     {
         $chave = Ambiente::chave($area, $this->setor($request)) . '.img';
         $valor = CorpoDado::where('user_id', Compartilhar::dono($request, $area))->where('chave', $chave)->value('valor');
         abort_if(! $valor, 404);
-        [$tipo, $bin] = FundoController::decodificar($valor);
 
-        return response($bin, 200, [
-            'Content-Type'  => $tipo,
-            'Cache-Control' => 'private, max-age=31536000, immutable',
-        ]);
+        return FundoController::entregar($valor);
     }
 }

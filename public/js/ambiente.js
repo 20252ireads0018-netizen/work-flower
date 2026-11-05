@@ -95,7 +95,7 @@
 
             // painel
             aberto: false, salvando: false, enviando: false, baixando: false, erro: '', arrastando: null,
-            escopo: 'area', fSetor: '', fSetorNome: '', f: null, novaImagem: null, removerImagem: false,
+            escopo: 'area', fSetor: '', fSetorNome: '', f: null, novaImagem: null, novaMidia: null, enviandoMidia: 0, removerImagem: false,
 
             get musica() { return this.amb.musica; },
             get temMusica() { return !!this.atual; },
@@ -263,7 +263,7 @@
             },
             recarregarForm() {
                 this.f = this.formulario();
-                this.novaImagem = null; this.removerImagem = false; this.erro = '';
+                this.novaImagem = null; this.novaMidia = null; this.removerImagem = false; this.erro = '';
                 this.previa();
             },
             mudarEscopo(e) {
@@ -344,14 +344,29 @@
                 try {
                     let url;
                     if (arquivo.type === 'image/gif' || arquivo.type === 'image/webp') {
-                        if (arquivo.size > 4 * 1024 * 1024) { this.erro = 'Esse arquivo passa de 4 MB. Escolha um GIF ou WebP menor.'; return; }
+                        if (arquivo.size > 3.8 * 1024 * 1024) {
+                            // grande (até 25 MB): vai em pedaços para o servidor agora (public/js/midia.js); a prévia usa o arquivo local
+                            if (!window.wfEnviarMidia) { this.erro = 'Recarregue a página e tente de novo.'; return; }
+                            this.enviandoMidia = 0.01;
+                            try {
+                                const m = await window.wfEnviarMidia(arquivo, p => { this.enviandoMidia = Math.max(0.01, p); });
+                                this.novaMidia = m.token;
+                                this.novaImagem = URL.createObjectURL(arquivo);
+                                this.removerImagem = false;
+                                this.f.modo = 'imagem';
+                                if (!this.f.fundo.cor) this.f.fundo.cor = CORES[0];
+                                this.previa();
+                            } catch (e) { this.erro = e.message || 'Não consegui enviar esse arquivo.'; }
+                            finally { this.enviandoMidia = 0; }
+                            return;
+                        }
                         url = await lerArquivo(arquivo);
                     } else {
                         url = await reduzir(arquivo, 1920, 0.8);
                         if (url.length > 2400000) url = await reduzir(arquivo, 1280, 0.7);
                     }
                     if (url.length > 5900000) { this.erro = 'O arquivo é muito pesado. Escolha outro.'; return; }
-                    this.novaImagem = url;
+                    this.novaImagem = url; this.novaMidia = null;
                     this.removerImagem = false;
                     this.f.modo = 'imagem';
                     if (!this.f.fundo.cor) this.f.fundo.cor = CORES[0];
@@ -360,7 +375,7 @@
                     this.erro = 'Não consegui ler esse arquivo.';
                 }
             },
-            tirarImagem() { this.novaImagem = null; this.removerImagem = !!this.cfgForm().fundo.imagem; this.previa(); },
+            tirarImagem() { this.novaImagem = null; this.novaMidia = null; this.removerImagem = !!this.cfgForm().fundo.imagem; this.previa(); },
 
             urlEscopo(base) { return this.escopo === 'setor' && this.fSetor ? base + '?setor=' + encodeURIComponent(this.fSetor) : base; },
             guardarResposta(j) {
@@ -409,7 +424,8 @@
                         cor: this.f.fundo.cor || null,
                         ajuste: this.f.fundo.ajuste, escurecer: +this.f.fundo.escurecer, desfoque: +this.f.fundo.desfoque,
                     };
-                    if (modo === 'imagem' && this.novaImagem) fundo.imagem = this.novaImagem;
+                    if (modo === 'imagem' && this.novaMidia) fundo.midia = this.novaMidia;
+                    else if (modo === 'imagem' && this.novaImagem) fundo.imagem = this.novaImagem;
                     // a cor sozinha (ou a aba que voltou a seguir a área) não precisa mais da imagem guardada
                     else if (c.fundo.imagem && (this.removerImagem || modo === 'cor' || (modo === 'herdar' && this.escopo === 'setor'))) fundo.remover_imagem = true;
                     const j = await this.pedir(this.urlEscopo(this.urls.salvar), {

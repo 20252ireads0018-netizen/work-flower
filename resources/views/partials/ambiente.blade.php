@@ -228,7 +228,7 @@
                                 <input type="file" accept="image/*" class="sr-only" @change="escolherImagem($event.target.files[0]); $event.target.value = ''">
                                 <template x-if="urlImagemForm()"><img :src="urlImagemForm()" alt=""></template>
                                 <b x-text="urlImagemForm() ? 'Trocar a imagem' : 'Solte uma imagem aqui ou clique'"></b>
-                                <small x-text="baixando ? 'Baixando a imagem…' : 'JPG, PNG ou GIF e WebP animados (até 4 MB). Pode arrastar de outra página.'"></small>
+                                <small x-text="enviandoMidia ? 'Enviando o GIF… ' + Math.round(enviandoMidia * 100) + '%' : (baixando ? 'Baixando a imagem…' : 'JPG, PNG ou GIF e WebP animados (até 25 MB). Pode arrastar de outra página.')"></small>
                             </label>
                             <form class="flex gap-2" @submit.prevent="baixarLink($refs.linkAmb)" @paste="colarImagem($event)">
                                 <input x-ref="linkAmb" type="url" class="campo flex-1 !py-1.5 text-sm" maxlength="2000" placeholder="ou cole o link de um GIF (Tenor, Giphy, Pinterest...)" aria-label="Link da imagem ou GIF">

@@ -83,8 +83,8 @@ class WorkflowTransferController extends Controller
     public function exportar(Request $request): JsonResponse
     {
         $dados = $request->validate([
-            'ids'   => ['required', 'array', 'min:1', 'max:4'],
-            'ids.*' => ['string', 'in:corpo,mente,carteira,negocios,diverso'],
+            'ids'   => ['required', 'array', 'min:1', 'max:' . count(self::AREAS)], // uma por área (eram 4 antes de Negócios)
+            'ids.*' => ['string', 'in:' . implode(',', array_keys(self::AREAS))],
         ]);
 
         $uid     = $request->user()->id;
@@ -151,7 +151,7 @@ class WorkflowTransferController extends Controller
         $request->validate([
             'formato'   => ['required', 'in:work-flower.workflows'],
             'versao'    => ['required', 'integer', 'min:1', 'max:1'],
-            'workflows' => ['required', 'array', 'min:1', 'max:4'],
+            'workflows' => ['required', 'array', 'min:1', 'max:' . count(self::AREAS)],
         ]);
 
         $pacotes = $this->validarPacotes($request->input('workflows'));

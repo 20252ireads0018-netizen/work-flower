@@ -993,7 +993,8 @@
                         <input x-ref="linkFundo" type="url" class="campo flex-1 !py-1.5 text-sm" maxlength="2000" placeholder="ou cole o link de um GIF (Tenor, Giphy, Pinterest...)" aria-label="Link da imagem ou GIF">
                         <button class="btn-sec !py-1.5 text-sm" :disabled="baixando" x-text="baixando ? 'Baixando…' : 'Usar link'"></button>
                     </form>
-                    <p class="text-xs texto-2">JPG e PNG são reduzidos sozinhos. GIF e WebP animados mantêm a animação e podem ter até 4 MB.</p> Também dá para arrastar um GIF de outra página.</p>
+                    <p class="text-xs texto-2">JPG e PNG são reduzidos sozinhos. GIF e WebP animados mantêm a animação e podem ter até 25 MB. Também dá para arrastar um GIF de outra página.</p>
+                    <p class="text-xs" x-show="enviandoMidia" x-text="'Enviando o GIF… ' + Math.round(enviandoMidia * 100) + '%'" role="status"></p>
                 </div>
 
                 <div class="space-y-4">
@@ -1305,6 +1306,8 @@
                 salvo: copia(fundoIni),   // o que está gravado no servidor
                 f: copia(fundoIni),       // o que está sendo editado
                 novaImagem: null,         // arquivo escolhido e ainda não salvo
+                novaMidia: null,          // GIF/WebP grande já enviado em pedaços (token de /midia)
+                enviandoMidia: 0,         // progresso do envio (0 = parado)
                 removerImagem: false,
                 coresFundo: [
                     { nome: 'Padrão', v: null },
@@ -1379,7 +1382,17 @@
                         let url;
                         if (arquivo.type === 'image/gif' || arquivo.type === 'image/webp') {
                             if (arquivo.size > LIMITE_ARQUIVO) {
-                                this.erro = 'Esse arquivo passa de 4 MB. Escolha um GIF ou WebP menor.';
+                                // grande: vai em pedaços para o servidor agora; a prévia usa o arquivo local
+                                if (!window.wfEnviarMidia) { this.erro = 'Recarregue a página e tente de novo.'; return; }
+                                this.enviandoMidia = 0.01;
+                                try {
+                                    const m = await window.wfEnviarMidia(arquivo, p => { this.enviandoMidia = Math.max(0.01, p); });
+                                    this.novaMidia = m.token;
+                                    this.novaImagem = URL.createObjectURL(arquivo);
+                                    this.removerImagem = false;
+                                    this.previaFundo();
+                                } catch (e) { this.erro = e.message || 'Não consegui enviar esse arquivo.'; }
+                                finally { this.enviandoMidia = 0; }
                                 return;
                             }
                             url = await lerComoTexto(arquivo);
@@ -1389,6 +1402,7 @@
                         }
                         if (url.length > 5900000) { this.erro = 'O arquivo é muito pesado. Escolha outro.'; return; }
                         this.novaImagem = url;
+                        this.novaMidia = null;
                         this.removerImagem = false;
                         this.previaFundo();
                     } catch {
@@ -1397,7 +1411,7 @@
                 },
 
                 tirarImagem() {
-                    this.novaImagem = null;
+                    this.novaImagem = null; this.novaMidia = null;
                     this.removerImagem = !!this.f.imagem;
                     this.previaFundo();
                 },
@@ -1417,7 +1431,8 @@
                     if (!urlFundo) { this.erro = 'A rota do fundo não foi criada ainda.'; return false; }
                     try {
                         const corpo = { cor: this.f.cor, ajuste: this.f.ajuste, escurecer: +this.f.escurecer, desfoque: +this.f.desfoque };
-                        if (this.novaImagem) corpo.imagem = this.novaImagem;
+                        if (this.novaMidia) corpo.midia = this.novaMidia;
+                        else if (this.novaImagem) corpo.imagem = this.novaImagem;
                         else if (this.removerImagem) corpo.remover_imagem = true;
 
                         const r = await fetch(urlFundo, {
@@ -1444,7 +1459,7 @@
                         const j = await r.json();
                         this.f.imagem = j.imagem;
                         this.f.versao = j.versao;
-                        this.novaImagem = null;
+                        this.novaImagem = null; this.novaMidia = null;
                         this.removerImagem = false;
                         this.salvo = copia(this.f);
                         return true;
@@ -1471,7 +1486,7 @@
                     this.cab = cabInicial;
                     this.previa();
                     this.f = copia(this.salvo);
-                    this.novaImagem = null;
+                    this.novaImagem = null; this.novaMidia = null;
                     this.removerImagem = false;
                     this.erro = '';
                     this.previaFundo();
@@ -1762,6 +1777,10 @@
     <script src="{{ asset('js/favoritos.js') }}?v={{ @filemtime(public_path('js/favoritos.js')) }}" defer></script>
     {{-- imagem/GIF arrastado de outro site ou link colado no fundo: baixa pelo servidor (public/js/baixar-imagem.js) --}}
     <script src="{{ asset('js/baixar-imagem.js') }}?v={{ @filemtime(public_path('js/baixar-imagem.js')) }}" data-url="{{ route('fundo.baixar') }}"></script>
+    {{-- GIFs grandes (até 25 MB) dos fundos e dos cartões: envio em pedaços (public/js/midia.js) --}}
+    <script src="{{ asset('js/midia.js') }}?v={{ @filemtime(public_path('js/midia.js')) }}" data-url="{{ url('/midia') }}"></script>
+    {{-- fundo próprio de cada cartão (cor, transparência, imagem ou GIF): public/js/fundo-cartao.js --}}
+    <script src="{{ asset('js/fundo-cartao.js') }}?v={{ @filemtime(public_path('js/fundo-cartao.js')) }}"></script>
 @endauth
 @include('partials.cookies')
 

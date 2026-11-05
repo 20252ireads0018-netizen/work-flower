@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CorpoDado;
+use App\Support\Midia;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -24,6 +25,7 @@ class FundoController extends Controller
             'escurecer'      => ['required', 'integer', 'between:0,90'],
             'desfoque'       => ['required', 'integer', 'between:0,20'],
             'imagem'         => ['nullable', 'string', 'max:6000000'],
+            'midia'          => ['nullable', 'string', 'size:32'],
             'remover_imagem' => ['nullable', 'boolean'],
         ], [
             'cor.regex'      => 'Escolha uma cor válida.',
@@ -31,17 +33,7 @@ class FundoController extends Controller
         ]);
 
         $usuarioId = $request->user()->id;
-
-        if (! empty($dados['imagem'])) {
-            self::validarImagem($dados['imagem']);
-
-            CorpoDado::updateOrCreate(
-                ['user_id' => $usuarioId, 'chave' => 'fundo.img'],
-                ['valor' => $dados['imagem']],
-            );
-        } elseif (! empty($dados['remover_imagem'])) {
-            CorpoDado::where('user_id', $usuarioId)->where('chave', 'fundo.img')->delete();
-        }
+        self::gravarImagem($usuarioId, 'fundo.img', $dados);
 
         CorpoDado::updateOrCreate(
             ['user_id' => $usuarioId, 'chave' => 'fundo'],
@@ -63,14 +55,48 @@ class FundoController extends Controller
     }
 
     /** Entrega a imagem como arquivo de verdade, para o navegador guardar em cache. */
-    public function imagem(Request $request): Response
+    public function imagem(Request $request): \Symfony\Component\HttpFoundation\Response
     {
         $linha = CorpoDado::where('user_id', $request->user()->id)
             ->where('chave', 'fundo.img')
             ->first();
 
         abort_if(! $linha, 404);
-        [$tipo, $bin] = self::decodificar($linha->valor);
+
+        return self::entregar($linha->valor);
+    }
+
+    /**
+     * Grava (ou tira) a imagem de um fundo em corpo_dados: "midia" = token de um arquivo grande já enviado
+     * (App\Support\Midia, até 25 MB), "imagem" = data URL (até ~4 MB). O arquivo antigo sai do disco quando é trocado.
+     */
+    public static function gravarImagem(int $dono, string $chave, array $dados): void
+    {
+        $antigo = CorpoDado::where('user_id', $dono)->where('chave', $chave)->value('valor');
+        $tokenAntigo = Midia::tokenDoValor($antigo);
+        $valor = null;
+        if (! empty($dados['midia'])) {
+            if (! Midia::doUsuario($dono, $dados['midia'])) {
+                throw ValidationException::withMessages(['imagem' => 'A imagem enviada não foi encontrada. Escolha de novo.']);
+            }
+            $valor = Midia::valor($dados['midia']);
+        } elseif (! empty($dados['imagem'])) {
+            self::validarImagem($dados['imagem']);
+            $valor = $dados['imagem'];
+        } elseif (empty($dados['remover_imagem'])) {
+            return;
+        }
+
+        if ($valor === null) CorpoDado::where('user_id', $dono)->where('chave', $chave)->delete();
+        else CorpoDado::updateOrCreate(['user_id' => $dono, 'chave' => $chave], ['valor' => $valor]);
+        if ($tokenAntigo && $tokenAntigo !== Midia::tokenDoValor($valor)) Midia::apagar($dono, $tokenAntigo);
+    }
+
+    /** Resposta com a imagem guardada (arquivo de mídia ou data URL antigo). */
+    public static function entregar(string $valor): \Symfony\Component\HttpFoundation\Response
+    {
+        if ($token = Midia::tokenDoValor($valor)) return Midia::resposta($token);
+        [$tipo, $bin] = self::decodificar($valor);
 
         return response($bin, 200, [
             'Content-Type'           => $tipo,
@@ -80,13 +106,13 @@ class FundoController extends Controller
     }
 
     /** Até quanto baixa de um link (o mesmo limite dos GIFs enviados do computador). */
-    public const LIMITE_LINK = 4 * 1024 * 1024;
+    public const LIMITE_LINK = Midia::MAX;
 
     /**
      * Baixa a imagem ou GIF de um link (imagem arrastada de outro site, link colado) e devolve os bytes,
      * para o navegador usar como se o arquivo tivesse sido escolhido. O navegador não baixa sozinho
      * por causa do CORS dos outros sites. Página em vez de imagem (Tenor, Pinterest...): usa o og:image.
-     * Só endereços públicos (nada de localhost ou rede interna) e no máximo 4 MB.
+     * Só endereços públicos (nada de localhost ou rede interna) e no máximo 25 MB.
      */
     public function baixar(Request $request): Response
     {
@@ -167,7 +193,7 @@ class FundoController extends Controller
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            if ($grande) $falha('Esse GIF passa de 4 MB. Escolha uma versão menor (ou reduza em ezgif.com/optimize).');
+            if ($grande) $falha('Esse GIF passa de 25 MB. Escolha uma versão menor (ou reduza em ezgif.com/optimize).');
             report($e);
             $falha('Não consegui baixar desse link. Salve o GIF no computador e escolha o arquivo.');
         }

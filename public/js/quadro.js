@@ -1201,6 +1201,11 @@
                 }
                 this._cssPastas = document.createElement('style');
                 document.head.appendChild(this._cssPastas);
+                // fundo próprio de cada cartão (public/js/fundo-cartao.js): CSS refeito quando o layout muda (inclusive vindo de outra pessoa)
+                this._cssFundos = document.createElement('style');
+                document.head.appendChild(this._cssFundos);
+                this.atualizarCssFundos();
+                this.$watch('estado.layout', () => { cancelAnimationFrame(this._rafFundos); this._rafFundos = requestAnimationFrame(() => this.atualizarCssFundos()); });
                 this.$watch('sel', () => this.atualizarCssPastas());
                 this.$watch('pasta', () => this.atualizarCssPastas());
                 this.$watch('aba', () => { this.sel = []; });
@@ -1447,6 +1452,8 @@
                     if (item) {
                         const b = this.blocoPorId(item.dataset.bid);
                         if (b && b.secao === this.aba) this.menuCartao(e, b, item);
+                        // cartões fixos (Tarefas, Nova tarefa, Livros...): só aparência
+                        else if (!b && item.dataset.sec === this.aba) this.menuCartaoFixo(e, item.dataset.sec, item.dataset.bid, item);
                         return;
                     }
                     const quadro = t.closest('.wf-quadro');
@@ -1470,10 +1477,20 @@
                     ].filter(Boolean) },
                     b.pasta ? { rotulo: 'Tirar da pasta', icone: '⤴', acao: () => this.moverParaPasta(sec, [b.id]) } : null,
                     { rotulo: 'Cor do cartão', icone: '●', sub: PALETA.map(c => ({ rotulo: NOMES_COR[c] || c, cor: c, marcado: cor === c, acao: () => { this.setCor(sec, b.id, c); this.agendar(); } })) },
+                    { rotulo: 'Fundo do cartão…', icone: '🖼', acao: () => this.fundoDoCartao(sec, b.id, el) },
                     b.tipo !== 'pasta' ? { rotulo: 'Salvar na biblioteca', icone: '★', acao: () => this.guardarBloco(b) } : null,
                     { rotulo: this.sel.includes(b.id) ? 'Tirar da seleção' : 'Selecionar', icone: '▣', acao: () => { this.sel = this.sel.includes(b.id) ? this.sel.filter(x => x !== b.id) : [...this.sel, b.id]; } },
                     '-',
                     { rotulo: 'Excluir', icone: '🗑', perigo: true, acao: () => this.removerBloco(b) },
+                ]);
+            },
+            menuCartaoFixo(e, sec, id, el) {
+                const cor = this.rect(sec, id).cor;
+                WFMenuCtx.abrir(e, [
+                    { titulo: (el.querySelector('.wf-topo h2, .wf-topo h3')?.textContent || 'Cartão').trim().slice(0, 40) },
+                    { rotulo: 'Tela cheia', icone: '⛶', acao: () => window.WFTelaCheia && window.WFTelaCheia.alternar(el) },
+                    { rotulo: 'Cor do cartão', icone: '●', sub: PALETA.map(c => ({ rotulo: NOMES_COR[c] || c, cor: c, marcado: cor === c, acao: () => { this.setCor(sec, id, c); this.agendar(); } })) },
+                    { rotulo: 'Fundo do cartão…', icone: '🖼', acao: () => this.fundoDoCartao(sec, id, el) },
                 ]);
             },
             menuQuadro(e, quadro) {
@@ -1536,6 +1553,16 @@
                     return null;
                 }
                 return null;
+            },
+            atualizarCssFundos() {
+                if (!this._cssFundos || !window.WFFundoCartao) return;
+                const css = window.WFFundoCartao.css(this);
+                if (this._cssFundos.textContent !== css) this._cssFundos.textContent = css;
+            },
+            /** Painel "Fundo do cartão" (cor, transparência, imagem ou GIF) para um cartão (bloco ou fixo, como Tarefas). */
+            fundoDoCartao(sec, id, el) {
+                if (!window.WFFundoCartao) { this.aviso('Recarregue a página para personalizar o fundo dos cartões.'); return; }
+                window.WFFundoCartao.abrir(this, sec, id, el || document.querySelector(`.wf-item[data-sec="${CSS.escape(sec)}"][data-bid="${CSS.escape(id)}"]`));
             },
             /** CSS gerado: cartões selecionados, pasta de destino do arraste e cartões fixos escondidos dentro de uma pasta. */
             atualizarCssPastas() {
