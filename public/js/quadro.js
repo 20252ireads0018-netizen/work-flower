@@ -1007,11 +1007,13 @@
                 const plano = this.planoDe(sec);
                 if (!plano) return false;
                 const { x0 } = this.areaUtil();
-                const novo = {};
+                const novo = {}, anterior = this.estado.layout[sec] || {};
                 plano.pos.forEach(p => {
                     const it = p.it;
                     const e = { x: snap(x0 + p.x), y: Math.ceil(p.y / 8) * 8, w: Math.round(p.w), h: Math.round(p.h), z: it.z || 1 };
                     if (it.cor) e.cor = it.cor;
+                    // o fundo próprio do cartão (fundo-cartao.js) não depende da posição: continua com ele
+                    if (anterior[it.id] && anterior[it.id].fundo) e.fundo = anterior[it.id].fundo;
                     if (!it.alturaPara && (e.w !== it.w || e.h !== it.h)) { e.bw = it.w; e.bh = it.h; }
                     else if (it.alturaPara && e.w !== it.w) { e.bw = it.w; }
                     novo[it.id] = e;
@@ -1069,8 +1071,12 @@
                 this.secoesQuadro().forEach(sec => {
                     const g = guardado[sec] || {}, a = atual[sec] || {}, L = {};
                     this.todosIdsDe(sec).forEach(id => {
-                        if (g[id]) L[id] = { ...g[id], ...(a[id]?.cor ? { cor: a[id].cor } : {}) };
-                        else if (a[id]) L[id] = a[id];
+                        if (g[id]) {
+                            L[id] = { ...g[id], ...(a[id]?.cor ? { cor: a[id].cor } : {}) };
+                            // o fundo do cartão é o mesmo em qualquer tamanho de tela: vale o atual (inclusive "sem fundo")
+                            delete L[id].fundo;
+                            if (a[id]?.fundo) L[id].fundo = a[id].fundo;
+                        } else if (a[id]) L[id] = a[id];
                     });
                     if (Object.keys(L).length) novo[sec] = L;
                 });
