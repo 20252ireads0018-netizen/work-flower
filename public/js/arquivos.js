@@ -9,7 +9,11 @@
     'use strict';
     if (window.WFArquivos) return;
 
+    // tipos básicos; os demais (hábitos, gráfico, questões, editores, banco de dados…) valem onde a página os oferece em tiposBloco
     const TIPOS = ['texto', 'tabela', 'lista', 'imagem', 'mapa', 'documento', 'codigo', 'tabletop'];
+    // pasta guarda outros cartões e "vivo" depende de uma sala no servidor: não viram arquivo sozinhos
+    const SEM_ARQUIVO = ['pasta', 'vivo'];
+    const ID_TIPO = /^[a-z][a-z0-9_-]{1,30}$/;
     const MAX_ARQ = 12 * 1024 * 1024;
     const MAX_TXT = 2 * 1024 * 1024;
     const URL_REGISTRAR = document.querySelector('meta[name="downloads-registrar-url"]')?.content || '/downloads/registrar';
@@ -55,7 +59,8 @@
     }
     /** A página aceita esse tipo de bloco? (Corpo e Mente não têm código nem tabletop.) */
     function permitido(c, tipo) {
-        return !Array.isArray(c.tiposBloco) || c.tiposBloco.some(t => t.id === tipo);
+        if (!ID_TIPO.test(String(tipo || '')) || SEM_ARQUIVO.includes(tipo)) return false;
+        return Array.isArray(c.tiposBloco) ? c.tiposBloco.some(t => t.id === tipo) : TIPOS.includes(tipo);
     }
 
     /* ---------- limite de downloads do plano ---------- */
@@ -96,8 +101,9 @@
     /** Cria um bloco: usa criarBloco (Diverso) ou, se não existir, novoBloco (Corpo e Mente) e depois ajusta título, dados e posição. */
     function criar(c, sec, tipo, pos, over) {
         over = over || {};
-        if (!TIPOS.includes(tipo) || !permitido(c, tipo)) { avisar(c, 'Esta página não tem esse tipo de bloco.'); return null; }
-        if (typeof c.criarBloco === 'function') return c.criarBloco(sec, tipo, pos, over);
+        if (!permitido(c, tipo)) { avisar(c, 'Esta página não tem esse tipo de bloco.'); return null; }
+        // Diverso: criarBloco sabe os tipos básicos; os das extensões (questões, hábitos…) saem pelo novoBloco, que elas embrulham
+        if (typeof c.criarBloco === 'function') { const id = c.criarBloco(sec, tipo, pos, over); if (id) return id; }
         if (typeof c.novoBloco !== 'function') return null;
         const antes = new Set(c.estado.blocos.map(b => b.id));
         c.novoBloco(sec, tipo);
@@ -154,13 +160,53 @@
         return { wf: 'bloco', v: 1, tipo: b.tipo, titulo: b.titulo, dados: JSON.parse(JSON.stringify(b.dados || {})), imgs };
     }
 
+    /* Banco de dados (.sql): as linhas ficam no servidor em pedaços (sqlz.<id>.<versão>.<n>); o arquivo leva tudo junto. */
+    const PREFIXO_SQL = 'wfsql2:';
+    async function indiceSql(texto) {
+        const bin = atob(String(texto).slice(PREFIXO_SQL.length));
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        const fluxo = new Blob([arr]).stream().pipeThrough(new DecompressionStream('gzip'));
+        return JSON.parse(await new Response(fluxo).text());
+    }
+    async function pacoteBanco(c, b) {
+        const p = pacote(c, b);
+        const idx = c.imagens[b.id + '.banco'] ?? c.imagens[b.id + '.sql'];
+        const versao = b.dados && b.dados.versao;
+        if (typeof idx !== 'string' || !idx.startsWith(PREFIXO_SQL) || !versao) return p; // vazio ou formato antigo: o índice basta
+        const meta = await indiceSql(idx);
+        const nums = [...new Set((meta.tabelas || []).flatMap(t => Array.isArray(t.pedacos) ? t.pedacos : []))];
+        const base = new URL(urlBase(c), location.href).href.replace(/\/$/, '');
+        const dono = document.querySelector('meta[name="wf-dono"]')?.content;
+        p.sqlz = {};
+        let total = 0;
+        for (const n of nums) {
+            const r = await fetch(`${base}/sqlz.${b.id}.${versao}.${n}`, { credentials: 'same-origin', headers: Object.assign({ Accept: 'application/json' }, dono ? { 'X-WF-Dono': dono } : {}) });
+            if (!r.ok) throw new Error('pedaço ' + n);
+            const v = (await r.json()).valor;
+            total += v.length;
+            if (total > MAX_ARQ - 512 * 1024) { const e = new Error('grande'); e.grande = true; throw e; }
+            p.sqlz[n] = v;
+        }
+        return p;
+    }
+
     function botaoZip(item) {
         return Array.from(item.querySelectorAll('button')).find(x => /baixar zip/i.test(x.textContent || ''));
     }
 
-    function baixarBloco(c, b, item) {
+    async function baixarBloco(c, b, item) {
         const nome = limpo(b.titulo) || b.tipo;
-        if (b.tipo === 'texto') {
+        if (SEM_ARQUIVO.includes(b.tipo)) {
+            avisar(c, b.tipo === 'pasta' ? 'Baixe os cartões de dentro da pasta um por um, ou exporte o workflow inteiro.' : 'Este cartão depende de uma sala no servidor e não vira arquivo.');
+        } else if (b.tipo === 'banco') {
+            try {
+                const p = await pacoteBanco(c, b);
+                salvarBlob(new Blob([JSON.stringify(p)], { type: 'application/json;charset=utf-8' }), nome + '.banco.wf.json');
+            } catch (e) {
+                avisar(c, e && e.grande ? 'Este banco passa de 12 MB e não cabe num arquivo de cartão. Exporte as tabelas em CSV pelo próprio cartão.' : 'Não consegui juntar as linhas do banco para baixar. Tente de novo.');
+            }
+        } else if (b.tipo === 'texto') {
             salvarBlob(new Blob([b.dados.texto || ''], { type: 'text/markdown;charset=utf-8' }), nome + '.md');
         } else if (b.tipo === 'imagem') {
             const src = c.imagens[b.id];
@@ -209,7 +255,7 @@
             if (!(await registrarDownload(c))) return;
             try {
                 const b = blocoDe(item);
-                if (b) { baixarBloco(c, b, item); return; }
+                if (b) { await baixarBloco(c, b, item); return; }
                 if (baixarCartaoFixo(c, item)) return;
                 avisar(c, 'Este cartão não tem um arquivo para baixar.');
             } catch (_) { avisar(c, 'Não consegui gerar o arquivo.'); }
@@ -366,16 +412,35 @@
             try { o = JSON.parse(await lerTexto(f)); } catch (_) { o = null; }
             // plano gratuito: confere workflows e elementos do arquivo antes de importar
             if (o && window.WFPlanos && !window.WFPlanos.exigirArquivo('importar', o)) return false;
-            if (!o || o.wf !== 'bloco' || !TIPOS.includes(o.tipo) || !o.dados || typeof o.dados !== 'object') {
+            if (!o || o.wf !== 'bloco' || !ID_TIPO.test(String(o.tipo || '')) || !o.dados || typeof o.dados !== 'object') {
                 avisar(c, `"${nome}" não é um bloco do Work Flower.`);
+                return false;
+            }
+            if (!permitido(c, o.tipo)) {
+                const em = { banco: 'no Diverso', codigo: 'no Diverso', tabletop: 'no Diverso' }[o.tipo];
+                avisar(c, `Esta página não tem cartões do tipo de "${nome}"${em ? '. Solte ' + em : ''}.`);
                 return false;
             }
             const id = criar(c, c.aba, o.tipo, pos, { titulo: String(o.titulo || '').slice(0, 80) || undefined, dados: o.dados });
             if (!id) return false;
             Object.entries(o.imgs && typeof o.imgs === 'object' ? o.imgs : {}).forEach(([suf, src]) => {
-                if (!/^(\.[A-Za-z0-9._-]{1,80})?$/.test(suf) || !/^data:image\//.test(String(src || ''))) return;
+                if (!/^(\.[A-Za-z0-9._-]{1,80})?$/.test(suf)) return;
+                // ".sql" virou ".banco": o servidor barra endereços terminados em .sql
+                if (suf === '.sql') suf = '.banco';
+                const s = String(src || '');
+                // imagens, PDFs e outros anexos em data URL, e o índice comprimido do banco de dados
+                if (!/^data:[a-z]+\/[a-z0-9.+-]+[;,]/i.test(s) && !(o.tipo === 'banco' && s.startsWith(PREFIXO_SQL))) return;
                 guardarImagem(c, id + suf, src);
             });
+            if (o.tipo === 'banco' && o.sqlz && typeof o.sqlz === 'object' && o.dados.versao) {
+                const base = new URL(urlBase(c), location.href).href.replace(/\/$/, '');
+                const versao = String(o.dados.versao).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 30);
+                for (const [n, v] of Object.entries(o.sqlz)) {
+                    if (!/^\d{1,5}$/.test(n) || typeof v !== 'string') continue;
+                    try { await window.WFQuadro.enviar(`${base}/sqlz.${id}.${versao}.${n}`, v); }
+                    catch (_) { avisar(c, 'Parte das linhas do banco não foi salva no servidor. Abra o arquivo .sql de novo no cartão.'); break; }
+                }
+            }
             return true;
         }
         if (ext === 'pdf' || f.type === 'application/pdf') {
