@@ -109,6 +109,21 @@
         };
     }
 
+    function questoesSemente() {
+        return {
+            id: 'questoes-inicial', secao: 'concursos', tipo: 'questoes', titulo: 'Questões de concurso', links: [],
+            dados: {
+                modo: 'estudar', i: 0, resp: {},
+                questoes: [{
+                    id: uid(), materia: 'Português',
+                    enunciado: 'Assinale a alternativa em que a palavra está escrita corretamente.',
+                    alts: ['Excessão', 'Exceção', 'Exessão', 'Eceção', 'Excesão'], certa: 1,
+                    expl: '“Exceção” se escreve com xc e ç.',
+                }],
+            },
+        };
+    }
+
     function completar(e) {
         e.layout ??= {}; e.livros ??= []; e.notas ??= []; e.blocos ??= [];
         const es = (e.estudos ??= {});
@@ -119,6 +134,13 @@
             e.mapaSemeado = true;
             e.blocos.push(mapaSemente());
             (e.layout.mapa ??= {})['mapa-inicial'] = { x: 0, y: 0, w: 1088, h: 560, z: 1 };
+        }
+        // aba Concursos: começa com o cartão "Questões de concurso" (o mesmo do Diverso, js/cartoes-extra.js) uma vez só;
+        // se a pessoa apagar, não volta (dá para pôr outro pelo "+ Bloco")
+        if (!e.concursosSemeado) {
+            e.concursosSemeado = true;
+            e.blocos.push(questoesSemente());
+            (e.layout.concursos ??= {})['questoes-inicial'] = { x: 0, y: 0, w: 1088, h: 620, z: 1 };
         }
         return e;
     }
@@ -167,6 +189,7 @@
                 { id: 'notas', nome: 'Anotações', icone: '<path d="M5 20l1-4L17.5 4.5a2 2 0 013 3L9 19l-4 1z"/><path d="M15 7l3 3"/>' },
                 { id: 'faculdade', nome: 'Faculdade', icone: '<path d="M4 20V9l8-5 8 5v11M9 20v-6h6v6M3 20h18"/>' },
                 { id: 'mapa', nome: 'Mapa mental', icone: '<circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="20" r="2"/><path d="M10 10.5L6.5 7.5M14 10.5l3.5-3M12 14.5v3.5"/>' },
+                { id: 'concursos', nome: 'Concursos', icone: '<path d="M9 4h6v3H9z"/><path d="M7 5.5H5.5V20h13V5.5H17"/><path d="M9 13.5l2 2 4-4"/>' },
                 { id: 'livre', nome: 'Quadro livre', icone: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4" rx="1.5"/><rect x="13" y="10" width="7" height="10" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/>' },
             ],
             tiposBloco: [

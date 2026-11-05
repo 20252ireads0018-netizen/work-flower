@@ -813,6 +813,14 @@
             @include('areas.mente.partials.blocos', ['sec' => 'mapa'])
         </section>
 
+        {{-- ================= CONCURSOS (só blocos; começa com o cartão Questões de concurso, o mesmo do Diverso) ================= --}}
+        <section class="wf-quadro" x-show="aba === 'concursos'" x-cloak :style="{ minHeight: alturaQuadro('concursos') + 'px' }">
+            <p x-show="!blocosDe('concursos').length" class="text-sm texto-2">
+                Sem cartões aqui. Use “+ Bloco” › “Questões de concurso” para estudar, montar simulados e buscar no banco de questões.
+            </p>
+            @include('areas.mente.partials.blocos', ['sec' => 'concursos'])
+        </section>
+
         {{-- ================= QUADRO LIVRE (só blocos) ================= --}}
         <section class="wf-quadro" x-show="aba === 'livre'" x-cloak :style="{ minHeight: alturaQuadro('livre') + 'px' }">
             <p x-show="!blocosDe('livre').length" class="text-sm texto-2">
