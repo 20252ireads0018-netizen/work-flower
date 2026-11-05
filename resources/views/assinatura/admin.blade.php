@@ -84,6 +84,43 @@
         @endforelse
     </section>
 
+    {{-- ========== Curso da página de vagas (/vagas): Pix nesta chave; o acesso é mandado por outro sistema ========== --}}
+    <section class="space-y-2" id="cursos-vagas" aria-labelledby="cursos-vagas-t">
+        <h2 id="cursos-vagas-t" class="titulo text-lg">Curso da página de vagas
+            <span class="texto-2 text-sm font-normal">· {{ $cursosVagas->where('curso_status', 'informado')->count() }} avisaram que pagaram · {{ $cursosVagas->where('curso_status', 'aguardando')->count() }} aguardando</span></h2>
+        <p class="text-xs texto-2">Compra opcional do curso, feita depois da candidatura em /vagas. Confira o identificador no extrato e confirme; depois mande o acesso pelo seu sistema para o e-mail ou WhatsApp abaixo.</p>
+        @forelse ($cursosVagas as $c)
+            <article class="card p-4 flex flex-wrap items-center gap-4">
+                <div class="min-w-0 flex-1 space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="tag">{{ $c->cursoSituacao() }}</span>
+                        <b>{{ $brl($c->curso_valor) }}</b>
+                        <span class="texto-2 text-sm">{{ $c->nome }} · {{ $c->email }} · {{ $c->fone }}</span>
+                    </div>
+                    <p class="text-xs texto-2">Pix gerado {{ $c->curso_pedido_em?->tz('America/Sao_Paulo')->format('d/m/Y H:i') }}
+                        @if ($c->curso_informado_em) · avisou que pagou {{ $c->curso_informado_em->tz('America/Sao_Paulo')->format('d/m H:i') }} @endif
+                        @if ($c->curso_pagador) · pagador: {{ $c->curso_pagador }} @endif
+                        · identificador no Pix <span class="font-mono">{{ $c->curso_txid }}</span></p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <form method="POST" action="{{ route('pix.admin.curso.confirmar', $c) }}" onsubmit="return confirm('Confirmar o Pix de {{ $brl($c->curso_valor) }} do curso ({{ $c->curso_txid }})?')">
+                        @csrf
+                        <button type="submit" class="btn !py-1">Confirmar pagamento</button>
+                    </form>
+                    @if ($c->curso_status === 'informado')
+                        <form method="POST" action="{{ route('pix.admin.curso.recusar', $c) }}" class="flex gap-2">
+                            @csrf
+                            <input name="observacao" class="campo !py-1 !w-48" maxlength="300" placeholder="Motivo (opcional)" aria-label="Motivo">
+                            <button type="submit" class="btn-sec !py-1">Não encontrei</button>
+                        </form>
+                    @endif
+                </div>
+            </article>
+        @empty
+            <p class="texto-2 text-sm">Nenhuma compra do curso esperando confirmação.</p>
+        @endforelse
+    </section>
+
     {{-- ========== Resgates do saldo das lojas ========== --}}
     <section class="space-y-2" id="resgates" aria-labelledby="resgates-t">
         <h2 id="resgates-t" class="titulo text-lg">Resgates pendentes

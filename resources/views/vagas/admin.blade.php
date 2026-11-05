@@ -24,7 +24,7 @@
     <table>
       <thead><tr>
         <th>Data</th><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Cidade</th><th>Escolaridade</th>
-        <th>Experiência</th><th>Disponibilidade</th><th>Mensagem</th><th>Curso</th>
+        <th>Experiência</th><th>Disponibilidade</th><th>Mensagem</th><th>Curso (R$ 19,90)</th>
       </tr></thead>
       <tbody>
       @forelse ($candidaturas as $c)
@@ -38,7 +38,7 @@
           <td>{{ $c->exp }}</td>
           <td>{{ implode(', ', $c->dias) }} · {{ $c->turno }} · {{ $c->horas }} h/sem</td>
           <td>{{ $c->msg }}</td>
-          <td>{{ $c->curso_clicado_em ? 'clicou em '.$c->curso_clicado_em->format('d/m H:i') : '—' }}</td>
+          <td>{{ $c->cursoSituacao() }}@if ($c->curso_confirmado_em) · {{ $c->curso_confirmado_em->format('d/m H:i') }}@endif @if ($c->curso_pagador)<br><small>pagador: {{ $c->curso_pagador }}</small>@endif</td>
         </tr>
       @empty
         <tr><td colspan="10">Nenhuma candidatura ainda.</td></tr>

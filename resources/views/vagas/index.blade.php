@@ -159,8 +159,19 @@
   a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
   .course h3 a { color: inherit; text-decoration: none; }
   .course h3 a:hover { text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 4px; }
-  .side[data-open] .tab-head { cursor: pointer; }
-  .side[data-open] .tab-head::after { content: "↗"; margin-left: auto; color: var(--accent); }
+  /* compra do curso por Pix (opcional, separada da candidatura) */
+  .preco { font-family: var(--font-display); font-size: 1.5rem; color: var(--leaf); }
+  .separado { font-size: 14px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
+  .checkout { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
+  .checkout .qr { width: 196px; height: 196px; margin: 0 auto; padding: 10px; background: #fff; border-radius: 10px; }
+  .checkout textarea { width: 100%; min-height: 76px; resize: none; font-family: var(--font-mono); font-size: 12px; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--surface-2); color: inherit; word-break: break-all; }
+  .checkout input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: inherit; font: inherit; }
+  .checkout .linha { display: flex; gap: 8px; flex-wrap: wrap; }
+  .checkout .linha .btn { flex: 1; }
+  .btn.sec { background: var(--surface-2); color: inherit; border: 1px solid var(--line); }
+  .aviso-pix { font-size: 14px; padding: 10px 12px; border-radius: 10px; border-left: 3px solid var(--leaf); background: var(--surface-2); }
+  .aviso-pix.erro { border-left-color: #ef4444; }
   .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
   footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
 
@@ -351,22 +362,36 @@
       </div>
     </section>
 
-    <aside class="side" id="side" aria-label="Recomendação da empresa">
-      <div class="tab-head"><i></i><span>Recomendação da empresa</span></div>
+    <aside class="side" id="side" aria-label="Curso opcional">
+      <div class="tab-head"><i></i><span>Curso opcional</span></div>
       <div class="tab-body" aria-live="polite">
         <div class="pending" id="pending">
-          <p>Depois que você enviar seus dados, a Work Flower mostra aqui o curso que recomenda para quem quer aumentar as chances de contratação.</p>
+          <p>Depois que você enviar seus dados, aparece aqui um curso opcional sobre a rotina de trabalho remoto.</p>
           <div class="ghostlines" aria-hidden="true"><span></span><span></span><span></span></div>
         </div>
 
+        @php $precoBr = 'R$ ' . number_format($preco ?? 19.90, 2, ',', '.'); @endphp
         <div class="course" id="course" hidden>
-          <div class="label">Curso recomendado</div>
-          <h3><a id="cursoTitulo" href="#" target="_blank" rel="noopener">Organização Digital para Trabalho Remoto</a></h3>
+          <div class="label">Curso opcional</div>
+          <h3>Organização Digital para Trabalho Remoto</h3>
           <div class="meta">Online · 4 semanas · 20 horas</div>
           <p class="hello" id="hello"></p>
-          <p class="highlight">Candidatos que fizeram este curso costumam ser contratados com mais frequência.</p>
           <div class="fit"><b>5 h/sem</b><span id="fitText"></span></div>
-          <a class="btn" id="cursoBtn" href="#" target="_blank" rel="noopener">Acessar o curso</a>
+          <p class="separado"><b>Separado da candidatura.</b> Comprar ou não o curso não muda em nada a análise da sua candidatura nem a chance de contratação.</p>
+          <div class="preco">{{ $precoBr }} <small style="font-size:13px;color:var(--muted);font-family:var(--font-body)">pagamento único por Pix</small></div>
+          <button type="button" class="btn" id="cursoBtn">Comprar o curso · {{ $precoBr }}</button>
+
+          {{-- Pix na chave da Work Flower; o acesso chega por e-mail ou WhatsApp depois da confirmação --}}
+          <div class="checkout" id="checkout" hidden>
+            <p style="margin:0;font-size:14px">Pague {{ $precoBr }} pelo app do seu banco: aponte a câmera para o QR Code ou use o código copia e cola.</p>
+            <div class="qr" id="qrPix" role="img" aria-label="QR Code do Pix"></div>
+            <textarea id="copiaPix" readonly aria-label="Código Pix copia e cola"></textarea>
+            <div class="linha"><button type="button" class="btn sec" id="copiarPix">Copiar código</button></div>
+            <label for="pagadorPix" style="font-size:13px;color:var(--muted)">Nome de quem pagou (se for outra pessoa ou empresa)</label>
+            <input id="pagadorPix" maxlength="120" autocomplete="name">
+            <button type="button" class="btn" id="pagueiPix">Já paguei</button>
+          </div>
+          <p class="aviso-pix" id="avisoPix" hidden role="status"></p>
           <details>
             <summary>O que o curso ensina</summary>
             <ol class="weeks">
@@ -376,7 +401,7 @@
               <li><b>Semana 4</b><span>Arquivos, planilhas e entrega de relatórios</span></li>
             </ol>
           </details>
-          <p class="optional">O curso é opcional. Sua candidatura é analisada da mesma forma com ou sem ele.</p>
+          <p class="optional">O curso é opcional. Sua candidatura é analisada da mesma forma com ou sem ele. Depois que o pagamento é confirmado, o acesso chega no e-mail ou WhatsApp que você informou.</p>
         </div>
       </div>
     </aside>
@@ -430,7 +455,62 @@
 
   function el(tag, text) { var e = document.createElement(tag); e.textContent = text; return e; }
 
-  function abrirCurso() { if (cursoUrl) window.open(cursoUrl, '_blank', 'noopener'); }
+  /* ---- compra opcional do curso por Pix (rota /vagas/curso/pedido e /vagas/curso/paguei) ---- */
+  var URL_PEDIDO = @json(route('vagas.curso.pedido')), URL_PAGUEI = @json(route('vagas.curso.paguei'));
+  function postar(url, corpo) {
+    return fetch(url, { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(corpo) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { status: r.status, data: d }; }); });
+  }
+  function aviso(msg, erro) { var a = $('avisoPix'); a.textContent = msg; a.hidden = !msg; a.classList.toggle('erro', !!erro); }
+  function desenharQr(texto) {
+    var caixa = $('qrPix');
+    var fazer = function () {
+      try { var qr = qrcode(0, 'M'); qr.addData(texto); qr.make(); caixa.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+        var svg = caixa.querySelector('svg'); if (svg) { svg.style.width = '100%'; svg.style.height = '100%'; } }
+      catch (e) { caixa.hidden = true; }
+    };
+    if (window.qrcode) return fazer();
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js';
+    s.onload = fazer; s.onerror = function () { caixa.hidden = true; };
+    document.head.appendChild(s);
+  }
+  function mostrarCompra(d) {
+    if (d.status === 'confirmado') {
+      $('checkout').hidden = true; $('cursoBtn').hidden = true;
+      aviso('Pagamento confirmado. O acesso ao curso chega no seu e-mail ou WhatsApp.'); return;
+    }
+    $('cursoBtn').hidden = true;
+    $('checkout').hidden = false;
+    $('copiaPix').value = d.copia || '';
+    if (d.copia) desenharQr(d.copia);
+    if (d.status === 'informado') {
+      $('pagueiPix').hidden = true; $('pagadorPix').hidden = true;
+      aviso('Recebemos seu aviso de pagamento. Assim que conferirmos o Pix, o acesso ao curso chega no seu e-mail ou WhatsApp.');
+    } else if (d.status === 'recusado') {
+      aviso('Não encontramos este Pix' + (d.obs ? ': ' + d.obs : '.') + ' Se já pagou, confira o valor e avise de novo.', true);
+    } else aviso('');
+  }
+  $('cursoBtn').addEventListener('click', function () {
+    if (!codigo) return;
+    var b = this; b.disabled = true; b.textContent = 'Gerando o Pix…';
+    postar(URL_PEDIDO, { codigo: codigo }).then(function (res) {
+      if (res.data && res.data.ok) mostrarCompra(res.data);
+      else aviso((res.data && res.data.erro) || 'Não foi possível gerar o Pix agora. Tente de novo em instantes.', true);
+    }).catch(function () { aviso('Sem conexão. Tente de novo.', true); })
+      .then(function () { b.disabled = false; b.textContent = @json('Comprar o curso · ' . $precoBr); });
+  });
+  $('copiarPix').addEventListener('click', function () {
+    var t = $('copiaPix'); t.select();
+    (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).catch(function () { document.execCommand('copy'); });
+    this.textContent = 'Copiado!'; var b = this; setTimeout(function () { b.textContent = 'Copiar código'; }, 1800);
+  });
+  $('pagueiPix').addEventListener('click', function () {
+    var b = this; b.disabled = true;
+    postar(URL_PAGUEI, { codigo: codigo, pagador: $('pagadorPix').value.trim() }).then(function (res) {
+      if (res.data && res.data.ok) mostrarCompra(res.data); else aviso('Não foi possível avisar agora. Tente de novo.', true);
+    }).catch(function () { aviso('Sem conexão. Tente de novo.', true); }).then(function () { b.disabled = false; });
+  });
 
   function mostrarConfirmacao() {
     var nome = $('nome').value.trim();
@@ -456,13 +536,10 @@
       s.appendChild(d);
     });
 
-    $('hello').textContent = primeiro + ', para quem quer se preparar para a rotina da vaga, a Work Flower recomenda este curso.';
+    $('hello').textContent = primeiro + ', se quiser se preparar para a rotina de trabalho remoto, a Work Flower oferece este curso opcional.';
     $('fitText').textContent = 'Você indicou ' + h + ' h por semana. O curso ocupa cerca de 5 h por semana, então ' +
       (h >= 15 ? 'cabe com folga na sua disponibilidade.' : 'cabe na sua disponibilidade, usando boa parte dela.');
 
-    // A aba do curso (título, botão e cabeçalho) redireciona para o link do curso.
-    $('cursoBtn').href = cursoUrl || '#';
-    $('cursoTitulo').href = cursoUrl || '#';
 
     $('formArea').hidden = true;
     $('doneArea').hidden = false;
@@ -476,16 +553,6 @@
     (narrow ? $('side') : $('doneArea')).scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
 
-  // Cabeçalho da aba também leva ao curso depois do envio.
-  var tabHead = document.querySelector('#side .tab-head');
-  tabHead.addEventListener('click', function () { if ($('side').hasAttribute('data-open')) abrirCurso(); });
-  tabHead.addEventListener('keydown', function (ev) {
-    if ((ev.key === 'Enter' || ev.key === ' ') && $('side').hasAttribute('data-open')) { ev.preventDefault(); abrirCurso(); }
-  });
-  new MutationObserver(function () {
-    var aberto = $('side').hasAttribute('data-open');
-    if (aberto) { tabHead.setAttribute('role', 'link'); tabHead.setAttribute('tabindex', '0'); }
-  }).observe($('side'), { attributes: true, attributeFilter: ['data-open'] });
 
   form.addEventListener('submit', function (ev) {
     ev.preventDefault();

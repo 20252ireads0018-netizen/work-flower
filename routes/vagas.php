@@ -15,6 +15,11 @@ Route::prefix('vagas')->name('vagas.')->group(function () {
         ->withoutMiddleware(ValidateCsrfToken::class)
         ->middleware('throttle:10,1')
         ->name('store');
+    // compra opcional do curso (R$ 19,90, Pix na chave da plataforma; confirmado em /admin/pix). Mesmo motivo do CSRF acima.
+    Route::post('/curso/pedido', [CandidaturaController::class, 'pedidoCurso'])
+        ->withoutMiddleware(ValidateCsrfToken::class)->middleware('throttle:20,1')->name('curso.pedido');
+    Route::post('/curso/paguei', [CandidaturaController::class, 'cursoPaguei'])
+        ->withoutMiddleware(ValidateCsrfToken::class)->middleware('throttle:10,1')->name('curso.paguei');
     Route::get('/curso', [CandidaturaController::class, 'curso'])->name('curso');
     Route::get('/admin', [CandidaturaController::class, 'admin'])->middleware('throttle:30,1')->name('admin');
 });

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Candidatura;
+use App\Support\Pix;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -23,7 +24,69 @@ class CandidaturaController extends Controller
 
     public function index()
     {
-        return view('vagas.index');
+        return view('vagas.index', ['preco' => (float) config('vagas.curso_preco', 19.90)]);
+    }
+
+    /**
+     * Compra do curso (opcional, separada da candidatura): gera o Pix com valor fixo na chave da plataforma.
+     * Chamar de novo devolve o mesmo Pix (mesmo identificador), para não gerar vários pedidos.
+     */
+    public function pedidoCurso(Request $request): JsonResponse
+    {
+        $c = $this->daCandidatura($request);
+        if (! Pix::pronto()) {
+            return response()->json(['ok' => false, 'erro' => 'O pagamento por Pix está indisponível agora. Tente de novo mais tarde.'], 503);
+        }
+        if ($c->curso_status !== 'confirmado') {
+            $c->forceFill([
+                'curso_txid'      => $c->curso_txid ?: Pix::novoTxid(),
+                'curso_status'    => in_array($c->curso_status, ['informado', 'recusado'], true) ? $c->curso_status : 'aguardando',
+                'curso_valor'     => (float) config('vagas.curso_preco', 19.90),
+                'curso_pedido_em' => $c->curso_pedido_em ?: now(),
+            ])->save();
+        }
+
+        return response()->json($this->resumoCurso($c));
+    }
+
+    /** "Já paguei": avisa a administração, que confere o extrato e confirma em /admin/pix. */
+    public function cursoPaguei(Request $request): JsonResponse
+    {
+        $c = $this->daCandidatura($request);
+        $d = $request->validate(['pagador' => ['nullable', 'string', 'max:120']]);
+        abort_unless($c->curso_txid, 404);
+        if (in_array($c->curso_status, ['aguardando', 'recusado'], true)) {
+            $c->forceFill([
+                'curso_status'       => 'informado',
+                'curso_informado_em' => now(),
+                'curso_pagador'      => trim((string) ($d['pagador'] ?? '')) ?: $c->nome,
+                'curso_obs'          => null,
+            ])->save();
+        }
+
+        return response()->json($this->resumoCurso($c));
+    }
+
+    private function daCandidatura(Request $request): Candidatura
+    {
+        $codigo = (string) $request->input('codigo');
+        abort_unless(Str::isUuid($codigo), 404);
+
+        return Candidatura::where('codigo', $codigo)->firstOrFail();
+    }
+
+    private function resumoCurso(Candidatura $c): array
+    {
+        $valor = (float) ($c->curso_valor ?? config('vagas.curso_preco', 19.90));
+
+        return [
+            'ok'     => true,
+            'status' => $c->curso_status,
+            'valor'  => $valor,
+            'txid'   => $c->curso_txid,
+            'copia'  => $c->curso_status === 'confirmado' ? null : Pix::copiaECola($valor, $c->curso_txid),
+            'obs'    => $c->curso_obs,
+        ];
     }
 
     public function store(Request $request): JsonResponse
@@ -132,12 +195,12 @@ class CandidaturaController extends Controller
                 $out = fopen('php://output', 'w');
                 fwrite($out, "\xEF\xBB\xBF");
                 fputcsv($out, ['Data', 'Nome', 'E-mail', 'WhatsApp', 'Cidade', 'Escolaridade',
-                    'Experiência', 'Dias', 'Período', 'Horas/sem', 'Mensagem', 'Clicou no curso']);
+                    'Experiência', 'Dias', 'Período', 'Horas/sem', 'Mensagem', 'Curso (Pix)', 'Pagador', 'Identificador do Pix']);
                 foreach ($candidaturas as $c) {
                     fputcsv($out, array_map([$this, 'csvSeguro'], [
                         $c->created_at?->format('d/m/Y H:i'), $c->nome, $c->email, $c->fone, $c->cidade,
                         $c->escolaridade, $c->exp, implode(', ', $c->dias), $c->turno, $c->horas,
-                        $c->msg, $c->curso_clicado_em?->format('d/m/Y H:i'),
+                        $c->msg, $c->curso_status ? $c->cursoSituacao() . ($c->curso_confirmado_em ? ' em ' . $c->curso_confirmado_em->format('d/m/Y H:i') : '') : '', $c->curso_pagador, $c->curso_txid,
                     ]));
                 }
                 fclose($out);

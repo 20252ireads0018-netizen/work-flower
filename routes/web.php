@@ -103,6 +103,11 @@ Route::middleware('auth')->group(function () {
             ->whereNumber('resgate')->name('pix.admin.resgate.pagar');
         Route::post('/admin/pix/resgates/{resgate}/recusar', [\App\Http\Controllers\PixAdminController::class, 'recusarResgate'])
             ->whereNumber('resgate')->name('pix.admin.resgate.recusar');
+        // curso da página de vagas (R$ 19,90 por Pix nesta chave)
+        Route::post('/admin/pix/cursos/{candidatura}/confirmar', [\App\Http\Controllers\PixAdminController::class, 'confirmarCurso'])
+            ->whereNumber('candidatura')->name('pix.admin.curso.confirmar');
+        Route::post('/admin/pix/cursos/{candidatura}/recusar', [\App\Http\Controllers\PixAdminController::class, 'recusarCurso'])
+            ->whereNumber('candidatura')->name('pix.admin.curso.recusar');
         // Promoções relâmpago dos planos
         Route::get('/admin/promocoes', [\App\Http\Controllers\PromocaoAdminController::class, 'index'])->name('promocoes.admin');
         Route::post('/admin/promocoes', [\App\Http\Controllers\PromocaoAdminController::class, 'criar'])

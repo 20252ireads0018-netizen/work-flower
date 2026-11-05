@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Candidatura;
 use App\Models\LojaPedido;
 use App\Models\LojaResgate;
 use App\Models\PixPagamento;
@@ -41,6 +42,11 @@ class PixAdminController extends Controller
                 ->orderByRaw("CASE status WHEN 'informado' THEN 0 ELSE 1 END")->latest('id')->limit(60)->get(),
             'resgates'       => LojaResgate::with('user')->where('status', 'pendente')->orderBy('prazo')->orderBy('id')->limit(100)->get(),
             'resgatesFeitos' => LojaResgate::with('user')->where('status', '!=', 'pendente')->latest('updated_at')->limit(10)->get(),
+            // compras do curso da página de vagas (/vagas): primeiro quem avisou que pagou
+            'cursosVagas' => \Illuminate\Support\Facades\Schema::hasColumn('candidaturas', 'curso_status')
+                ? Candidatura::whereIn('curso_status', ['informado', 'aguardando'])
+                    ->orderByRaw("CASE curso_status WHEN 'informado' THEN 0 ELSE 1 END")->latest('curso_pedido_em')->limit(60)->get()
+                : collect(),
         ]);
     }
 
@@ -129,5 +135,28 @@ class PixAdminController extends Controller
         $pix->save();
 
         return back()->with('ok', 'Marcado como não encontrado. A pessoa vê o aviso na tela do Pix.');
+    }
+
+    /* ---- curso da página de vagas (R$ 19,90, Pix na mesma chave): o acesso é mandado por outro sistema ---- */
+
+    public function confirmarCurso(Candidatura $candidatura): RedirectResponse
+    {
+        if (! in_array($candidatura->curso_status, ['aguardando', 'informado'], true)) {
+            return back()->with('ok', 'Esta compra já foi tratada.');
+        }
+        $candidatura->forceFill(['curso_status' => 'confirmado', 'curso_confirmado_em' => now(), 'curso_obs' => null])->save();
+
+        return back()->with('ok', 'Curso pago por ' . $candidatura->nome . ' (' . $candidatura->email . ' · ' . $candidatura->fone . '). Mande o acesso pelo seu sistema.');
+    }
+
+    public function recusarCurso(Request $request, Candidatura $candidatura): RedirectResponse
+    {
+        if ($candidatura->curso_status !== 'informado') {
+            return back()->with('ok', 'Esta compra já foi tratada.');
+        }
+        $candidatura->forceFill(['curso_status' => 'recusado', 'curso_informado_em' => null,
+            'curso_obs' => mb_substr(trim((string) $request->input('observacao', '')), 0, 300) ?: 'Pix não encontrado no extrato.'])->save();
+
+        return back()->with('ok', 'Compra do curso marcada como não encontrada. A pessoa vê o aviso ao voltar à página.');
     }
 }
