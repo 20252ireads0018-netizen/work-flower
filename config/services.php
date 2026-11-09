@@ -52,6 +52,14 @@ return [
         'publico'       => (bool) env('GOOGLE_APP_PUBLICADO', false),       // Drive (escopo drive.file, sem verificação)
         'gmail_publico' => (bool) env('GOOGLE_GMAIL_PUBLICO', false),       // Gmail (escopo restrito: depois da verificação)
     ],
+    // Notion (Negócios › Integrações): integração pública criada pelo dono do site em notion.so/profile/integrations.
+    // Vazio = só o token de integração interna colado por cada pessoa. O retorno padrão é /integracoes/notion/retorno;
+    // NOTION_REDIRECT_URI troca por outro endereço (ex.: uma página de repasse, se a hospedagem barrar o retorno).
+    'notion' => [
+        'client_id'     => env('NOTION_CLIENT_ID'),
+        'client_secret' => env('NOTION_CLIENT_SECRET'),
+        'redirect'      => env('NOTION_REDIRECT_URI'),
+    ],
     // App da Meta (Instagram Graph API pelo Login do Facebook e assinatura do webhook do WhatsApp) e app do TikTok
     'meta'   => ['id' => env('META_APP_ID'), 'secret' => env('META_APP_SECRET'), 'versao' => env('META_GRAPH_VERSION', 'v21.0')],
     'tiktok' => ['key' => env('TIKTOK_CLIENT_KEY'), 'secret' => env('TIKTOK_CLIENT_SECRET')],

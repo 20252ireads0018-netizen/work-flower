@@ -22,3 +22,14 @@ Route::prefix('/calls')->name('calls')->group(function () {
     Route::put('/{call}', [CallController::class, 'atualizar'])->whereNumber('call')->middleware('throttle:gravar')->name('.atualizar');
     Route::delete('/{call}', [CallController::class, 'apagar'])->whereNumber('call')->middleware('throttle:gravar')->name('.apagar');
 });
+
+// Notion: conexão (login pelo Notion ou token interno), lista de páginas e conteúdo para importar/sincronizar cartões
+Route::prefix('/integracoes/notion')->name('integracoes.notion')->controller(\App\Http\Controllers\NotionController::class)->group(function () {
+    Route::get('/', 'show')->middleware('throttle:60,1')->name('');
+    Route::post('/token', 'salvarToken')->middleware('throttle:10,1')->name('.token');
+    Route::get('/conectar', 'conectar')->middleware('throttle:10,1')->name('.conectar');
+    Route::get('/retorno', 'retorno')->middleware('throttle:10,1')->name('.retorno');
+    Route::delete('/', 'remover')->middleware('throttle:20,1')->name('.remover');
+    Route::get('/paginas', 'paginas')->middleware('throttle:30,1')->name('.paginas');
+    Route::post('/conteudo', 'conteudo')->middleware('throttle:30,1')->name('.conteudo');
+});

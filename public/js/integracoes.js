@@ -143,4 +143,27 @@
             },
         };
     };
+    /* ================= Notion (NotionController; os cartões nascem pelo clique direito no quadro, public/js/notas.js) ================= */
+    window.wfNotion = function (url, msgOk, msgErro) {
+        return {
+            d: { conectado: false, oauth: false, retorno: '' }, token: '', erro: msgErro || '', ok: msgOk || '', enviando: false, _aberto: false,
+            abrir() { if (!this._aberto) { this._aberto = true; this.carregar(); } },
+            estado() {
+                if (!this.d.conectado) return 'Não conectado';
+                return '● Conectado' + (this.d.workspace ? ' a ' + this.d.workspace : '') + (this.d.tipo === 'interno' ? ' (token interno)' : '');
+            },
+            async carregar() { try { this.d = await pedir(url); } catch { /* sem rede */ } },
+            entrar() { location.href = url + '/conectar'; },
+            async salvarToken() {
+                this.erro = ''; this.ok = ''; this.enviando = true;
+                try { this.d = await pedir(url + '/token', 'POST', { token: this.token.trim() }); this.token = ''; this.ok = 'Notion conectado. Agora é só importar pelo clique direito num quadro.'; }
+                catch (e) { this.erro = e.message; } finally { this.enviando = false; }
+            },
+            async desconectar() {
+                if (!confirm('Desconectar o Notion? Os cartões já importados continuam no quadro, mas param de sincronizar.')) return;
+                try { this.d = await pedir(url, 'DELETE'); this.ok = 'Desconectado.'; } catch (e) { this.erro = e.message; }
+            },
+            async copiar(t) { try { await navigator.clipboard.writeText(t); this.ok = 'Copiado.'; } catch { prompt('Copie:', t); } },
+        };
+    };
 })();

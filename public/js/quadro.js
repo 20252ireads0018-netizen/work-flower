@@ -1485,6 +1485,7 @@
                     { rotulo: 'Cor do cartão', icone: '●', sub: PALETA.map(c => ({ rotulo: NOMES_COR[c] || c, cor: c, marcado: cor === c, acao: () => { this.setCor(sec, b.id, c); this.agendar(); } })) },
                     { rotulo: 'Fundo do cartão…', icone: '🖼', acao: () => this.fundoDoCartao(sec, b.id, el) },
                     b.tipo !== 'pasta' ? { rotulo: 'Salvar na biblioteca', icone: '★', acao: () => this.guardarBloco(b) } : null,
+                    ...(window.WFNotas ? window.WFNotas.menuCartao(this, b) : []),
                     { rotulo: this.sel.includes(b.id) ? 'Tirar da seleção' : 'Selecionar', icone: '▣', acao: () => { this.sel = this.sel.includes(b.id) ? this.sel.filter(x => x !== b.id) : [...this.sel, b.id]; } },
                     '-',
                     { rotulo: 'Excluir', icone: '🗑', perigo: true, acao: () => this.removerBloco(b) },
@@ -1519,6 +1520,8 @@
                     '-',
                     { rotulo: 'Reorganizar os cartões', icone: '⤢', acao: () => this.reorganizar() },
                     { rotulo: 'Selecionar todos', icone: '▣', acao: () => this.selecionarTodos(sec) },
+                    // importar/exportar Notion e Obsidian (public/js/notas.js)
+                    ...(window.WFNotas ? window.WFNotas.menuQuadro(this, sec) : []),
                     this.pastaAberta(sec) ? { rotulo: 'Fechar a pasta', icone: '⤴', acao: () => this.fecharPasta(sec) } : null,
                 ]);
             },
