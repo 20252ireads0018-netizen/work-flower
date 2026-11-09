@@ -396,6 +396,8 @@ require __DIR__ . '/tabletop-vivo.php';
 require __DIR__ . '/emails.php';
 // Configurações › Armazenamento (destinos próprios, backups e arquivos fora do banco)
 require __DIR__ . '/armazenamento.php';
+// Negócios › Portfólio: editor em /negocios/portfolio e página pública em /p/{slug}
+require __DIR__ . '/portfolio.php';
 
 // Página de vagas. Protegido: se o arquivo faltar ou tiver erro, só /vagas deixa de funcionar.
 if (is_file(__DIR__ . '/vagas.php')) {

@@ -269,6 +269,27 @@
         @if ($donoLoja) <p class="text-xs texto-2 mt-2">A loja é de cada conta: estes botões abrem a sua.</p> @endif
     </div>
 
+    {{-- Portfólio profissional (página pública /p/{slug}) --}}
+    @php
+        $pfNg = \App\Models\Portfolio::where('user_id', auth()->id())->first();
+        $pfNovas = $pfNg ? $pfNg->mensagens()->where('lida', false)->count() : 0;
+    @endphp
+    <div class="card p-6">
+        <p class="titulo text-xl">🎨 Portfólio</p>
+        @if ($pfNg)
+            <p class="text-xs texto-2 break-all mt-1">{{ route('portfolio.ver', $pfNg->slug) }}</p>
+            <p class="text-sm mt-3">{{ $pfNg->publicado ? 'Publicado' : 'Rascunho (só você vê)' }} · {{ $pfNg->visitas }} {{ $pfNg->visitas === 1 ? 'visita' : 'visitas' }}
+                @if ($pfNovas) · <b>{{ $pfNovas }} {{ $pfNovas === 1 ? 'mensagem nova' : 'mensagens novas' }}</b> @endif</p>
+            <div class="ng-acoes">
+                <a class="btn !py-1.5 !px-3 text-sm" href="{{ route('portfolio.editor') }}">Editar portfólio</a>
+                <a class="btn-sec !py-1.5 !px-3 text-sm" href="{{ route('portfolio.ver', $pfNg->slug) }}" target="_blank" rel="noopener">{{ $pfNg->publicado ? 'Ver página' : 'Ver prévia' }} ↗</a>
+            </div>
+        @else
+            <p class="text-sm texto-2 mt-1">Monte sua página profissional com projetos, experiência, habilidades, depoimentos e um formulário “Fale comigo”. Dezenas de combinações de tema, letras, fundos (até GIF) e layouts.</p>
+            <div class="ng-acoes"><a class="btn !py-1.5 !px-3 text-sm" href="{{ route('portfolio.editor') }}">Criar meu portfólio</a></div>
+        @endif
+    </div>
+
     @if (! empty($lojaResumo) || ($lojaSaldo['disponivel'] ?? 0) > 0 || ($lojaSaldo['em_resgate'] ?? 0) > 0)
         <div class="card p-6">
             <p class="titulo text-xl">💰 Saldo da loja</p>
