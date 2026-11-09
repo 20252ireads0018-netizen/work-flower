@@ -320,7 +320,9 @@
 
     /* ===== Diagramas (mapa mental, BPMN, fluxograma, ER/UML) — usado com diagrama.js ===== */
     .wf-dd { display: flex; flex-direction: column; gap: .5rem; min-height: 0; }
-    .wf-dd .wf-mapa-col { min-height: 16rem; border: 1px solid var(--linha); border-radius: .5rem; background: var(--superficie); }
+    /* o mapa deixa o fundo da área (imagem, GIF, cor) aparecer, tingido com a cor do tema */
+    .wf-dd .wf-mapa-col { min-height: 16rem; border: 1px solid color-mix(in srgb, var(--prim) 25%, var(--linha)); border-radius: .5rem;
+        background: color-mix(in srgb, color-mix(in srgb, var(--superficie) 82%, var(--prim)) 52%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
     /* topo do mapa: quando a página ou o cartão rolam, ele desce junto (translateY em diagrama.js) e ganha fundo próprio */
     .wf-dd-topo { display: flex; flex-direction: column; gap: .5rem; position: relative; z-index: 5; will-change: transform; }
     .wf-dd-topo.fixa { background: var(--superficie-2, var(--superficie)); padding: .4rem; margin: -.4rem; border-radius: .5rem;
@@ -339,7 +341,12 @@
     .wf-dd-campo { display: inline-flex; align-items: center; gap: .35rem; font-size: .72rem; color: var(--tinta-2); }
     .wf-dd-dica { font-size: .68rem; color: var(--tinta-2); }
 
-    .wf-dd-lona { position: relative; outline: none; background-color: var(--superficie); user-select: none; -webkit-user-select: none; }
+    /* cartão com mapa mental ou diagrama: translúcido, para o fundo da área aparecer (o "Fundo do cartão" próprio continua valendo por cima) */
+    .wf-item:has(.wf-dd) { background: color-mix(in srgb, var(--superficie) 42%, transparent); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+    .wf-item:has(.wf-dd) > .wf-topo { background: color-mix(in srgb, var(--superficie-2) 55%, transparent); }
+    .wf-dd-lona { position: relative; outline: none; background-color: transparent; user-select: none; -webkit-user-select: none;
+        --wf-no-fundo: color-mix(in srgb, color-mix(in srgb, var(--superficie-2) 78%, var(--prim)) 62%, transparent);
+        --wf-no-sup: color-mix(in srgb, color-mix(in srgb, var(--superficie) 80%, var(--prim)) 75%, transparent); }
     .wf-dd-lona.grade { background-image: radial-gradient(circle, var(--linha) 1px, transparent 1.3px); background-size: 20px 20px; }
     .wf-dd-lona:focus-visible { box-shadow: inset 0 0 0 2px var(--prim-linha); }
     .wf-dd-camada { position: absolute; left: 0; top: 0; pointer-events: none; }

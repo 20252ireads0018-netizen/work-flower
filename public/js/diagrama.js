@@ -169,8 +169,13 @@
             ? { fundo: '#ffffff', tinta: '#111827', suave: '#6b7280', sup: '#ffffff' }
             : { fundo: 'var(--wf-no-fundo, var(--superficie-2))', tinta: 'var(--tinta)', suave: 'var(--tinta-2)', sup: 'var(--wf-no-sup, var(--superficie))' };
     }
-    // na tela, o azul padrão acompanha a cor do tema escolhida pela pessoa; ao exportar (PNG/SVG) fica o azul
-    const corTela = (c, exp) => { const k = corOk(c); return !exp && k.toLowerCase() === '#2f6fc7' ? 'var(--prim)' : k; };
+    // na tela, as cores combinam com o tema/fundo da pessoa: o azul padrão vira a cor do tema e as outras puxam um
+    // pouco para ela (mantendo-se distintas). Ao exportar (PNG/SVG) ficam as cores originais.
+    const corTela = (c, exp) => {
+        const k = corOk(c);
+        if (exp) return k;
+        return k.toLowerCase() === '#2f6fc7' ? 'var(--prim)' : `color-mix(in oklab, ${k} 68%, var(--prim))`;
+    };
     function formaSvg(n, exp) {
         const g = geo(n), c = corTela(n.cor, exp), P = pintura(exp), w = g.w, h = g.h, hw = w / 2, hh = h / 2;
         const tr = `stroke:${c};stroke-width:1.6;stroke-linejoin:round;`;
