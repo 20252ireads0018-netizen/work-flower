@@ -1,0 +1,1 @@
+<!doctype html><title><?php echo e($__blade->secao('titulo', 'Blog')); ?></title><main><?php if (session('ok')): ?><p class="ok"><?php echo e(session('ok')); ?></p><?php endif; ?><?php echo $__blade->secao('conteudo'); ?></main>

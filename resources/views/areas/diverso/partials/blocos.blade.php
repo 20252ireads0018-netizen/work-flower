@@ -7,9 +7,11 @@
    Não depende de nada do diverso.js.
    Atalhos: Ctrl+S salvar · Ctrl+P abrir arquivo · Ctrl+G ir para linha · Ctrl+F buscar · Ctrl+/ comentar · Alt+↑/↓ mover linha
    · Alt+Shift+↑/↓ duplicar linha · Ctrl+Shift+K excluir linha · Ctrl+Shift+F formatar JSON · Ctrl+Enter executar.
-   Botão direito na lista de arquivos: ▶ Executar (.js, .html, .py, .php, .sql e views .blade.php no próprio navegador;
-   Java/C/Go/etc. no servidor Judge0), renomear, excluir, copiar caminho…
-   Motores (Python, PHP, SQL, Blade) e dicas de erro: public/js/ide-motores.js (WFMotores, WFDicas). */
+   Botão direito na lista de arquivos: ▶ Executar (.html, JS/TS/TSX/JSX estilo Node, .py, .php, .sql, .rb, .lua e views
+   .blade.php no próprio navegador; Java/C/Go/etc. no servidor Judge0), renomear, excluir, copiar caminho…
+   Projeto com routes/web.php = app Laravel: ▶ Executar abre o app na prévia (links e formulários navegam), com Artisan e
+   a aba Banco. Motores e dicas de erro: public/js/ide-motores.js (WFMotores, WFDicas); o mini-Laravel em
+   public/js/ide-mini-laravel.txt. */
 (function () {
     'use strict';
 
@@ -21,6 +23,8 @@
     const IGNORAR = new Set(['node_modules', '.git', 'vendor', 'dist', 'build', '.next', '__pycache__', '.idea', '.venv', 'venv', 'storage', '.cache', 'target', '.gradle', 'obj']);
     const BINARIO = /\.(png|jpe?g|gif|webp|ico|bmp|pdf|zip|rar|7z|gz|tar|mp[34]|wav|ogg|webm|mov|woff2?|ttf|otf|eot|exe|dll|so|bin|psd|sqlite|db|class|jar|war|pyc|apk|dex)$/i;
     const limitar = (v, a, b) => Math.max(a, Math.min(b, v));
+    /** Cópia simples (sem os Proxies do Alpine), para mandar por postMessage ao motor. */
+    const copia = v => JSON.parse(JSON.stringify(v ?? {}));
 
     /* ---------- caminhos ---------- */
     function limpar(p) {
@@ -41,22 +45,24 @@
     const GRUPO = {
         js: 'js', mjs: 'js', cjs: 'js', jsx: 'js', ts: 'js', tsx: 'js', c: 'js', h: 'js', cpp: 'js', go: 'js', rs: 'js', swift: 'js', dart: 'js',
         java: 'java', kt: 'java', kts: 'java', scala: 'java', groovy: 'java', gradle: 'java', cs: 'java',
-        php: 'php', blade: 'blade', sql: 'sql',
+        php: 'php', blade: 'blade', sql: 'sql', lua: 'lua',
         py: 'hash', sh: 'hash', rb: 'hash', yml: 'hash', yaml: 'hash', toml: 'hash', env: 'hash', ini: 'hash', properties: 'hash', conf: 'hash',
         css: 'css', scss: 'css', less: 'css',
         html: 'html', htm: 'html', xml: 'html', svg: 'html', vue: 'html',
         json: 'json', md: 'md',
     };
-    const NOME = { blade: 'Blade', php: 'PHP', java: 'Java', kt: 'Kotlin', kts: 'Kotlin', scala: 'Scala', groovy: 'Groovy', gradle: 'Gradle', cs: 'C#', go: 'Go', rs: 'Rust', c: 'C', h: 'C', cpp: 'C++', py: 'Python', rb: 'Ruby', sh: 'Shell', sql: 'SQL', js: 'JavaScript', ts: 'TypeScript', tsx: 'TSX', jsx: 'JSX', html: 'HTML', css: 'CSS', json: 'JSON', md: 'Markdown', yml: 'YAML', yaml: 'YAML', xml: 'XML', vue: 'Vue' };
-    const TIPO = { blade: 'BL', php: 'PHP', java: 'JV', kt: 'KT', cs: 'C#', go: 'GO', rs: 'RS', py: 'PY', sql: 'SQL', js: 'JS', ts: 'TS', html: '<>', css: '#', json: '{}', md: 'MD' };
-    // o que realmente não dá para executar isolado (Blade precisa do Laravel; .h é só cabeçalho; kts/gradle são scripts de build)
+    const NOME = { blade: 'Blade', php: 'PHP', java: 'Java', kt: 'Kotlin', kts: 'Kotlin', scala: 'Scala', groovy: 'Groovy', gradle: 'Gradle', cs: 'C#', go: 'Go', rs: 'Rust', c: 'C', h: 'C', cpp: 'C++', py: 'Python', rb: 'Ruby', lua: 'Lua', sh: 'Shell', sql: 'SQL', js: 'JavaScript', mjs: 'JavaScript', cjs: 'JavaScript', ts: 'TypeScript', tsx: 'TSX', jsx: 'JSX', html: 'HTML', css: 'CSS', json: 'JSON', md: 'Markdown', yml: 'YAML', yaml: 'YAML', xml: 'XML', vue: 'Vue' };
+    const TIPO = { blade: 'BL', php: 'PHP', java: 'JV', kt: 'KT', cs: 'C#', go: 'GO', rs: 'RS', py: 'PY', rb: 'RB', lua: 'LUA', sql: 'SQL', js: 'JS', ts: 'TS', tsx: 'TSX', jsx: 'JSX', html: '<>', css: '#', json: '{}', md: 'MD' };
+    // o que realmente não dá para executar isolado (.h é só cabeçalho; kts/gradle são scripts de build)
     const NAO_RODA = new Set(['h', 'kts', 'gradle']);
-    // linguagens executadas no servidor Judge0 (o navegador não roda Java, PHP, C, Go…)
+    // rodam no próprio navegador (public/js/ide-motores.js); JS e TypeScript rodam na prévia, com require/import entre arquivos
+    const NAVEGADOR = { js: 'JavaScript', mjs: 'JavaScript', cjs: 'JavaScript', ts: 'TypeScript', tsx: 'TSX', jsx: 'JSX', py: 'Python', php: 'PHP', blade: 'Blade', sql: 'SQL', rb: 'Ruby', lua: 'Lua' };
+    const JS_NODE = ['js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx'];
+    // linguagens executadas no servidor Judge0 (o navegador não roda Java, C, Go…)
     const JUDGE0 = 'https://ce.judge0.com'; // troque aqui se hospedar o seu próprio Judge0
     const REMOTO = {
         java: { id: 62, nome: 'Java' }, kt: { id: 78, nome: 'Kotlin' }, cs: { id: 51, nome: 'C#' },
         go: { id: 60, nome: 'Go' }, rs: { id: 73, nome: 'Rust' }, c: { id: 50, nome: 'C' }, cpp: { id: 54, nome: 'C++' },
-        rb: { id: 72, nome: 'Ruby' },
         sh: { id: 46, nome: 'Bash' }, scala: { id: 81, nome: 'Scala' }, groovy: { id: 88, nome: 'Groovy' },
     };
     const b64 = s => { const u = new TextEncoder().encode(s); let r = ''; for (let i = 0; i < u.length; i += 8192) r += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(r); };
@@ -87,6 +93,7 @@
         // PHP puro (variáveis $x e as tags de abertura/fechamento do PHP em destaque)
         php: mk(/\/\/[^\n]*|#[^\n]*|\/\*[\s\S]*?\*\//.source, S_DUPLO, NUM, KW_PHP, /<\?php|<\?=|\?>|\$[A-Za-z_]\w*/.source, 'gi'),
         sql: mk(/--[^\n]*|\/\*[\s\S]*?\*\//.source, S_DUPLO + '|' + S_CRASE, NUM, KW_SQL, null, 'gi'),
+        lua: mk(/--\[\[[\s\S]*?\]\]|--[^\n]*/.source, S_DUPLO + '|' + /\[\[[\s\S]*?\]\]/.source, NUM, /\b(?:and|break|do|else|elseif|end|false|for|function|goto|if|in|local|nil|not|or|repeat|return|then|true|until|while)\b/.source, null),
         // Blade: comentários {{-- --}}, ecos {{ }} / {!! !!}, diretivas @if/@foreach… e tags HTML / <x-componentes>
         blade: mk(
             /\{\{--[\s\S]*?--\}\}|<\!--[\s\S]*?-->/.source,
@@ -119,6 +126,17 @@
         + '["log","info","warn","error"].forEach(function(k){console[k]=function(){p(k,f(arguments))}});'
         + 'window.addEventListener("error",function(e){p("error",e.message+(e.lineno?" (linha "+e.lineno+")":""))});'
         + 'window.addEventListener("unhandledrejection",function(e){p("error",String(e.reason))})})();<\/script>';
+
+    /* Prévia de um app Laravel: links e formulários da página viram requisições ao app (postMessage para a IDE), e
+       fetch() para o próprio app ("/api/…") também; endereços de fora (https://…) seguem normais. */
+    const navLaravel = (n, atual) => '<script>(function(){var T=' + n + ',A=' + JSON.stringify('http://localhost' + atual) + ';'
+        + 'function p(o){o.wfIde=T;parent.postMessage(o,"*")}'
+        + 'function local(h){try{var u=new URL(h,A);return u.origin==="http://localhost"?u:null}catch(e){return null}}'
+        + 'document.addEventListener("click",function(e){if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey)return;var a=e.target.closest&&e.target.closest("a[href]");if(!a)return;var h=a.getAttribute("href");if(!h||h.charAt(0)==="#"||/^(javascript|mailto|tel):/i.test(h))return;var u=local(h);if(!u)return;e.preventDefault();var b=new URL(A);if(u.pathname===b.pathname&&u.search===b.search&&u.hash){location.hash=u.hash;return}p({t:"nav",metodo:"GET",url:u.pathname+u.search})});'
+        + 'document.addEventListener("submit",function(e){var f=e.target;if(e.defaultPrevented)return;var u=local(f.getAttribute("action")||A);if(!u)return;e.preventDefault();var fd=new FormData(f,e.submitter||undefined),q=new URLSearchParams();fd.forEach(function(v,k){q.append(k,typeof v==="string"?v:(v&&v.name)||"")});var m=(f.getAttribute("method")||"GET").toUpperCase();if(m==="GET"){u.search=q.toString();p({t:"nav",metodo:"GET",url:u.pathname+u.search})}else p({t:"nav",metodo:m,url:u.pathname+u.search,corpo:q.toString()})});'
+        + 'var F=window.fetch,S=0,E={};window.addEventListener("message",function(ev){var d=ev.data;if(!d||d.wfIdeResp!==T||!E[d.id])return;var x=E[d.id];delete E[d.id];x(new Response(d.corpo,{status:d.status,headers:{"Content-Type":d.tipo||"text/plain"}}))});'
+        + 'window.fetch=function(r,o){var url=typeof r==="string"?r:(r&&r.url)||String(r);var u=local(url);if(!u)return F.apply(this,arguments);o=o||{};var id=++S,c=o.body;if(c instanceof FormData||c instanceof URLSearchParams){var q=new URLSearchParams();c.forEach(function(v,k){q.append(k,v)});c=q.toString()}var h={};if(o.headers){(o.headers instanceof Headers?o.headers:new Headers(o.headers)).forEach(function(v,k){h[k]=v})}return new Promise(function(ok){E[id]=ok;p({t:"fetch",id:id,metodo:(o.method||"GET").toUpperCase(),url:u.pathname+u.search,corpo:typeof c==="string"?c:"",cabecalhos:h})})};'
+        + '})();<\/script>';
 
     function resolver(base, rel) {
         if (/^(?:[a-z]+:)?\/\//i.test(rel) || /^(?:data|blob|mailto):/i.test(rel)) return null;
@@ -259,7 +277,7 @@
     }
 
     /* ---------- comentar / descomentar (Ctrl+/) ---------- */
-    const COMENT = { js: '//', java: '//', php: '//', hash: '#', sql: '--', css: ['/*', '*/'], html: ['<\!--', '-->'], md: ['<\!--', '-->'], blade: ['{{--', '--}}'] };
+    const COMENT = { js: '//', java: '//', php: '//', hash: '#', sql: '--', lua: '--', css: ['/*', '*/'], html: ['<\!--', '-->'], md: ['<\!--', '-->'], blade: ['{{--', '--}}'] };
     function comentar(ta, grupo) {
         const m = COMENT[grupo];
         if (!m) return false;
@@ -322,6 +340,10 @@
             case 'cs': return 'using System;\n\nclass ' + Cap + '\n{\n    static void Main()\n    {\n        Console.WriteLine("Olá!");\n    }\n}\n';
             case 'py': return 'def main():\n    print("Olá!")\n\n\nif __name__ == "__main__":\n    main()\n';
             case 'go': return 'package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Olá!")\n}\n';
+            case 'rb': return 'def saudacao(nome)\n  "Olá, #{nome}!"\nend\n\nputs saudacao("mundo")\n';
+            case 'lua': return 'local function saudacao(nome)\n  return "Olá, " .. nome .. "!"\nend\n\nprint(saudacao("mundo"))\n';
+            case 'ts': return 'function saudacao(nome: string): string {\n  return `Olá, ${nome}!`;\n}\n\nconsole.log(saudacao("mundo"));\n';
+            case 'tsx': case 'jsx': return 'const Ola = ({ nome }' + (l === 'tsx' ? ': { nome: string }' : '') + ') => <h1>Olá, {nome}!</h1>;\n\nconsole.log(Ola({ nome: "mundo" }));\n';
             case 'sql': return '-- ' + nomeDe(c) + '\n';
             case 'html': case 'htm': return '<!doctype html>\n<html lang="pt-BR">\n<head>\n  \n  <title>' + Cap + '</title>\n</head>\n<body>\n  \n</body>\n</html>\n';
             default: return '';
@@ -359,6 +381,7 @@
         let pend = [];                  // caminhos a apagar do disco no próximo "Salvar na pasta"
         const gravados = new Map();     // caminho -> texto gravado por último no disco
         let timer = 0, token = 0, ouvinte = null;
+        let filaLv = Promise.resolve();   // requisições ao Laravel do navegador, uma de cada vez
         let htmlId = null, timerPrev = 0; // página aberta na prévia (para atualizar sozinha ao editar)
         let timerAuto = 0;                // auto-salvamento na pasta do computador
         const cacheR = { k: '', t: null, v: '' }, cacheN = { n: -1, v: '' }; // realce e numeração só recalculam quando mudam
@@ -368,6 +391,9 @@
             saida: [], srcdoc: '', painel: null, disco: '', movendo: false, menuCtx: null,
             // motores já usados nesta página (a primeira execução de cada um avisa que vai baixar) e a aba Banco (SQL)
             motorUsado: {}, banco: { tabelas: [], sel: null, dados: null },
+            // app Laravel aberto na prévia: endereço atual, histórico (voltar), sessão (flash, old(), $errors, login) e a resposta
+            lv: { ativo: false, url: '/', campo: '/', hist: [], sessao: {}, carregando: false, status: 0, raiz: '' },
+            linguaJs: 'js',
             busca: { on: false, q: '', r: '', todos: false, caso: false, regex: false },
             pal: { on: false, modo: 'arq', q: '', i: 0 },
             suporteDisco: typeof window.showDirectoryPicker === 'function',
@@ -378,7 +404,10 @@
                 ouvinte = ev => {
                     const d = ev.data;
                     if (!d || d.wfIde !== token || ev.source !== (this.$refs.frame && this.$refs.frame.contentWindow)) return;
-                    this.logar(d.t, d.m, 'js');
+                    // app Laravel na prévia: clique em link / envio de formulário vira a próxima requisição; fetch() vira uma requisição à parte
+                    if (d.t === 'nav') { this.rodarLaravel({ metodo: d.metodo, url: d.url, corpo: d.corpo || '' }); return; }
+                    if (d.t === 'fetch') { this.fetchLaravel(d, ev.source); return; }
+                    this.logar(d.t, d.m, this.lv.ativo ? 'laravel' : (this.linguaJs || 'js'));
                 };
                 window.addEventListener('message', ouvinte);
                 this.$nextTick(() => { this.sincronizar(); this.cursor(); });
@@ -496,7 +525,7 @@
                 I.ativo = id;
                 this.sel = f.caminho;
                 // Python, PHP, SQL e Blade: o motor começa a baixar em segundo plano, para o ▶ Executar ser rápido
-                if (window.WFMotores) { const l = lingua(f.caminho); setTimeout(() => window.WFMotores.aquecer(l), 1200); }
+                if (window.WFMotores) { const l = this.doLaravel(f) ? 'laravel' : lingua(f.caminho); setTimeout(() => window.WFMotores.aquecer(l), 1200); }
                 this.$nextTick(() => {
                     const ta = this.$refs.ta;
                     if (mudou && ta) { ta.scrollTop = 0; ta.scrollLeft = 0; ta.setSelectionRange(0, 0); }
@@ -1089,7 +1118,7 @@
             },
             podeExecutar() {
                 const f = this.arqAtivo(), l = f ? lingua(f.caminho) : '';
-                return ['js', 'mjs', 'py', 'php', 'sql', 'blade'].includes(l) || !!REMOTO[l] || this.htmls().length > 0;
+                return !!NAVEGADOR[l] || !!REMOTO[l] || this.htmls().length > 0 || (!!f && this.doLaravel(f));
             },
             /** Uma linha no console; erros ganham uma dica em português do porquê. */
             logar(t, m, l) {
@@ -1107,8 +1136,8 @@
                 if (!window.WFDicas) return true;
                 const l = lingua(f.caminho);
                 if (l === 'blade') { const p = window.WFDicas.conferirBlade(f.texto); if (p) { this.logar('warn', 'Atenção em ' + f.caminho + ': ' + p, l); } return true; }
-                if (!['js', 'mjs', 'py', 'php', 'sql'].includes(l)) return true;
-                const p = window.WFDicas.conferirPares(f.texto, l);
+                if (!['js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'py', 'php', 'sql', 'rb', 'lua'].includes(l)) return true;
+                const p = window.WFDicas.conferirPares(f.texto, JS_NODE.includes(l) ? 'js' : l);
                 if (p) { this.logar('error', f.caminho + ', linha ' + p.linha + ': ' + p.msg, l); this.saida.push({ t: 'dica', m: 'Corrija e rode de novo. Dica: clique numa chave/parêntese para ver o par dele; Ctrl+G vai direto para a linha ' + p.linha + '.' }); return false; }
                 return true;
             },
@@ -1123,6 +1152,7 @@
             ehLaravel(f) { return /(\bnamespace\s+App\\|use\s+Illuminate\\|\bRoute::|\bSchema::|extends\s+(Model|Controller|Migration)\b)/.test(f.texto); },
             async rodarPhp(f) {
                 if (!this.motorPronto()) return;
+                if (this.doLaravel(f)) return this.rodarLaravel({ url: this.lv.ativo ? this.lv.url : '/' });
                 const n = ++token;
                 htmlId = null; this.saida = []; this.painel = 'saida';
                 if (!this.conferirAntes(f)) return;
@@ -1143,8 +1173,9 @@
             },
             /** Confere a sintaxe de todos os .php do projeto (token_get_all com TOKEN_PARSE acusa o erro e a linha). */
             async verificarPhp(f, n) {
-                const phps = I.arquivos.filter(x => ['php', 'blade'].includes(lingua(x.caminho)) && lingua(x.caminho) === 'php');
-                this.logar('info', 'Arquivos do Laravel (controllers, models, rotas, migrations) precisam do framework para rodar. Conferindo a sintaxe de ' + phps.length + ' arquivo(s) PHP… Para ver uma página, abra uma view .blade.php e clique em ▶ Executar.');
+                const phps = I.arquivos.filter(x => lingua(x.caminho) === 'php');
+                this.logar('info', 'Este arquivo é do Laravel, mas o projeto não tem routes/web.php: sem rotas o app não abre. Conferindo a sintaxe de ' + phps.length + ' arquivo(s) PHP…');
+                this.saida.push({ t: 'dica', m: 'Para rodar o app aqui no navegador, crie routes/web.php (+ Laravel → Rotas) ou comece pelo “+ Laravel → Projeto completo”.' });
                 const lista = JSON.stringify(phps.map(x => x.caminho));
                 const codigo = '<' + '?php foreach (json_decode(' + JSON.stringify(lista) + ', true) as $a) { try { token_get_all(file_get_contents("/app/" . $a), TOKEN_PARSE); echo "✓ $a\\n"; } catch (\\ParseError $e) { echo "✗ $a, linha " . $e->getLine() . ": " . $e->getMessage() . "\\n"; } }';
                 await window.WFMotores.rodar({ acao: 'php', arqs: this.arquivosTexto(), codigo }, d => {
@@ -1156,27 +1187,161 @@
             /** View Blade: converte as views do projeto para PHP e mostra a página com os dados de dados.json. */
             async rodarBlade(f) {
                 if (!this.motorPronto()) return;
+                if (this.doLaravel(f)) return this.rodarLaravel({ url: this.lv.ativo ? this.lv.url : '/' });
                 const n = ++token;
-                htmlId = f.id; this.saida = [];
+                htmlId = null; this.saida = []; this.lv.ativo = false;
                 this.conferirAntes(f);
-                const M = window.WFMotores, arqs = { '__preludio.php': M.PRELUDIO };
-                I.arquivos.filter(x => lingua(x.caminho) === 'blade').forEach(x => { arqs['__views/' + M.nomeView(x.caminho) + '.php'] = M.compilarBlade(x.texto); });
+                const M = window.WFMotores, arqs = {};
+                I.arquivos.forEach(x => {
+                    if (lingua(x.caminho) === 'blade') arqs['__views/' + M.nomeView(x.caminho) + '.php'] = M.compilarBlade(x.texto);
+                    else if (!BINARIO.test(x.caminho)) arqs[x.caminho] = x.texto;
+                });
                 const dadosArq = I.arquivos.find(x => x.caminho === f.caminho.replace(/\.blade\.php$/i, '.json')) || I.arquivos.find(x => nomeDe(x.caminho) === 'dados.json');
-                let dados = '{}';
-                if (dadosArq) { try { JSON.parse(dadosArq.texto); dados = dadosArq.texto; } catch (e) { this.logar('error', nomeDe(dadosArq.caminho) + ' não é um JSON válido: ' + e.message); this.saida.push({ t: 'dica', m: 'No JSON, os nomes vão entre aspas duplas ("nome": "Ana") e não pode sobrar vírgula no último item.' }); } }
+                let dados = {};
+                if (dadosArq) { try { dados = JSON.parse(dadosArq.texto) || {}; } catch (e) { this.logar('error', nomeDe(dadosArq.caminho) + ' não é um JSON válido: ' + e.message); this.saida.push({ t: 'dica', m: 'No JSON, os nomes vão entre aspas duplas ("nome": "Ana") e não pode sobrar vírgula no último item.' }); } }
                 else this.logar('info', 'Dica: crie um arquivo dados.json com as variáveis da view (ex.: {"titulo": "Olá"}) para ver a página com dados.');
-                arqs['__dados.json'] = dados;
                 this.logar('info', 'Renderizando ' + f.caminho + ' com o PHP do navegador…' + (this.motorUsado.php ? '' : ' (a primeira vez baixa o PHP, ~12 MB)'));
                 const t0 = performance.now();
-                let html = '';
-                const codigo = '<' + '?php require "/app/__preludio.php"; $__d = json_decode(file_get_contents("/app/__dados.json"), true) ?: []; echo $__blade->incluir(' + JSON.stringify(M.nomeView(f.caminho)) + ', $__d);';
-                await M.rodar({ acao: 'php', arqs, codigo, html: true }, d => { if (n !== token) return; if (d.t === 'html') html = d.m || ''; else this.logar(d.t, d.m, 'blade'); });
+                let r = null, solto = '';
+                try { arqs['__laravel.php'] = await M.nucleoLaravel(); } catch (e) { this.logar('error', e.message); this.painel = 'saida'; return; }
+                await M.rodar({ acao: 'laravel', arqs, req: { modo: 'previa', view: M.nomeView(f.caminho), dados, db: '/tmp/wf-previa-' + b.id + '.sqlite' } }, d => {
+                    if (n !== token) return;
+                    if (d.t === 'laravel') { r = d.resp; solto = d.saida || ''; } else this.logar(d.t, d.m, 'blade');
+                });
                 this.motorUsado.php = true;
                 if (n !== token) return;
-                const erroNaPagina = /<b>(?:Fatal error|Parse error|Warning)<\/b>|(?:Fatal error|Parse error|Warning): /i.exec(html);
-                if (erroNaPagina) this.logar('error', html.slice(erroNaPagina.index).replace(/<[^>]+>/g, '').trim().slice(0, 600).replace(/\/app\/__views\/([\w.]+)\.php/g, 'view $1'), 'blade');
-                this.mostrarHtml(html, n);
+                if (!r) { this.logar('error', 'O PHP parou antes de terminar: ' + solto.replace(/<[^>]+>/g, '').trim().slice(0, 800), 'blade'); this.painel = 'saida'; return; }
+                (r.logs || []).forEach(([t, m]) => this.logar(t, m, 'blade'));
+                this.mostrarHtml(r.corpo || '', n);
                 this.logar('info', '— página pronta · ' + Math.round(performance.now() - t0) + ' ms —');
+            },
+
+            /* ---------- Laravel do navegador (public/js/ide-mini-laravel.txt) ---------- */
+            /** Pasta do projeto onde está o Laravel ('' = raiz). null = não é um projeto Laravel (sem routes/web.php). */
+            raizLaravel() {
+                const r = I.arquivos.find(x => /(^|\/)routes\/web\.php$/.test(x.caminho));
+                return r ? r.caminho.slice(0, -'routes/web.php'.length) : null;
+            },
+            /** O arquivo faz parte do app Laravel (rodar ele = abrir o app na prévia)? */
+            doLaravel(f) {
+                const r = this.raizLaravel();
+                if (r === null || !f || !f.caminho.startsWith(r)) return false;
+                const c = f.caminho.slice(r.length);
+                return /^(app|routes|database|config|resources|bootstrap|lang)\//.test(c) || ['.env', 'composer.json', 'artisan'].includes(c) || /^public\/.+\.(css|js)$/.test(c);
+            },
+            arquivosDoLaravel() {
+                const r = this.raizLaravel() || '', a = {};
+                I.arquivos.forEach(x => { if (x.caminho.startsWith(r) && !BINARIO.test(x.caminho)) a[x.caminho.slice(r.length)] = x.texto; });
+                return a;
+            },
+            normalizarUrl(u) {
+                u = String(u || '/').trim().replace(/^https?:\/\/localhost(?::\d+)?/i, '');
+                return u.startsWith('/') ? u : '/' + u;
+            },
+            /** Uma requisição ao app (seguindo redirecionamentos). As requisições vão em fila: o PHP atende uma por vez. */
+            requisitarLaravel(req, aoLog) {
+                const fazer = async () => {
+                    const M = window.WFMotores;
+                    const arqs = await M.arquivosLaravel(this.arquivosDoLaravel());
+                    let metodo = (req.metodo || 'GET').toUpperCase(), url = this.normalizarUrl(req.url), corpo = req.corpo || '', r = null;
+                    for (let salto = 0; salto < 6; salto++) {
+                        let solto = '';
+                        r = null;
+                        await M.rodar({ acao: 'laravel', arqs, req: { metodo, url, corpo, cabecalhos: copia(req.cabecalhos), sessao: copia(this.lv.sessao), db: '/tmp/wf-laravel-' + b.id + '.sqlite' } }, d => {
+                            if (d.t === 'laravel') { r = d.resp; solto = d.saida || ''; } else aoLog(d.t, d.m);
+                        });
+                        this.motorUsado.php = true;
+                        if (!r) return { erro: 'O PHP parou antes de responder: ' + solto.replace(/<[^>]+>/g, '').trim().slice(0, 800) };
+                        this.lv.sessao = r.sessao || {};
+                        (r.logs || []).forEach(([t, m]) => aoLog(t, m));
+                        aoLog('info', metodo + ' ' + url + ' → ' + r.status + (r.rota ? ' (' + r.rota + ')' : ''));
+                        if (!(r.local && r.status >= 300 && r.status < 400)) break;
+                        const u = /^https?:\/\/localhost(?::\d+)?(\/[^#]*)?/i.exec(r.local) || (r.local.startsWith('/') ? [0, r.local] : null);
+                        if (!u) { aoLog('warn', 'O app redirecionou para fora dele: ' + r.local); break; }
+                        metodo = 'GET'; url = this.normalizarUrl(u[1] || '/'); corpo = '';
+                    }
+                    return { r, url };
+                };
+                const p = filaLv.then(fazer, fazer);
+                filaLv = p.catch(() => {});
+                return p;
+            },
+            /** Abre (ou navega) o app Laravel na prévia. */
+            async rodarLaravel(req, opc = {}) {
+                if (!this.motorPronto()) return;
+                const n = ++token, lv = this.lv;
+                htmlId = null;
+                const navegando = lv.ativo;
+                lv.ativo = true; lv.carregando = true;
+                if (!opc.manterSaida) this.saida = [];
+                if (!this.motorUsado.php) this.logar('info', 'Abrindo o app Laravel no PHP do navegador… (a primeira vez baixa o PHP, ~12 MB; o banco é criado pelas migrations)');
+                const t0 = performance.now();
+                let res;
+                try { res = await this.requisitarLaravel(req, (t, m) => { if (n === token) this.logar(t, m, 'laravel'); }); }
+                catch (e) { res = { erro: String(e && e.message || e) }; }
+                if (n !== token) return;
+                lv.carregando = false;
+                if (res.erro) { this.logar('error', res.erro, 'laravel'); this.painel = 'saida'; return; }
+                if (navegando && !opc.semHist && res.url !== lv.url) { lv.hist.push(lv.url); if (lv.hist.length > 50) lv.hist.shift(); }
+                lv.url = res.url; lv.campo = res.url; lv.status = res.r.status;
+                this.mostrarLaravel(res.r, n);
+                this.logar('info', '— ' + Math.round(performance.now() - t0) + ' ms —');
+            },
+            mostrarLaravel(r, n) {
+                const tipo = r.tipo || 'text/html';
+                let html = r.corpo || '';
+                if (tipo !== 'text/html') {
+                    let txt = html;
+                    if (/json/.test(tipo)) { try { txt = JSON.stringify(JSON.parse(html), null, 2); } catch (e) { /* mostra como veio */ } }
+                    html = '<!doctype html><meta char' + 'set="utf-8"><pre style="margin:0;padding:1rem;font:13px/1.5 ui-monospace,monospace;white-space:pre-wrap;word-break:break-word">' + esc(txt) + '</pre>';
+                }
+                const extra = shim(n) + navLaravel(n, this.lv.url);
+                const temHead = /<head(?:\s[^>]*)?>/i, temDoctype = /^\s*<!doctype[^>]*>/i;
+                if (temHead.test(html)) html = html.replace(temHead, m => m + extra);
+                else if (temDoctype.test(html)) html = html.replace(temDoctype, m => m + extra);
+                else html = extra + html;
+                if (this.painel !== 'previa' && this.altPainel < 340) { this.altPainel = 340; this.gravarLayout(); }
+                this.srcdoc = (temDoctype.test(html) ? '' : '<!doctype html><meta char' + 'set="utf-8">') + html;
+                this.painel = 'previa';
+            },
+            /** fetch() feito pela página do app: vira uma requisição ao Laravel e a resposta volta para a página. */
+            async fetchLaravel(d, janela) {
+                let res;
+                try { res = await this.requisitarLaravel({ metodo: d.metodo, url: d.url, corpo: d.corpo, cabecalhos: Object.assign({ accept: 'application/json', 'x-requested-with': 'XMLHttpRequest' }, d.cabecalhos || {}) }, (t, m) => this.logar(t, m, 'laravel')); }
+                catch (e) { res = { erro: String(e && e.message || e) }; }
+                const r = res.r || { status: 500, corpo: res.erro || 'erro', tipo: 'text/plain' };
+                try { janela.postMessage({ wfIdeResp: d.wfIde, id: d.id, status: r.status || 200, corpo: r.corpo || '', tipo: r.tipo || 'text/plain' }, '*'); } catch (e) { /* a prévia já mudou */ }
+            },
+            irPara(url) { if (!url) return; this.rodarLaravel({ url }); },
+            voltarLaravel() { const u = this.lv.hist.pop(); if (u) this.rodarLaravel({ url: u }, { semHist: true }); },
+            recarregarLaravel() { this.rodarLaravel({ url: this.lv.url }, { semHist: true }); },
+            /** Comandos do artisan (route:list, migrate:fresh --seed, tinker …) no Laravel do navegador. */
+            async artisan(cmd, silencioso) {
+                if (!this.motorPronto()) return null;
+                if (cmd === undefined) {
+                    cmd = prompt('Comando do artisan (list mostra todos):\nex.: route:list · migrate:fresh --seed · db:seed · tinker App\\Models\\User::count()', this.ultimoArtisan || 'route:list');
+                    if (!cmd) return null;
+                    this.ultimoArtisan = cmd = cmd.trim().replace(/^(php\s+)?artisan\s+/, '');
+                }
+                const M = window.WFMotores;
+                const fazer = async () => {
+                    const arqs = await M.arquivosLaravel(this.arquivosDoLaravel());
+                    let r = null, solto = '';
+                    await M.rodar({ acao: 'laravel', arqs, req: { modo: 'artisan', cmd, sessao: copia(this.lv.sessao), db: '/tmp/wf-laravel-' + b.id + '.sqlite' } }, d => { if (d.t === 'laravel') { r = d.resp; solto = d.saida || ''; } else if (!silencioso) this.logar(d.t, d.m, 'laravel'); });
+                    this.motorUsado.php = true;
+                    return r || { erro: solto };
+                };
+                const p = filaLv.then(fazer, fazer);
+                filaLv = p.catch(() => {});
+                const r = await p;
+                if (silencioso) return r;
+                this.painel = 'saida';
+                this.logar('info', '$ php artisan ' + cmd);
+                if (r.erro !== undefined && !r.corpo) { this.logar('error', 'O PHP parou: ' + String(r.erro).replace(/<[^>]+>/g, '').trim().slice(0, 800), 'laravel'); return r; }
+                (r.logs || []).forEach(([t, m]) => this.logar(t, m, 'laravel'));
+                String(r.corpo || '').replace(/\n$/, '').split('\n').forEach(l => this.logar(r.status >= 500 ? 'error' : 'log', l.replace(/<[^>]+>/g, ''), 'laravel'));
+                if (/^(migrate|db:)/.test(cmd) && this.lv.ativo) { this.atualizarBanco(); }
+                return r;
             },
             mostrarHtml(html, n) {
                 if (this.painel !== 'previa' && this.altPainel < 340) { this.altPainel = 340; this.gravarLayout(); }
@@ -1204,15 +1369,18 @@
             async verTabela(nome) {
                 if (!this.motorPronto()) return;
                 this.banco.sel = nome; this.banco.dados = null;
+                if (this.lv.ativo) { const r = await this.artisan('wf:tabela ' + nome, true); try { this.banco.dados = JSON.parse(r.corpo); } catch (e) { this.logar('error', 'Não consegui ler a tabela ' + nome + '.'); } return; }
                 await window.WFMotores.rodar({ acao: 'sqltabela', projeto: b.id, tabela: nome }, d => { if (d.t === 'tabela') this.banco.dados = d; else this.receberSql(d); });
             },
             async atualizarBanco() {
                 if (!this.motorPronto()) return;
+                if (this.lv.ativo) { const r = await this.artisan('wf:esquema', true); try { this.banco.tabelas = JSON.parse(r.corpo); } catch (e) { this.banco.tabelas = []; } return; }
                 await window.WFMotores.rodar({ acao: 'sqlesquema', projeto: b.id }, d => this.receberSql(d));
             },
             /** Apaga o banco e roda todos os .sql do projeto em ordem de nome (ex.: 01_tabelas.sql, 02_dados.sql). */
             async recriarBanco() {
                 if (!this.motorPronto()) return;
+                if (this.lv.ativo) { this.banco.sel = null; this.banco.dados = null; await this.artisan('migrate:fresh --seed'); this.painel = 'banco'; return this.atualizarBanco(); }
                 const n = ++token;
                 this.saida = []; this.banco.sel = null; this.banco.dados = null;
                 await window.WFMotores.rodar({ acao: 'sqlreset', projeto: b.id }, d => this.receberSql(d, n));
@@ -1224,21 +1392,46 @@
                 if (!sqls.length) this.logar('info', 'Nenhum arquivo .sql no projeto.');
             },
             temSql() { return I.arquivos.some(x => lingua(x.caminho) === 'sql'); },
-            /** Programa travado (laço infinito em Python/PHP): recria o motor. */
+            temBanco() { return this.lv.ativo || this.temSql(); },
+            /** Programa travado (laço infinito em Python/PHP/Ruby): recria o motor. */
             pararMotores() {
                 if (window.WFMotores) window.WFMotores.reiniciar();
                 this.motorUsado = {};
                 ++token;
+                filaLv = Promise.resolve();
+                this.lv.carregando = false;
                 this.srcdoc = '';
-                this.logar('info', 'Execução interrompida. Os motores serão carregados de novo na próxima execução.');
+                this.logar('info', 'Execução interrompida. Os motores serão carregados de novo na próxima execução' + (this.lv.ativo ? ' (o banco do app Laravel recomeça das migrations).' : '.'));
             },
-            /** Arquivos prontos do Laravel: controller, model, migration, rota, view e layout. */
+            /** Cria o projeto Laravel de exemplo (lista de tarefas) que roda aqui no navegador. */
+            projetoLaravel() {
+                const M = window.WFMotores;
+                if (!M) { this.aviso('Recarregue a página para usar os modelos do Laravel.'); return; }
+                const arqs = M.projetoLaravel();
+                const ja = arqs.filter(([c]) => I.arquivos.some(x => x.caminho === c)).length;
+                if (ja && !confirm(ja + ' arquivo(s) do projeto de exemplo já existem e serão substituídos. Continuar?')) return;
+                if (I.arquivos.length + arqs.length - ja > MAX_ARQ) { this.aviso('Limite de ' + MAX_ARQ + ' arquivos neste projeto.'); return; }
+                let abrir = null;
+                for (const [c, texto] of arqs) {
+                    const x = I.arquivos.find(y => y.caminho === c);
+                    if (x) x.texto = texto; else I.arquivos.push({ id: uid(), caminho: c, texto });
+                    if (c === 'routes/web.php') abrir = I.arquivos.find(y => y.caminho === c);
+                }
+                this.fechadas = [];
+                this.lv.sessao = {}; this.lv.hist = [];
+                if (abrir) this.abrir(abrir.id);
+                this.agendarAuto();
+                this.artisan('migrate:fresh --seed', true).then(() => this.rodarLaravel({ url: '/' }));
+                this.aviso('Projeto Laravel criado. Ele já abre na Prévia: clique nos links e use os formulários.');
+            },
+            /** Arquivos prontos do Laravel: projeto completo, controller, model, migration, rota, view, layout… */
             novoLaravel() {
-                const tipos = { 1: 'controller', 2: 'model', 3: 'migration', 4: 'rota', 5: 'view', 6: 'layout' };
-                const t = prompt('Que arquivo Laravel criar?\n1 Controller\n2 Model\n3 Migration (tabela)\n4 Rotas (routes/web.php)\n5 View Blade (com dados de exemplo)\n6 Layout Blade (layouts/app)', '5');
+                const tipos = { 0: 'projeto', 1: 'controller', 2: 'model', 3: 'migration', 4: 'rota', 5: 'view', 6: 'layout', 7: 'seeder', 8: 'factory', 9: 'request', 10: 'componente' };
+                const t = prompt('Que arquivo Laravel criar?\n0 Projeto completo que roda aqui (tarefas: CRUD, banco, validação)\n1 Controller\n2 Model\n3 Migration (tabela)\n4 Rotas (routes/web.php)\n5 View Blade\n6 Layout Blade (layouts/app)\n7 Seeder (DatabaseSeeder)\n8 Factory\n9 Form Request (validação)\n10 Componente Blade (<x-...>)', this.raizLaravel() === null ? '0' : '1');
                 const tipo = tipos[String(t || '').trim()];
                 if (!tipo) return;
-                const nome = ['rota', 'layout'].includes(tipo) ? 'Post' : prompt('Nome (ex.: Post, Cliente, Produto):', 'Post');
+                if (tipo === 'projeto') return this.projetoLaravel();
+                const nome = ['rota', 'layout'].includes(tipo) ? 'Post' : prompt(tipo === 'componente' ? 'Nome do componente (ex.: Alerta, Botao):' : 'Nome (ex.: Post, Cliente, Produto):', tipo === 'componente' ? 'Alerta' : 'Post');
                 if (!nome) return;
                 const novo = window.WFMotores ? window.WFMotores.laravel(tipo, nome) : null;
                 if (!novo) { this.aviso('Recarregue a página para usar os modelos do Laravel.'); return; }
@@ -1257,26 +1450,36 @@
                 if (tipo === 'view') {
                     const l = window.WFMotores.laravel('layout');
                     criar(l.caminho, l.texto);
-                    criar('dados.json', window.WFMotores.DADOS_EXEMPLO.replace(/posts/g, novo.caminho.split('/').slice(-2, -1)[0] || 'posts'));
+                    if (this.raizLaravel() === null) criar('dados.json', window.WFMotores.DADOS_EXEMPLO.replace(/posts/g, novo.caminho.split('/').slice(-2, -1)[0] || 'posts'));
                 }
+                if (tipo === 'controller' && !I.arquivos.some(x => /(^|\/)app\/Http\/Controllers\/Controller\.php$/.test(x.caminho))) criar('app/Http/Controllers/Controller.php', '<' + '?php\n\nnamespace App\\Http\\Controllers;\n\nabstract class Controller\n{\n    //\n}\n');
                 this.fechadas = this.fechadas.filter(p => !f.caminho.startsWith(p + '/'));
                 this.abrir(f.id);
                 this.agendarAuto();
-                this.aviso(tipo === 'view' ? 'View criada com layout e dados.json. Clique em ▶ Executar para ver a página.' : 'Arquivo criado: ' + f.caminho);
+                this.aviso(tipo === 'view' ? 'View criada com layout' + (this.raizLaravel() === null ? ' e dados.json' : '') + '. Clique em ▶ Executar para ver a página.' : 'Arquivo criado: ' + f.caminho);
+            },
+            /** Roda o arquivo pela linguagem dele; false se a linguagem não roda. */
+            rodarLingua(f) {
+                const l = lingua(f.caminho);
+                if (l === 'py') return this.rodarPy(f);
+                if (l === 'blade') return this.rodarBlade(f);
+                if (l === 'php') return this.rodarPhp(f);
+                if (l === 'sql') return this.rodarSql(f);
+                if (l === 'rb') return this.rodarRb(f);
+                if (l === 'lua') return this.rodarLua(f);
+                if (JS_NODE.includes(l)) return this.rodarJs(f);
+                if (REMOTO[l]) return this.rodarRemoto(f);
+                return false;
             },
             executar() {
-                const f = this.arqAtivo(), e = f ? extDe(f.caminho) : '';
+                const f = this.arqAtivo();
+                // projeto Laravel: qualquer arquivo do app abre o app na prévia, no endereço atual
+                if (f && this.doLaravel(f)) return this.rodarLaravel({ url: this.lv.ativo ? this.lv.url : '/' });
+                this.lv.ativo = false;
                 const pagina = this.paginaPara(f);
                 if (pagina) return this.rodarHtml(pagina);
-                // Python, PHP, SQL e views Blade rodam no navegador (public/js/ide-motores.js)
-                if (f && e === 'py') return this.rodarPy(f);
-                if (f && lingua(f.caminho) === 'blade') return this.rodarBlade(f);
-                if (f && e === 'php') return this.rodarPhp(f);
-                if (f && e === 'sql') return this.rodarSql(f);
-                // nenhum HTML usa este arquivo: JavaScript solto roda sozinho, só com o console
-                if (f && (e === 'js' || e === 'mjs')) return this.rodarJs(f);
-                // Java, PHP, C, Go…: executa no servidor Judge0
-                if (f && REMOTO[lingua(f.caminho)]) return this.rodarRemoto(f);
+                // Python, PHP, SQL, Ruby, Lua, Blade e JS/TS rodam no navegador (public/js/ide-motores.js); Java, C, Go… no Judge0
+                if (f) { const r = this.rodarLingua(f); if (r !== false) return r; }
                 // cabeçalhos .h e scripts de build não rodam isolados
                 if (f && NAO_RODA.has(lingua(f.caminho))) {
                     this.aviso('Este tipo de arquivo não roda sozinho. Execute o arquivo principal do projeto.');
@@ -1302,15 +1505,16 @@
             rodavel(n) {
                 if (!n || n.k !== 'a') return false;
                 const l = lingua(n.caminho);
-                return ['js', 'mjs', 'py'].includes(l) || !!REMOTO[l] || ehHtml(n.caminho);
+                return !!NAVEGADOR[l] || !!REMOTO[l] || ehHtml(n.caminho) || this.doLaravel(n.arq || { caminho: n.caminho });
             },
             itensCtx() {
                 const m = this.menuCtx;
                 if (!m) return [];
                 const n = m.n, out = [];
                 if (n && n.k === 'a') {
-                    const ok = this.rodavel(n), l = lingua(n.caminho), e = extDe(n.caminho);
-                    out.push({ id: 'exec', nome: '▶ Executar', off: !ok, dica: ok ? (REMOTO[l] ? 'servidor' : e === 'py' ? 'Python' : e === 'js' || e === 'mjs' ? 'JavaScript' : 'Prévia') : 'não roda aqui' });
+                    const ok = this.rodavel(n), l = lingua(n.caminho);
+                    const dica = this.doLaravel({ caminho: n.caminho }) ? 'app Laravel' : REMOTO[l] ? 'servidor' : ehHtml(n.caminho) ? 'Prévia' : NAVEGADOR[l] || 'Prévia';
+                    out.push({ id: 'exec', nome: '▶ Executar', off: !ok, dica: ok ? dica : 'não roda aqui' });
                     out.push({ id: 'abrir', nome: 'Abrir' });
                 } else if (n) {
                     out.push({ id: 'abrir', nome: n.fechada ? 'Expandir' : 'Recolher' });
@@ -1346,14 +1550,11 @@
                 const f = n && I.arquivos.find(x => x.caminho === n.caminho);
                 if (!f) return;
                 this.abrir(f.id);
-                const e = extDe(f.caminho);
+                if (this.doLaravel(f)) return this.rodarLaravel({ url: this.lv.ativo ? this.lv.url : '/' });
+                this.lv.ativo = false;
                 if (ehHtml(f.caminho)) return this.rodarHtml(f);
-                if (e === 'py') return this.rodarPy(f);
-                if (lingua(f.caminho) === 'blade') return this.rodarBlade(f);
-                if (e === 'php') return this.rodarPhp(f);
-                if (e === 'sql') return this.rodarSql(f);
-                if (e === 'js' || e === 'mjs') return this.rodarJs(f);
-                if (REMOTO[lingua(f.caminho)]) return this.rodarRemoto(f);
+                const r = this.rodarLingua(f);
+                if (r !== false) return r;
                 this.executar();
             },
 
@@ -1370,15 +1571,67 @@
                 this.motorUsado.py = true;
                 if (n === token) this.logar('info', '— fim · ' + Math.round(performance.now() - t0) + ' ms —');
             },
-            rodarJs(f) {
+            /** JavaScript / TypeScript "estilo Node" na prévia: require() e import entre os arquivos do projeto, module.exports,
+                fs/path/events/readline… e pacotes do npm (baixados do esm.sh). TS, TSX, JSX e arquivos com import/export
+                passam antes pelo compilador do TypeScript (só remove os tipos: não confere tipos). */
+            async rodarJs(f) {
                 const n = ++token;
                 htmlId = null;
                 this.saida = [];
-                if (!this.conferirAntes(f)) { this.painel = 'saida'; return; }
-                this.srcdoc = '<!doctype html>' + shim(n) + '<script>' + f.texto.replace(/<\/script/gi, '<\\/script') + '<\/script>';
                 this.painel = 'saida';
+                if (!this.conferirAntes(f)) return;
+                const l = lingua(f.caminho), M = window.WFMotores;
+                this.linguaJs = ['ts', 'tsx'].includes(l) ? 'ts' : 'js';
+                if (!M) { this.srcdoc = '<!doctype html>' + shim(n) + '<script>' + f.texto.replace(/<\/script/gi, '<\\/script') + '<\/script>'; return; }
+                const mods = {}, compilar = {};
+                I.arquivos.forEach(x => {
+                    const e = lingua(x.caminho);
+                    if (!JS_NODE.includes(e)) return;
+                    if (['ts', 'tsx', 'jsx'].includes(e) || /^\s*(?:import\s*[\w{*'"]|export\s)/m.test(x.texto)) compilar[x.caminho] = x.texto;
+                    else mods[x.caminho] = x.texto;
+                });
+                if (Object.keys(compilar).length) {
+                    this.logar('info', this.motorUsado.ts ? 'Compilando TypeScript / import…' : 'Baixando o compilador do TypeScript (só na primeira vez, ~3 MB)…');
+                    let res = null;
+                    await M.rodar({ acao: 'ts', arqs: compilar }, d => { if (d.t === 'js') res = d; else if (n === token) this.logar(d.t, d.m, 'ts'); });
+                    this.motorUsado.ts = true;
+                    if (n !== token || !res) return;
+                    Object.assign(mods, res.mapa);
+                    (res.avisos || []).forEach(a => this.logar('error', a, 'ts'));
+                    if (res.avisos && res.avisos.length) return;
+                }
+                const npm = M.pacotesNpm(mods);
+                if (npm.length) this.logar('info', 'Pacotes do npm (baixados do esm.sh): ' + npm.join(', '));
+                const script = M.empacotarNode(mods, this.arquivosTexto(), f.caminho, npm);
+                this.srcdoc = '<!doctype html><meta char' + 'set="utf-8">' + shim(n) + '<script>' + script.replace(/<\/script/gi, '<\\/script') + '<\/script>';
             },
-            /** Java, Kotlin, C#, Go, Rust, C, C++, PHP, Ruby, SQL, Bash… executados no servidor Judge0 (um arquivo por vez). */
+            /** Ruby 3.4 no navegador (ruby.wasm): require_relative entre os .rb do projeto e gets pedindo a entrada. */
+            async rodarRb(f) {
+                if (!this.motorPronto()) return;
+                const n = ++token;
+                htmlId = null; this.saida = []; this.painel = 'saida';
+                if (!this.conferirAntes(f)) return;
+                this.logar('info', this.motorUsado.rb ? 'Rodando Ruby…' : 'Baixando o Ruby 3.4 (só na primeira vez, ~6 MB; depois fica guardado)…');
+                const t0 = performance.now(), arqs = {};
+                I.arquivos.forEach(x => { if (lingua(x.caminho) === 'rb') arqs[x.caminho] = x.texto; });
+                await window.WFMotores.rodar({ acao: 'rb', preludio: window.WFMotores.preludioRuby(arqs), main: f.caminho }, d => { if (n === token) this.logar(d.t, d.m, 'rb'); });
+                this.motorUsado.rb = true;
+                if (n === token) this.logar('info', '— fim · ' + Math.round(performance.now() - t0) + ' ms —');
+            },
+            /** Lua 5.3 no navegador (fengari): require "modulo" entre os .lua do projeto e io.read pedindo a entrada. */
+            async rodarLua(f) {
+                if (!this.motorPronto()) return;
+                const n = ++token;
+                htmlId = null; this.saida = []; this.painel = 'saida';
+                if (!this.conferirAntes(f)) return;
+                this.logar('info', this.motorUsado.lua ? 'Rodando Lua…' : 'Baixando o Lua (só na primeira vez, ~250 KB)…');
+                const t0 = performance.now(), arqs = {};
+                I.arquivos.forEach(x => { if (lingua(x.caminho) === 'lua') arqs[x.caminho] = x.texto; });
+                await window.WFMotores.rodar({ acao: 'lua', codigo: window.WFMotores.codigoLua(arqs, f.caminho) }, d => { if (n === token) this.logar(d.t, d.m, 'lua'); });
+                this.motorUsado.lua = true;
+                if (n === token) this.logar('info', '— fim · ' + Math.round(performance.now() - t0) + ' ms —');
+            },
+            /** Java, Kotlin, C#, Go, Rust, C, C++, Bash… executados no servidor Judge0 (um arquivo por vez). */
             async rodarRemoto(f) {
                 const l = REMOTO[lingua(f.caminho)];
                 if (!l) return;
@@ -1444,6 +1697,7 @@
                 const n = ++token;
                 if (this.painel !== 'previa' && this.altPainel < 340) { this.altPainel = 340; this.gravarLayout(); } // abre a prévia com altura útil
                 htmlId = f.id;
+                this.lv.ativo = false;
                 this.saida = [];
                 this.srcdoc = this.montarHtml(f, n);
                 this.painel = 'previa';
@@ -1454,6 +1708,12 @@
             },
             /** Com a prévia aberta, qualquer modificação no projeto atualiza a página sozinha. */
             atualizarPrevia() {
+                // app Laravel aberto: ao editar, a página atual é pedida de novo (só GET; um POST não é repetido)
+                if (this.lv.ativo && this.painel === 'previa') {
+                    clearTimeout(timerPrev);
+                    timerPrev = setTimeout(() => { if (this.lv.ativo && this.painel === 'previa' && !this.lv.carregando) this.rodarLaravel({ url: this.lv.url }, { semHist: true }); }, 900);
+                    return;
+                }
                 if (this.painel !== 'previa' || !htmlId) return;
                 clearTimeout(timerPrev);
                 timerPrev = setTimeout(() => {
@@ -1591,6 +1851,10 @@
     .wf-ide-painel-topo { flex-shrink: 0; display: flex; align-items: center; gap: .3rem; padding: .2rem .4rem; background: var(--superficie-2); border-bottom: 1px solid var(--linha); font-size: .72rem; }
     .wf-ide-painel-topo .t { padding: .1rem .5rem; border-radius: .3rem; cursor: pointer; color: var(--tinta-2); }
     .wf-ide-painel-topo .t.ativo { background: var(--superficie); color: var(--tinta); }
+    .wf-ide-lvbar { flex-shrink: 0; display: flex; align-items: center; gap: .3rem; padding: .2rem .4rem; border-bottom: 1px solid var(--linha); font-size: .72rem; }
+    .wf-ide-lvbar .campo { flex: 1; min-width: 4rem; padding: .1rem .4rem; font: 12px ui-monospace, monospace; }
+    .wf-ide-lvbar .st { font: 11px ui-monospace, monospace; padding: 0 .3rem; border-radius: .3rem; background: color-mix(in srgb, #16a34a 18%, transparent); }
+    .wf-ide-lvbar .st.ruim { background: color-mix(in srgb, #dc2626 22%, transparent); }
     .wf-ide-saida { flex: 1 1 0; min-height: 0; min-width: 0; overflow: auto; padding: .4rem .6rem; font: 12px/1.45 ui-monospace, Menlo, Consolas, monospace; }
     .wf-ide-log { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; border-bottom: 1px dashed var(--linha); padding: .1rem 0; }
     .wf-ide-log.l-error { color: #f87171; }
@@ -2243,7 +2507,7 @@
                                     <button type="button" class="btn-sec" @click="alternarBarra()" :aria-expanded="b.dados.ide.layout?.barra ?? true" title="Mostrar ou ocultar as opções">☰ Opções</button>
                                     <span class="contents" x-show="b.dados.ide.layout?.barra ?? true">
                                         <button type="button" class="btn-sec" @click="novoArquivo()" title="Novo arquivo (ex.: pagina.blade.php, Main.java)">+ Arquivo</button>
-                                        <button type="button" class="btn-sec" @click="novoLaravel()" title="Controller, model, migration, rotas, view Blade ou layout prontos">+ Laravel</button>
+                                        <button type="button" class="btn-sec" @click="novoLaravel()" title="Projeto Laravel completo que roda aqui, ou controller, model, migration, rotas, view, seeder, factory, componente…">+ Laravel</button>
                                         <button type="button" class="btn-sec" @click="novaPasta()" title="Nova pasta">+ Pasta</button>
                                         <label class="btn-sec" title="Enviar arquivos de texto do computador">Enviar
                                             <input type="file" multiple class="hidden" @change="enviar($event.target.files); $event.target.value = ''">
@@ -2257,7 +2521,8 @@
                                         <button type="button" class="btn-sec" x-show="suporteDisco" @click="abrirPasta()" title="Abrir uma pasta do computador (Chrome/Edge)">Abrir pasta</button>
                                         <button type="button" class="btn-sec" x-show="disco" x-cloak @click="salvarDisco()" :title="'Gravar tudo em ' + disco">Salvar na pasta</button>
                                         <span class="sep"></span>
-                                        <button type="button" class="btn-sec" x-show="podeExecutar()" @click="executar()" title="Executar o arquivo aberto (Ctrl+Enter): .js, .py, .php, .sql e views .blade.php rodam no navegador; Java, C, Go… no servidor">▶ Executar</button>
+                                        <button type="button" class="btn-sec" x-show="podeExecutar()" @click="executar()" title="Executar o arquivo aberto (Ctrl+Enter): JS/TS, Python, PHP, Laravel (projeto com routes/web.php), SQL, Ruby, Lua e Blade rodam no navegador; Java, C, Go… no servidor">▶ Executar</button>
+                                        <button type="button" class="btn-sec" x-show="raizLaravel() !== null" x-cloak @click="artisan()" title="php artisan no navegador: route:list, migrate:fresh --seed, db:seed, tinker…">Artisan</button>
                                         <button type="button" class="btn-sec" x-show="Object.keys(motorUsado).length" x-cloak @click="pararMotores()" title="Interrompe um programa travado (laço infinito) e recarrega os motores">■ Parar</button>
                                         <button type="button" class="btn-sec" @click="abrirBusca()" title="Buscar e substituir (Ctrl+F)">Buscar</button>
                                         <button type="button" class="btn-sec" @click="abrirPaleta('arq')" title="Abrir arquivo pelo nome (Ctrl+P)">Ir p/ arquivo</button>
@@ -2354,14 +2619,14 @@
                                             <div class="wf-ide-painel-topo">
                                                 <span class="t" :class="{ 'ativo': painel === 'saida' }" @click="painel = 'saida'">Console</span>
                                                 <span class="t" :class="{ 'ativo': painel === 'previa' }" @click="painel = 'previa'">Prévia</span>
-                                                <span class="t" x-show="temSql()" :class="{ 'ativo': painel === 'banco' }" @click="painel = 'banco'; atualizarBanco()">Banco</span>
+                                                <span class="t" x-show="temBanco()" :class="{ 'ativo': painel === 'banco' }" @click="painel = 'banco'; atualizarBanco()">Banco</span>
                                                 <span style="flex:1"></span>
                                                 <button type="button" class="link-prim" x-show="painel === 'previa'" @click="telaCheiaPrevia()" title="Prévia em tela cheia">Tela cheia</button>
                                                 <button type="button" class="link-prim" @click="limparSaida()">Limpar</button>
                                                 <button type="button" class="mini-btn" @click="fecharPainel()" aria-label="Fechar painel">✕</button>
                                             </div>
                                             <div class="wf-ide-saida" x-show="painel === 'saida'">
-                                                <p class="texto-2" x-show="!saida.length">Sem saída. Use console.log() (JS), print() (Python), System.out.println() (Java), echo (PHP)…</p>
+                                                <p class="texto-2" x-show="!saida.length">Sem saída. Use console.log() (JS/TS), print() (Python/Lua), puts (Ruby), echo (PHP), System.out.println() (Java)…</p>
                                                 <template x-for="(l, i) in saida" :key="i">
                                                     <div>
                                                         <template x-if="l.t !== 'tabela'">
@@ -2381,11 +2646,11 @@
                                             </div>
                                             <div class="wf-ide-saida wf-ide-banco" x-show="painel === 'banco'">
                                                 <div class="flex items-center gap-2 mb-2">
-                                                    <b>Tabelas do banco (SQLite do navegador)</b>
+                                                    <b x-text="lv.ativo ? 'Banco do app Laravel (SQLite do navegador)' : 'Tabelas do banco (SQLite do navegador)'"></b>
                                                     <span style="flex:1"></span>
-                                                    <button type="button" class="link-prim" @click="recriarBanco()" title="Apaga o banco e roda todos os .sql do projeto em ordem de nome">Recriar banco</button>
+                                                    <button type="button" class="link-prim" @click="recriarBanco()" :title="lv.ativo ? 'Apaga as tabelas e roda as migrations e o DatabaseSeeder de novo (migrate:fresh --seed)' : 'Apaga o banco e roda todos os .sql do projeto em ordem de nome'">Recriar banco</button>
                                                 </div>
-                                                <p class="texto-2" x-show="!banco.tabelas.length">Nenhuma tabela ainda. Rode um .sql com CREATE TABLE (▶ Executar).</p>
+                                                <p class="texto-2" x-show="!banco.tabelas.length" x-text="lv.ativo ? 'Nenhuma tabela ainda. Crie uma migration (+ Laravel → Migration) e execute o app.' : 'Nenhuma tabela ainda. Rode um .sql com CREATE TABLE (▶ Executar).'"></p>
                                                 <div class="lista">
                                                     <template x-for="t in banco.tabelas" :key="t.nome">
                                                         <button type="button" class="item" :class="{ sel: banco.sel === t.nome }" @click="verTabela(t.nome)">
@@ -2403,6 +2668,16 @@
                                                         </table></div>
                                                     </div>
                                                 </template>
+                                            </div>
+                                            {{-- app Laravel na prévia: endereço, voltar, recarregar, rotas e artisan --}}
+                                            <div class="wf-ide-lvbar" x-show="painel === 'previa' && lv.ativo" x-cloak>
+                                                <button type="button" class="mini-btn" @click="voltarLaravel()" :disabled="!lv.hist.length" title="Voltar" aria-label="Voltar">←</button>
+                                                <button type="button" class="mini-btn" @click="recarregarLaravel()" title="Recarregar (pede a página de novo)" aria-label="Recarregar">↻</button>
+                                                <span class="texto-2">localhost</span>
+                                                <input class="campo" x-model="lv.campo" @keydown.enter.prevent="irPara(lv.campo)" aria-label="Endereço no app Laravel" placeholder="/rota" spellcheck="false">
+                                                <span class="st" :class="{ 'ruim': lv.status >= 400 }" x-show="lv.status" x-text="lv.carregando ? '…' : lv.status"></span>
+                                                <button type="button" class="link-prim" @click="artisan('route:list')" title="Lista as rotas do app (artisan route:list)">Rotas</button>
+                                                <button type="button" class="link-prim" @click="artisan()" title="php artisan: migrate:fresh --seed, db:seed, tinker…">Artisan</button>
                                             </div>
                                             <iframe class="wf-ide-frame" x-ref="frame" x-show="painel === 'previa'" title="Prévia do projeto"
                                                     sandbox="allow-scripts allow-forms allow-modals allow-popups" :srcdoc="srcdoc"></iframe>

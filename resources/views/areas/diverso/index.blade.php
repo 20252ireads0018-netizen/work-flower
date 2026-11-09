@@ -424,8 +424,10 @@
 <script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
 {{-- Botão de tela cheia em cada cartão --}}
 <script src="{{ asset('js/tela-cheia.js') }}?v={{ @filemtime(public_path('js/tela-cheia.js')) }}"></script>
-{{-- motores da IDE do cartão GitHub / VS Code: Python, PHP, SQL e Blade no navegador, e as dicas de erro --}}
-<script src="{{ asset('js/ide-motores.js') }}?v={{ @filemtime(public_path('js/ide-motores.js')) }}"></script>
+{{-- motores da IDE do cartão GitHub / VS Code: Python, PHP, Laravel, SQL, Ruby, Lua, TypeScript e Blade no navegador, e as dicas de erro.
+     data-nucleo: o mini-Laravel (texto PHP lido pelo php-wasm do navegador; é .txt para o servidor nunca executá-lo) --}}
+<script src="{{ asset('js/ide-motores.js') }}?v={{ @filemtime(public_path('js/ide-motores.js')) }}"
+        data-nucleo="{{ asset('js/ide-mini-laravel.txt') }}?v={{ @filemtime(public_path('js/ide-mini-laravel.txt')) }}"></script>
 <script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
 <script>
     // Ícones minimalistas (traço de 1,6px). O valor salvo na aba é só a chave (ex.: "casa").
