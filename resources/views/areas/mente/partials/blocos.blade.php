@@ -150,6 +150,19 @@
             <template x-if="b.tipo === 'rh'">
                 @include('partials.rh-cartao')
             </template>
+            {{-- Estudo: Flashcards, Pomodoro, Plano de estudos e Matemática (partials/*-cartao; js/estudo.js) --}}
+            <template x-if="b.tipo === 'flashcards'">
+                @include('partials.flashcards-cartao')
+            </template>
+            <template x-if="b.tipo === 'pomodoro'">
+                @include('partials.pomodoro-cartao')
+            </template>
+            <template x-if="b.tipo === 'planoestudo'">
+                @include('partials.plano-estudo-cartao')
+            </template>
+            <template x-if="b.tipo === 'matematica'">
+                @include('partials.matematica-cartao')
+            </template>
             {{-- Conversa com o Claude, que muda os cartões pedindo permissão (partials/claude-cartao; js/claude.js) --}}
             <template x-if="b.tipo === 'claude'">
                 @include('partials.claude-cartao')
