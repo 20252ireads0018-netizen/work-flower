@@ -32,6 +32,22 @@ Route::view('/privacidade', 'publico.privacidade')->name('privacidade');
 Route::view('/termos', 'publico.termos')->name('termos');
 Route::view('/contato', 'publico.contato')->name('contato');
 
+// Work Flower como app instalável (PWA): manifesto, service worker e página "sem conexão".
+// Saem pelo Laravel para usar a base real do site (subpasta /work-flower em produção). Sem sessão nem cookies:
+// o navegador pede o sw.js sozinho a cada visita e isso não deve abrir sessões.
+Route::withoutMiddleware([
+    \Illuminate\Session\Middleware\StartSession::class,
+    \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+    \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+    \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
+    \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+    \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+])->controller(\App\Http\Controllers\AppInstalavelController::class)->group(function () {
+    Route::get('/manifest.webmanifest', 'manifesto')->name('app.manifesto');
+    Route::get('/sw.js', 'serviceWorker')->name('app.sw');
+    Route::get('/offline', 'offline')->name('app.offline');
+});
+
 // Animação de apresentação (rolagem), aberta pela tela de login. Pública, para visitantes.
 Route::view('/conheca', 'conheca')->name('demo');
 

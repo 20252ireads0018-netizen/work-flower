@@ -110,6 +110,18 @@
     {{-- viewport-fit=cover: usa a tela toda em celulares com notch (as áreas seguras são tratadas no CSS) --}}
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- App instalável (PWA): manifesto, cor da barra do sistema e ícones (ver AppInstalavelController) --}}
+    <link rel="manifest" href="{{ route('app.manifesto') }}">
+    <meta name="theme-color" content="{{ $cab }}">
+    <meta name="application-name" content="Work Flower">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Work Flower">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('icons/icone-192.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('icons/apple-touch-icon.png') }}">
+    <script src="{{ asset('js/app-instalavel.js') }}?v={{ @filemtime(public_path('js/app-instalavel.js')) }}"
+            data-sw="{{ route('app.sw') }}" data-escopo="{{ rtrim(url('/'), '/') }}/"></script>
     {{-- versão do editor de imagem (carregado só quando alguém abre um cartão "Editor de imagem") --}}
     <meta name="wf-editor-imagem-v" content="{{ @filemtime(public_path('js/editor-imagem.js')) }}">
     <meta name="wf-editor-video-v" content="{{ @filemtime(public_path('js/editor-video.js')) }}">
@@ -823,6 +835,16 @@
                                 Fundo e música
                             </button>
                         @endif
+
+                        {{-- Instalar o app: só aparece quando o navegador oferece (Chrome, Edge, Android) ou no iPhone/iPad (instruções) --}}
+                        <button type="button" class="menu-item" role="menuitem"
+                                x-data="{ pode: !!(window.wfApp && window.wfApp.podeInstalar()) }"
+                                @wf-app-instalavel.window="pode = $event.detail.pode"
+                                x-show="pode" x-cloak
+                                @click="aberto = false; window.wfApp.instalar()">
+                            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 7.5v7m0 0l-3-3m3 3l3-3M10 18.5h4"/></svg>
+                            Instalar o app
+                        </button>
 
                         <a href="{{ \Illuminate\Support\Facades\Route::has('planos') ? route('planos') : url('/planos') }}"
                            class="menu-item" role="menuitem" style="color: var(--prim-forte); font-weight: 600;">
