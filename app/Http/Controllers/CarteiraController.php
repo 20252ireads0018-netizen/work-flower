@@ -90,10 +90,12 @@ class CarteiraController extends Controller
                 'token' => config('services.brapi.token'),
             ]);
             $p = $r->ok() ? data_get($r->json(), 'results.0.regularMarketPrice') : null;
-
-            return is_numeric($p) ? (float) $p : null;
         } catch (\Throwable) {
-            return null;
+            $p = null;
         }
+        // sem token a brapi só cota alguns tickers: o resto sai da lista aberta (App\Support\Mercado, cache de 1 h)
+        $p = is_numeric($p) ? $p : (\App\Support\Mercado::daLista($ticker)['p'] ?? null);
+
+        return is_numeric($p) && $p > 0 ? (float) $p : null;
     }
 }

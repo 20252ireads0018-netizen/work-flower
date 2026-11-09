@@ -23,7 +23,13 @@
         { id: 'servico', nome: 'Serviços', canais: ['Contrato', 'Avulso'] },
     ];
     const CATS_CUSTO = ['Fixo', 'Variável', 'Tráfego', 'Impostos e taxas'];
-    const TIPOS_INVEST = ['Ação', 'FII', 'Renda fixa', 'Cripto', 'Outro'];
+    const TIPOS_INVEST = ['Ação', 'FII', 'Fiagro', 'FI-Infra', 'ETF', 'BDR', 'Renda fixa', 'Cripto', 'Outro'];
+    /* Tipos com ticker na B3 (cotação, dividendos e indicadores pela brapi). */
+    const TIPOS_BOLSA = ['Ação', 'FII', 'Fiagro', 'FI-Infra', 'ETF', 'BDR'];
+    /* Tipo do mercado (App\Support\Mercado::TIPOS) → tipo da carteira. */
+    const TIPO_MERCADO = { fii: 'FII', fiagro: 'Fiagro', fiinfra: 'FI-Infra', etf: 'ETF', acao: 'Ação', bdr: 'BDR' };
+    const NOMES_MERCADO = { todos: 'Todos', fii: 'FIIs', fiagro: 'Fiagro', fiinfra: 'FI-Infra', acao: 'Ações', etf: 'ETFs', bdr: 'BDRs' };
+    const CORES_SIM = ['#60a5fa', '#f59e0b', '#4ade80', '#f472b6'];
 
     /* Posição inicial dos itens (área de 1088 px de largura). O usuário muda tudo. */
     const PADRAO = {
@@ -39,6 +45,9 @@
             'inv-novo': { x: 0, y: 206, w: 340, h: 440 },
             'inv-lista': { x: 356, y: 206, w: 732, h: 440 },
             'inv-radar': { x: 0, y: 662, w: 1088, h: 380 },
+            'inv-renda': { x: 0, y: 1058, w: 1088, h: 560 },
+            'inv-filtro': { x: 0, y: 1634, w: 1088, h: 620 },
+            'inv-simulador': { x: 0, y: 2270, w: 1088, h: 680 },
         },
         negocios: {
             'neg-negocios': { x: 0, y: 0, w: 340, h: 490 },
@@ -187,6 +196,13 @@
             cc: { nome: '', banco: '', inicial: '' }, ccErro: '',
             iv: { nome: '', tipo: 'Ação', qtd: '', pm: '', atual: '' }, ivErro: '',
             rd: { ticker: '', tese: '', alvo: '' },
+            // Investimentos › mercado (brapi, com cache no servidor): dados dos ativos da carteira, filtro e simulador
+            mk: { dados: {}, carregando: false, token: null, erro: '', iniciado: false },
+            scr: { f: { tipo: 'fii', setor: '', busca: '', liq_min: '', dy_min: '', dy_max: '', pvp_min: '', pvp_max: '', ordem: 'liquidez' },
+                   itens: [], total: 0, semDados: 0, pendentes: 0, setores: [], carregando: false, erro: '', aberto: null, voltas: 0, feito: false },
+            sim: { inicial: '1000', mensal: '500', anos: '10', reinvestir: true, alvo: '1000',
+                   ativos: [{ ticker: '', dy: '', valorizacao: '' }], res: [], erros: [], carregando: false, erro: '' },
+            tiposMercado: NOMES_MERCADO, coresSim: CORES_SIM,
             nv: { nome: '', formato: 'marketplace' }, nvErro: '',
             mv: { modo: 'venda', d: hoje(), item: '', valor: '', canal: '', cat: 'Variável', produto: '', qtd: 1 }, mvErro: '', mvEnviando: false,
             // catálogo de produtos (Negócios › Produtos), carregado do servidor; lojaVendas = pedidos pagos da loja
@@ -208,6 +224,8 @@
                 // avisa o ambiente (partials/ambiente) de qual setor está aberto: cada aba pode ter fundo e música próprios
                 const avisarSetor = () => { const a = (this.abas).find(x => x.id === this.aba); window.wfSetorAtual = { id: this.aba || '', nome: a ? a.nome : '' }; window.dispatchEvent(new CustomEvent('wf-setor', { detail: window.wfSetorAtual })); };
                 this.$watch('aba', avisarSetor); avisarSetor();
+                this.$watch('aba', v => { if (v === 'invest') this.iniciarInvest(); });
+                if (this.aba === 'invest') this.$nextTick(() => this.iniciarInvest());
                 this.zTop = this.maiorZ();
                 this.ln.conta = this.estado.contas[0]?.id || '';
                 this.$watch('estado', () => this.agendar());
@@ -351,7 +369,7 @@
             },
             async atualizarCotacoes() {
                 const tk = [...new Set([
-                    ...this.estado.invest.filter(a => ['Ação', 'FII'].includes(a.tipo)).map(a => a.nome),
+                    ...this.estado.invest.filter(a => TIPOS_BOLSA.includes(a.tipo)).map(a => a.nome),
                     ...this.estado.radar.map(r => r.ticker),
                 ].map(t => String(t).trim().toUpperCase()).filter(t => /^[A-Z0-9]{3,10}$/.test(t)))];
                 if (!tk.length) { this.aviso('Nenhum ticker para atualizar.'); return; }
@@ -364,6 +382,154 @@
                     this.estado.radar.forEach(x => { const p = num(q[String(x.ticker).trim().toUpperCase()]); if (p > 0) { x.preco = p; n++; } });
                     this.aviso(n ? `${n} cotações atualizadas.` : 'Sem cotações disponíveis agora.');
                 } catch { this.aviso('Não consegui buscar cotações.'); }
+                this.carregarMercado();
+            },
+
+            /* ================= investimentos › mercado (brapi, cache no servidor) =================
+               Dados com atraso e hipóteses simples: nada aqui é recomendação de investimento. */
+            iniciarInvest() {
+                if (this.mk.iniciado || !this.cfg.mercado) return;
+                this.mk.iniciado = true;
+                this.carregarMercado();
+                this.buscarFiltro();
+            },
+            tickerDe(a) { const t = String(a.nome || a.ticker || '').trim().toUpperCase(); return /^[A-Z0-9]{4,10}$/.test(t) ? t : ''; },
+            async carregarMercado() {
+                if (!this.cfg.mercado) return;
+                const tk = [...new Set([
+                    ...this.estado.invest.filter(a => TIPOS_BOLSA.includes(a.tipo)).map(a => this.tickerDe(a)),
+                    ...this.estado.radar.map(r => this.tickerDe(r)),
+                ].filter(Boolean))].slice(0, 30);
+                if (!tk.length) return;
+                this.mk.carregando = true; this.mk.erro = '';
+                try {
+                    const j = await pedirJson(`${this.cfg.mercado.ativos}?tickers=${tk.join(',')}`);
+                    this.mk.dados = { ...this.mk.dados, ...(j.ativos || {}) };
+                    this.mk.token = !!j.token;
+                } catch (e) { this.mk.erro = e.message; }
+                this.mk.carregando = false;
+            },
+            mkDe(a) { return this.mk.dados[this.tickerDe(a)] || null; },
+            /* renda por cota ao mês: a informada à mão vence a média dos últimos 12 meses */
+            rendaCota(a) { return num(a.rendaCota) > 0 ? num(a.rendaCota) : (this.mkDe(a)?.rendaMensalCota || 0); },
+            setRendaCota(a, v) { a.rendaCota = num(v) > 0 ? num(v) : ''; },
+            rendaAtivo(a) { return a.qtd * this.rendaCota(a); },
+            rendaTotal() { return this.estado.invest.reduce((s, a) => s + this.rendaAtivo(a), 0); },
+            yocAtivo(a) { const inv = this.investido(a); return inv > 0 ? this.rendaAtivo(a) * 12 / inv * 100 : 0; },
+            yocTotal() { const inv = this.totalInvest().investido; return inv > 0 ? this.rendaTotal() * 12 / inv * 100 : 0; },
+            /** Proventos por mês de pagamento: últimos 12 meses e os 3 próximos já anunciados, com a quantidade de hoje. */
+            proventosPorMes() {
+                const d0 = new Date(), meses = [];
+                for (let i = -11; i <= 3; i++) {
+                    const d = new Date(d0.getFullYear(), d0.getMonth() + i, 1);
+                    meses.push({ k: iso(d).slice(0, 7), nome: MESES[d.getMonth()], ano: d.getFullYear(), futuro: i > 0, v: 0 });
+                }
+                const idx = Object.fromEntries(meses.map((m, i) => [m.k, i]));
+                this.estado.invest.forEach(a => (this.mkDe(a)?.dividendos || []).forEach(dv => {
+                    const i = idx[String(dv.pag).slice(0, 7)];
+                    if (i !== undefined) meses[i].v += a.qtd * dv.valor;
+                }));
+                const max = Math.max(...meses.map(m => m.v)) || 1;
+                return meses.map(m => ({ ...m, pct: Math.round(m.v / max * 100) }));
+            },
+            proventos12m() { return this.proventosPorMes().filter(m => !m.futuro).reduce((s, m) => s + m.v, 0); },
+            alocacaoPor(campo) {
+                const total = this.totalInvest().valor || 1, m = {};
+                this.estado.invest.forEach(a => {
+                    const k = campo === 'ativo' ? a.nome : (this.mkDe(a)?.setor || a.tipo);
+                    m[k] = (m[k] || 0) + this.valorAtivo(a);
+                });
+                return Object.entries(m).map(([t, v]) => ({ t, v, pct: r1(v / total * 100) })).sort((a, b) => b.v - a.v).slice(0, 10);
+            },
+            fmtN(n, casas = 2) { return n === null || n === undefined || n === '' ? '—' : Number(n).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas }); },
+            fmtLiq(n) {
+                n = Number(n) || 0;
+                if (n >= 1e9) return 'R$ ' + this.fmtN(n / 1e9, 1) + ' bi';
+                if (n >= 1e6) return 'R$ ' + this.fmtN(n / 1e6, 1) + ' mi';
+                if (n >= 1e3) return 'R$ ' + this.fmtN(n / 1e3, 0) + ' mil';
+                return brl(n);
+            },
+
+            /* ---- filtro (screener) ---- */
+            async buscarFiltro(continuar = false) {
+                if (!this.cfg.mercado) return;
+                if (!continuar) { this.scr.voltas = 0; clearTimeout(this._scrT); }
+                this.scr.carregando = true; this.scr.erro = '';
+                const q = new URLSearchParams();
+                Object.entries(this.scr.f).forEach(([k, v]) => { v = String(v ?? '').trim(); if (v !== '') q.set(k, /_m(in|ax)$/.test(k) ? v.replace(',', '.') : v); });
+                try {
+                    const j = await pedirJson(`${this.cfg.mercado.lista}?${q}`);
+                    Object.assign(this.scr, { itens: j.itens || [], total: j.total || 0, semDados: j.sem_dados || 0, pendentes: j.pendentes || 0, setores: j.setores || [], feito: true });
+                    this.mk.token = !!j.token;
+                    // os indicadores chegam aos poucos (10 ativos por pedido): continua sozinho mais algumas vezes
+                    if (this.scr.pendentes > 0 && this.scr.voltas < 4) { this.scr.voltas++; this._scrT = setTimeout(() => this.buscarFiltro(true), 400); }
+                } catch (e) { this.scr.erro = e.message; }
+                this.scr.carregando = false;
+            },
+            trocarTipoFiltro(t) { this.scr.f.tipo = t; this.scr.f.setor = ''; this.buscarFiltro(); },
+            limparFiltro() {
+                this.scr.f = { tipo: this.scr.f.tipo, setor: '', busca: '', liq_min: '', dy_min: '', dy_max: '', pvp_min: '', pvp_max: '', ordem: 'liquidez' };
+                this.buscarFiltro();
+            },
+            temIndicadorFiltro() { const f = this.scr.f; return [f.dy_min, f.dy_max, f.pvp_min, f.pvp_max].some(v => String(v).trim() !== '') || ['dy', 'pvp'].includes(f.ordem); },
+            paraCarteira(x) {
+                this.iv = { nome: x.ticker, tipo: TIPO_MERCADO[x.tipo] || 'Outro', qtd: '', pm: String(x.preco), atual: String(x.preco) };
+                this.ivErro = '';
+                this.mk.dados = { ...this.mk.dados, [x.ticker]: x };
+                this.aviso(`${x.ticker} está no cartão "Novo ativo": informe a quantidade e confira o preço médio.`);
+            },
+            paraRadar(x) {
+                if (this.estado.radar.some(r => r.ticker === x.ticker)) { this.aviso(`${x.ticker} já está no radar.`); return; }
+                this.estado.radar.push({ id: uid(), ticker: x.ticker, tese: '', alvo: 0, preco: x.preco });
+                this.aviso(`${x.ticker} entrou no radar.`);
+            },
+            paraSimulador(x) {
+                const linha = { ticker: x.ticker, dy: x.dy ?? '', valorizacao: '' };
+                const vazia = this.sim.ativos.findIndex(a => !String(a.ticker).trim() && String(a.dy).trim() === '');
+                if (vazia >= 0) this.sim.ativos.splice(vazia, 1, linha);
+                else if (this.sim.ativos.length < 4) this.sim.ativos.push(linha);
+                else { this.aviso('O simulador compara até 4 ativos por vez.'); return; }
+                this.aviso(`${x.ticker} está no simulador.`);
+            },
+
+            /* ---- simulador ---- */
+            addSimAtivo() { if (this.sim.ativos.length < 4) this.sim.ativos.push({ ticker: '', dy: '', valorizacao: '' }); },
+            remSimAtivo(i) { this.sim.ativos.splice(i, 1); if (!this.sim.ativos.length) this.addSimAtivo(); },
+            async simular() {
+                if (!this.cfg.mercado) return;
+                const ativos = this.sim.ativos
+                    .filter(a => String(a.ticker).trim() || String(a.dy).trim() !== '')
+                    .map(a => {
+                        const txt = String(a.ticker).trim();
+                        return { ticker: /^[A-Za-z0-9]{4,10}$/.test(txt) ? txt.toUpperCase() : null, nome: txt.slice(0, 60) || null,
+                                 dy: String(a.dy).trim() === '' ? null : num(a.dy), valorizacao: num(a.valorizacao) };
+                    });
+                if (!ativos.length) { this.sim.erro = 'Informe ao menos um ativo (ticker) ou um DY.'; return; }
+                this.sim.carregando = true; this.sim.erro = ''; this.sim.erros = [];
+                try {
+                    const j = await pedirJson(this.cfg.mercado.simular, 'POST', {
+                        inicial: num(this.sim.inicial), mensal: num(this.sim.mensal), alvo: num(this.sim.alvo), reinvestir: !!this.sim.reinvestir,
+                        meses: Math.max(1, Math.min(600, Math.round(num(this.sim.anos) * 12) || 12)), ativos,
+                    });
+                    this.sim.res = j.resultados || []; this.sim.erros = j.erros || [];
+                } catch (e) { this.sim.erro = e.message; this.sim.res = []; }
+                this.sim.carregando = false;
+            },
+            /** Linhas do gráfico (patrimônio de cada cenário e o total aportado), em coordenadas 0–100. */
+            simGrafico() {
+                const res = this.sim.res;
+                if (!res.length) return { max: 0, linhas: [], aportado: '' };
+                const max = Math.max(1, ...res.flatMap(r => r.serie.map(s => s.patrimonio)));
+                const pts = (serie, campo) => {
+                    const fim = serie[serie.length - 1].mes || 1;
+                    return serie.map(s => `${(s.mes / fim * 100).toFixed(2)},${(100 - s[campo] / max * 96).toFixed(2)}`).join(' ');
+                };
+                return { max, linhas: res.map((r, i) => ({ nome: r.nome, cor: CORES_SIM[i % CORES_SIM.length], pts: pts(r.serie, 'patrimonio') })), aportado: pts(res[0].serie, 'aportado') };
+            },
+            tempo(meses) {
+                if (meses === null || meses === undefined) return 'não chega no período';
+                const a = Math.floor(meses / 12), m = meses % 12;
+                return [a ? `${a} ano${a > 1 ? 's' : ''}` : '', m ? `${m} ${m > 1 ? 'meses' : 'mês'}` : ''].filter(Boolean).join(' e ');
             },
 
             /* ================= negócios ================= */
