@@ -1,5 +1,5 @@
 /* Work Flower · áreas Carteira e Negócios (a mesma página, areas/carteira/index, com cfg.modo)
-   Carteira: carteira individual, investimentos, tarefas, trabalho, mapa e quadro livre.
+   Carteira: carteira individual, investimentos, tarefas e quadro livre (com o cartão Projetos de quem usava a antiga aba Trabalho).
    Negócios: negócios (vendas e caixa), clientes, documentos, loja e marketplaces, equipe, tarefas e quadro livre.
    Depende de quadro.js e documentos.js (carregue antes). A lógica de documentos fica em documentos.js. */
 (function () {
@@ -61,9 +61,6 @@
             'tarefa-form': { x: 0, y: 0, w: 340, h: 440 },
             'tarefa-lista': { x: 356, y: 0, w: 732, h: 520 },
         },
-        trabalho: {
-            'projetos': { x: 0, y: 0, w: 1088, h: 440 },
-        },
         docs: {
             'doc-lista': { x: 0, y: 0, w: 232, h: 520 },
             'doc-editor': { x: 248, y: 0, w: 400, h: 860 },
@@ -72,13 +69,16 @@
         clientes: {
             'cli-lista': { x: 0, y: 0, w: 1088, h: 520 },
         },
-        mapa: {},
         livre: {},
     };
+    /* Cartão "Projetos" da antiga aba Trabalho: aparece no Quadro livre só para quem tinha projetos (ver carregar). */
+    const PROJETOS_NO_LIVRE = { x: 0, y: 0, w: 1088, h: 440 };
 
-    /* Abas de cada modo (as de Negócios saíram da Carteira em 04/11/2026; os dados antigos continuam guardados lá). */
+    /* Abas de cada modo (as de Negócios saíram da Carteira em 04/11/2026; os dados antigos continuam guardados lá).
+       As abas "Trabalho" e "Mapa mental" saíram em 09/11/2026: os cartões delas foram para o Quadro livre
+       (App\Support\AbasRetiradas, no servidor, ao abrir a página). */
     const ABAS_DO_MODO = {
-        carteira: ['tarefas', 'carteira', 'invest', 'trabalho', 'mapa', 'livre'],
+        carteira: ['tarefas', 'carteira', 'invest', 'livre'],
         negocios: ['negocios', 'produtos', 'clientes', 'docs', 'loja', 'equipe', 'calls', 'integracoes', 'tarefas', 'livre'],
     };
 
@@ -102,13 +102,6 @@
     const produtoVazio = () => ({ id: null, nome: '', sku: '', tipo: 'produto', categoria: '', preco: '', custo: '', estoque: '', descricao: '', na_loja: true, foto: null, tirar_foto: false });
 
     /* ================= estado inicial ================= */
-    function mapaSemente() {
-        return {
-            id: 'mapa-inicial', secao: 'mapa', tipo: 'mapa', titulo: 'Mapa mental', links: [],
-            dados: { nos: [{ id: uid(), t: 'Tema central', x: 40, y: 200, pai: null, cor: PALETA[0] }] },
-        };
-    }
-
     function completar(e) {
         e.layout ??= {}; e.blocos ??= [];
         e.contas ??= [{ id: uid(), nome: 'Carteira', banco: 'Dinheiro', inicial: 0, cor: PALETA[1] }];
@@ -125,11 +118,8 @@
             { id: 'm4', nome: 'Novidade', texto: 'Oi, {primeiro_nome}! Chegaram novidades na {loja}. Quer que eu te mande as fotos?' },
         ];
         e.docs.forEach(d => D.migrar(d));   // documentos antigos ganham os novos campos sem perder nada
-        if (!e.mapaSemeado) {
-            e.mapaSemeado = true;
-            e.blocos.push(mapaSemente());
-            (e.layout.mapa ??= {})['mapa-inicial'] = { x: 0, y: 0, w: 1088, h: 560, z: 1 };
-        }
+        // conta nova não ganha mais o mapa mental inicial (a aba saiu); o mapa mental continua no "+ Bloco"
+        e.mapaSemeado = true;
         return e;
     }
 
@@ -152,6 +142,9 @@
         const cfg = lerCfg();
         const MODO = cfg.modo === 'negocios' ? 'negocios' : 'carteira';
         const estado = carregar(cfg);
+        // projetos da antiga aba Trabalho: o cartão fica no Quadro livre (só na Carteira e só para quem tem projetos)
+        const projetosNoLivre = MODO === 'carteira' && estado.projetos.length > 0;
+        if (projetosNoLivre) PADRAO.livre.projetos = { ...PROJETOS_NO_LIVRE };
         const imagens = {};
         Object.keys(cfg.dados).filter(k => k.startsWith('img.')).forEach(k => {
             try { imagens[k.slice(4)] = JSON.parse(cfg.dados[k]); } catch { /* ignora */ }
@@ -162,7 +155,7 @@
             ...Q.metodos(PADRAO),
             ...D.estadoUI(),
             ...D.metodos(),
-            cfg, estado, imagens, tarefas: cfg.tarefas || [],
+            cfg, estado, imagens, tarefas: cfg.tarefas || [], projetosNoLivre,
             paleta: PALETA, formatos: FORMATOS, catsCusto: CATS_CUSTO, tiposInvest: TIPOS_INVEST,
             fontes: D.FONTES_LISTA,
             colunas: [{ id: 'fazer', nome: 'A fazer' }, { id: 'andando', nome: 'Em andamento' }, { id: 'feito', nome: 'Concluído' }],
@@ -173,9 +166,7 @@
                 { id: 'carteira', nome: 'Carteira', icone: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/>' },
                 { id: 'invest', nome: 'Investimentos', icone: '<path d="M3 17l5-5 4 4 8-9"/><path d="M15 7h5v5"/>' },
                 { id: 'negocios', nome: 'Negócios', icone: '<path d="M4 9l1-5h14l1 5M4 9h16v11H4zM9 20v-6h6v6"/>' },
-                { id: 'trabalho', nome: 'Trabalho', icone: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V4h6v3M3 13h18"/>' },
                 { id: 'docs', nome: 'Documentos', icone: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>' },
-                { id: 'mapa', nome: 'Mapa mental', icone: '<circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="20" r="2"/><path d="M10 10.5L6.5 7.5M14 10.5l3.5-3M12 14.5v3.5"/>' },
                 { id: 'livre', nome: 'Quadro livre', icone: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4" rx="1.5"/><rect x="13" y="10" width="7" height="10" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/>' },
                 { id: 'produtos', nome: 'Produtos', icone: '<path d="M3.5 7.5L12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5L12 12l8.5-4.5M12 12v9"/>' },
                 { id: 'clientes', nome: 'Clientes', icone: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.3-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.9.7 3.1 2.5 3.5 5.2"/>' },

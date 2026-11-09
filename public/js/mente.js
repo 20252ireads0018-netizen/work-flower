@@ -75,7 +75,6 @@
             'fac-disc': { x: 356, y: 316, w: 732, h: 300 },
             'fac-aval': { x: 356, y: 632, w: 732, h: 440 },
         },
-        mapa: {},
         livre: {},
     };
 
@@ -102,13 +101,6 @@
     }
 
     /* ================= estado inicial ================= */
-    function mapaSemente() {
-        return {
-            id: 'mapa-inicial', secao: 'mapa', tipo: 'mapa', titulo: 'Mapa mental', links: [],
-            dados: { nos: [{ id: uid(), t: 'Tema central', x: 40, y: 200, pai: null, cor: PALETA[0] }] },
-        };
-    }
-
     function questoesSemente() {
         return {
             id: 'questoes-inicial', secao: 'concursos', tipo: 'questoes', titulo: 'Questões de concurso', links: [],
@@ -130,11 +122,9 @@
         es.intervalo ??= 7; es.cursos ??= []; es.itens ??= [];
         const f = (e.fac ??= {});
         f.disciplinas ??= []; f.avaliacoes ??= [];
-        if (!e.mapaSemeado) {
-            e.mapaSemeado = true;
-            e.blocos.push(mapaSemente());
-            (e.layout.mapa ??= {})['mapa-inicial'] = { x: 0, y: 0, w: 1088, h: 560, z: 1 };
-        }
+        // a aba "Mapa mental" saiu em 09/11/2026 (os cartões dela foram para o Quadro livre, App\Support\AbasRetiradas):
+        // conta nova não ganha mais o mapa inicial; o mapa mental continua no "+ Bloco"
+        e.mapaSemeado = true;
         // aba Concursos: começa com o cartão "Questões de concurso" (o mesmo do Diverso, js/cartoes-extra.js) uma vez só;
         // se a pessoa apagar, não volta (dá para pôr outro pelo "+ Bloco")
         if (!e.concursosSemeado) {
@@ -188,7 +178,6 @@
                 { id: 'estudos', nome: 'Estudos', icone: '<path d="M2.5 9.5L12 5l9.5 4.5L12 14 2.5 9.5z"/><path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5M21.5 9.5V15"/>' },
                 { id: 'notas', nome: 'Anotações', icone: '<path d="M5 20l1-4L17.5 4.5a2 2 0 013 3L9 19l-4 1z"/><path d="M15 7l3 3"/>' },
                 { id: 'faculdade', nome: 'Faculdade', icone: '<path d="M4 20V9l8-5 8 5v11M9 20v-6h6v6M3 20h18"/>' },
-                { id: 'mapa', nome: 'Mapa mental', icone: '<circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="20" r="2"/><path d="M10 10.5L6.5 7.5M14 10.5l3.5-3M12 14.5v3.5"/>' },
                 { id: 'concursos', nome: 'Concursos', icone: '<path d="M9 4h6v3H9z"/><path d="M7 5.5H5.5V20h13V5.5H17"/><path d="M9 13.5l2 2 4-4"/>' },
                 { id: 'livre', nome: 'Quadro livre', icone: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4" rx="1.5"/><rect x="13" y="10" width="7" height="10" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/>' },
             ],

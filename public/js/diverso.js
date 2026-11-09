@@ -12,7 +12,7 @@
     const COR_OK = /^#[0-9a-fA-F]{6}$/;
     const MAX_TRACOS = 600;
     const SEC = 'quadro'; // primeira aba criada: é nela que ficam os cartões de tarefas
-    const MAX_ABAS = 12;  // máximo de abas criadas pelo usuário
+    const MAX_ABAS = 20;  // máximo de abas por área (o Diverso e cada área criada; MoverCartoes::MAX_ABAS_GRUPO no servidor)
     const ICONE_PADRAO = 'pasta';
     // Tipos de bloco que não existem mais: blocos antigos desses tipos são apagados ao abrir a página
     const REMOVIDOS = ['documento', 'compras', 'escrita', 'social', 'loja'];
@@ -182,7 +182,8 @@
         if (e.v === VERSAO) {
             e.abas = (Array.isArray(e.abas) ? e.abas : [])
                 .filter(a => a && /^[A-Za-z0-9._-]{1,60}$/.test(a.id || ''))
-                .map(a => ({ id: a.id, nome: String(a.nome || 'Aba').slice(0, 40), icone: normalizarIcone(a.icone) }));
+                // grupo = id da área criada pela conta (App\Support\AreasConta) a que a aba pertence
+                .map(a => ({ id: a.id, nome: String(a.nome || 'Aba').slice(0, 40), icone: normalizarIcone(a.icone), ...(/^x[a-z0-9]{8}$/.test(a.grupo || '') ? { grupo: a.grupo } : {}) }));
             if (casaParaOQuadro(e)) mudou = true;
             // bloco de uma aba que não existe mais: volta para a primeira aba
             const ok = new Set([SEC, ...e.abas.map(a => a.id)]);
@@ -235,6 +236,18 @@
         e.v = VERSAO;
         casaParaOQuadro(e);
         return { orfaos, mudou: true };
+    }
+
+    /* Áreas criadas pela conta (App\Support\AreasConta): são abas do Diverso com "grupo" = id da área.
+       cfg.grupo = área aberta (null = o Diverso), cfg.grupos = áreas que existem, cfg.todas = workflow de outra pessoa
+       (as áreas criadas são de cada conta, então ali aparecem todas as abas). */
+    /** Grupo de uma aba ('' = Diverso). Grupo de uma área que não existe mais cai no Diverso. */
+    function grupoDaAba(a, cfg) {
+        const g = a && a.grupo;
+        return g && (cfg.grupos || []).some(x => x.id === g) ? g : '';
+    }
+    function abasDaVista(estado, cfg) {
+        return cfg.todas ? estado.abas : estado.abas.filter(a => grupoDaAba(a, cfg) === (cfg.grupo || ''));
     }
 
     /** Blocos e tarefas que já estavam no quadro único precisam de uma aba: cria a "Geral" (só se houver algo lá). */
@@ -398,7 +411,8 @@
 
         return {
             ...Q.estadoUI(), ...motor, ...vivo,
-            cfg, estado, imagens, tarefas: cfg.tarefas || [], aba: estado.abas[0]?.id ?? null,
+            cfg, estado, imagens, tarefas: cfg.tarefas || [], aba: abasDaVista(estado, cfg)[0]?.id ?? null,
+            grupos: cfg.grupos || [], maxAbas: MAX_ABAS,
             icones: listaIcones(), formAba: null,
             ui: {}, ultimo: null,
             paleta: PALETA,
@@ -435,18 +449,22 @@
 
             /* ---------- abas (nome e ícone escolhidos pelo usuário) ---------- */
             abaExiste(id) { return id === SEC || this.estado.abas.some(a => a.id === id); },
+            /** Abas desta página: as do Diverso, ou só as da área criada que está aberta (cfg.grupo). */
+            abasVisiveis() { return abasDaVista(this.estado, this.cfg); },
+            grupoDe(a) { return grupoDaAba(a, this.cfg); },
+            nomeGrupo(g) { return g ? (this.grupos.find(x => x.id === g)?.nome || 'Diverso') : 'Diverso'; },
             irPara(id) { this.aba = id; this.menuBloco = false; this.formAba = null; },
             abrirNovaAba() {
-                if (this.estado.abas.length >= MAX_ABAS) { this.aviso(`Limite de ${MAX_ABAS} abas. Exclua alguma para criar outra.`); return; }
+                if (this.abasVisiveis().length >= MAX_ABAS) { this.aviso(`Limite de ${MAX_ABAS} abas. Exclua alguma para criar outra.`); return; }
                 this.menuBloco = false;
                 const ic = listaIcones();
-                this.formAba = { id: null, nome: '', icone: ic.length ? ic[this.estado.abas.length % ic.length] : ICONE_PADRAO };
+                this.formAba = { id: null, nome: '', icone: ic.length ? ic[this.abasVisiveis().length % ic.length] : ICONE_PADRAO, grupo: this.cfg.grupo || '' };
                 this.focarNomeAba();
             },
             editarAba(a) {
                 this.menuBloco = false;
                 this.aba = a.id;
-                this.formAba = { id: a.id, nome: a.nome, icone: normalizarIcone(a.icone) };
+                this.formAba = { id: a.id, nome: a.nome, icone: normalizarIcone(a.icone), grupo: this.grupoDe(a) };
                 this.focarNomeAba();
             },
             focarNomeAba() {
@@ -457,18 +475,32 @@
                 const f = this.formAba;
                 if (!f) return;
                 const icone = normalizarIcone(f.icone);
+                const grupo = this.grupos.some(x => x.id === f.grupo) ? f.grupo : '';
                 if (f.id) {
                     const a = this.estado.abas.find(x => x.id === f.id);
-                    if (a) { a.nome = String(f.nome || '').trim().slice(0, 40) || a.nome; a.icone = icone; }
+                    if (a) {
+                        a.nome = String(f.nome || '').trim().slice(0, 40) || a.nome; a.icone = icone;
+                        // trocar de área (Diverso ou uma área criada): a aba vai inteira, com os cartões e as imagens
+                        if (a.id !== SEC && grupo !== this.grupoDe(a)) {
+                            const lotada = this.estado.abas.filter(x => x.id !== a.id && this.grupoDe(x) === grupo).length >= MAX_ABAS;
+                            if (lotada) { this.aviso(`${this.nomeGrupo(grupo)} já tem ${MAX_ABAS} abas. Exclua alguma antes de mover esta.`); return; }
+                            if (grupo) a.grupo = grupo; else delete a.grupo;
+                            if (!this.cfg.todas) {
+                                this.aba = this.abasVisiveis()[0]?.id ?? null;
+                                this.aviso(`Aba "${a.nome}" movida para ${this.nomeGrupo(grupo)}.`);
+                            }
+                        }
+                    }
                     this.formAba = null;
                     return;
                 }
-                if (this.estado.abas.length >= MAX_ABAS) { this.formAba = null; return; }
-                let n = this.estado.abas.length + 1;
+                if (this.abasVisiveis().length >= MAX_ABAS) { this.formAba = null; return; }
+                let n = this.abasVisiveis().length + 1;
                 const nome = String(f.nome || '').trim().slice(0, 40) || `Aba ${n}`;
-                // a primeira aba guarda os cartões de tarefas (eles pertencem ao quadro "quadro")
-                const id = this.estado.abas.length === 0 && !this.estado.abas.some(a => a.id === SEC) ? SEC : 'a' + uid();
-                this.estado.abas.push({ id, nome, icone });
+                // a primeira aba do Diverso guarda os cartões de tarefas (eles pertencem ao quadro "quadro")
+                const doDiverso = !this.cfg.grupo;
+                const id = doDiverso && this.abasVisiveis().length === 0 && !this.estado.abas.some(a => a.id === SEC) ? SEC : 'a' + uid();
+                this.estado.abas.push({ id, nome, icone, ...(this.cfg.grupo ? { grupo: this.cfg.grupo } : {}) });
                 this.estado.layout[id] ??= {};
                 this.formAba = null;
                 this.aba = id;
@@ -485,7 +517,7 @@
                 delete this.estado.layout[a.id];
                 this.estado.abas = this.estado.abas.filter(x => x.id !== a.id);
                 this.formAba = null;
-                this.aba = this.estado.abas[0]?.id ?? null;
+                this.aba = this.abasVisiveis()[0]?.id ?? null;
                 this.aviso('Aba excluída.');
                 // os favoritos dos cartões desta aba saem junto (public/js/favoritos.js)
                 if (window.wfFavoritosLimpar) this.$nextTick(() => window.wfFavoritosLimpar());

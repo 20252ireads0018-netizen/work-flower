@@ -286,6 +286,19 @@ Route::middleware('auth')->group(function () {
 
     // Diverso: precisa vir ANTES da rota genérica /areas/{area}
     Route::get('/areas/diverso', [DiversoController::class, 'show'])->name('areas.diverso');
+    // Área criada pela conta (App\Support\AreasConta): a página do Diverso só com as abas dela
+    Route::get('/areas/extra/{id}', [DiversoController::class, 'extra'])->where('id', 'x[a-z0-9]{8}')->name('areas.extra');
+
+    // Áreas da conta: esconder, renomear, reordenar, criar/excluir e mover cartões entre áreas
+    Route::prefix('/areas-config')->name('areas.config.')->controller(\App\Http\Controllers\AreasContaController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::put('/', 'salvar')->middleware('throttle:30,1')->name('salvar');
+        Route::post('/extras', 'criar')->middleware('throttle:20,1')->name('criar');
+        Route::delete('/extras/{id}', 'excluir')->where('id', 'x[a-z0-9]{8}')->middleware('throttle:20,1')->name('excluir');
+        Route::get('/destinos', 'destinos')->name('destinos');
+        Route::post('/mover', 'mover')->middleware('throttle:30,1')->name('mover');
+        Route::post('/mover-tudo', 'moverTudo')->middleware('throttle:10,1')->name('mover-tudo');
+    });
 
     // corpo | mente | carteira | negocios | diverso
     Route::get('/areas/{area}', [AreaController::class, 'show'])

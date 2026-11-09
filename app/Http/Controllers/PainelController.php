@@ -35,8 +35,15 @@ class PainelController extends Controller
         $prefs = PreferenciasController::de($usuarioId);
         $tutorialAuto = empty($prefs['tutorialVisto']) && $resumo->isEmpty() && $this->semDados($usuarioId);
 
+        // Áreas da conta (App\Support\AreasConta): ordem, nomes e só as que aparecem. Nas tarefas também entra a área
+        // escondida que ainda tem pendências (as tarefas não somem do painel por esconder a área).
+        $todas = \App\Support\AreasConta::lista($request->user());
+        $areas = array_filter($todas, fn ($a) => ! $a['oculta']);
+        $areasTarefas = array_filter($todas, fn ($a, $s) => ! $a['extra'] && (! $a['oculta'] || $pendentes->has($s)), ARRAY_FILTER_USE_BOTH);
+
         return view('painel.index', [
-            'areas'        => Tarefa::AREAS,
+            'areas'        => $areas,
+            'areasTarefas' => $areasTarefas,
             'resumo'       => $resumo,
             'pendentes'    => $pendentes,
             'tutorialAuto' => $tutorialAuto,

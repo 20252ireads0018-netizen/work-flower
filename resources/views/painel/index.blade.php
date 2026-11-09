@@ -39,7 +39,7 @@
                     <p class="text-sm texto-2">Tudo em dia.</p>
                 @else
                     <div class="space-y-4">
-                        @foreach ($areas as $slug => $a)
+                        @foreach ($areasTarefas as $slug => $a)
                             @php $grupo = $porArea->get($slug, collect()); @endphp
 
                             <details class="group" data-grupo="{{ $slug }}" open>
@@ -100,7 +100,10 @@
     {{-- Coluna do meio: áreas e, embaixo, as integrações que chegam em breve --}}
     <div class="order-1 lg:col-start-2 lg:row-start-1 min-w-0" style="display:flex;flex-direction:column;gap:1.5rem">
     @include('painel.partials.novos-usuarios')
-    {{-- Áreas --}}
+    {{-- Áreas (ordem, nomes e quais aparecem: engrenagem › Áreas, App\Support\AreasConta) --}}
+    <div class="flex items-center justify-end" style="margin-bottom:-0.75rem">
+        <button type="button" class="link-prim text-sm" @click="$dispatch('abrir-areas')" x-data>Personalizar áreas</button>
+    </div>
     <div class="grid gap-4 sm:grid-cols-2" data-atualiza="painel-areas">
         @foreach ($areas as $slug => $a)
             @php
@@ -109,7 +112,7 @@
                 $feitas = (int) ($r->feitas ?? 0);
                 $pct    = $total ? round($feitas / $total * 100) : 0;
             @endphp
-            <a href="{{ route('areas.show', $slug) }}" class="card block p-6">
+            <a href="{{ $a['url'] }}" class="card block p-6">
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <h2 class="titulo text-2xl">{{ $a['nome'] }}</h2>

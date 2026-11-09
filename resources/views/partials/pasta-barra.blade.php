@@ -31,6 +31,7 @@
         </template>
     </select>
     <button type="button" class="btn-sec !py-1 !px-3 text-sm" x-show="pastaAberta(aba)" @click="moverParaPasta(aba, [...sel])">Tirar da pasta</button>
+    <button type="button" class="btn-sec !py-1 !px-3 text-sm" x-show="podeMoverArea()" @click="moverParaArea(aba, [...sel])">Mover para outra área…</button>
     <button type="button" class="btn-sec !py-1 !px-3 text-sm perigo" @click="excluirSelecionados()">Excluir</button>
     <button type="button" class="btn-sec !py-1 !px-3 text-sm" @click="sel = []" aria-label="Limpar seleção">✕</button>
 </div>

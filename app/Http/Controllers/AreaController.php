@@ -19,6 +19,8 @@ class AreaController extends Controller
         // workflow compartilhado: dados do dono (Compartilhar::dono confere o acesso)
         $usuarioId = Compartilhar::dono($request, $area);
         $tarefas   = Tarefa::daArea($usuarioId, $area)->get();
+        // abas retiradas (Mapa mental): os cartões delas vão para o Quadro livre antes de a página ler o estado
+        \App\Support\AbasRetiradas::migrarConta($area, $usuarioId);
 
         $dados = [
             'slug'    => $area,
