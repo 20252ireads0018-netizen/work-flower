@@ -275,9 +275,19 @@
     .bd-svg .bd-col { font-size: 11.5px; }
     .bd-svg .bd-col.pk { font-weight: 700; }
     .bd-svg .bd-tag { font-size: 9px; font-weight: 700; fill: var(--prim-forte, var(--prim)); }
-    .bd-svg .bd-lig { fill: none; stroke: var(--tinta-2); stroke-width: 1.4; opacity: .8; vector-effect: non-scaling-stroke; }
-    .bd-svg .bd-lig:hover, .bd-svg .bd-lig.on { stroke: var(--prim); stroke-width: 2.6; opacity: 1; }
-    .bd-svg .bd-seta { fill: var(--tinta-2); }
+    /* ligações: rota em ângulo reto, pé de galinha nas pontas; passar o mouse destaca e apaga o resto */
+    .bd-svg .bd-rel, .bd-svg [data-bd-t] { transition: opacity .12s; }
+    .bd-svg .bd-lig { fill: none; stroke: var(--tinta-2); stroke-width: 1.4; stroke-linejoin: round; opacity: .85; vector-effect: non-scaling-stroke; }
+    .bd-svg .bd-lig-hit { fill: none; stroke: transparent; stroke-width: 12; vector-effect: non-scaling-stroke; pointer-events: stroke; }
+    .bd-svg .bd-pe { fill: none; stroke: var(--tinta-2); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+    .bd-svg .bd-pe-c { fill: var(--superficie-2); stroke: var(--tinta-2); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+    .bd-svg .bd-rel.on .bd-lig, .bd-svg .bd-rel.rel .bd-lig { stroke: var(--prim); stroke-width: 2.6; opacity: 1; }
+    .bd-svg .bd-rel.on .bd-pe, .bd-svg .bd-rel.rel .bd-pe, .bd-svg .bd-rel.on .bd-pe-c, .bd-svg .bd-rel.rel .bd-pe-c { stroke: var(--prim); stroke-width: 2; }
+    .bd-svg g.foco .bd-rel:not(.rel) { opacity: .12; }
+    .bd-svg g.foco [data-bd-t]:not(.rel) { opacity: .4; }
+    .bd-svg [data-bd-t].rel .bd-caixa { stroke: var(--prim); stroke-width: 2; }
+    .bd-svg .bd-col.rel { fill: var(--prim-forte, var(--prim)); font-weight: 700; }
+    .bd-svg .bd-faixa { fill: color-mix(in srgb, var(--prim) 22%, transparent); }
     /* tabela virtual: só as linhas visíveis existem no DOM */
     .bd-rolagem { position: relative; flex: 1; min-height: 8rem; overflow: auto; border: 1px solid var(--linha); border-radius: .6rem; font-size: .75rem; }
     .bd-cabeca { position: sticky; top: 0; z-index: 2; background: var(--superficie-2); }
