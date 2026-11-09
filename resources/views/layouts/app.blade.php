@@ -770,6 +770,7 @@
                 @foreach (\App\Models\Tarefa::AREAS as $slug => $a)
                     <a href="{{ route('areas.show', $slug) }}" class="nav-link {{ request()->is('areas/'.$slug) ? 'ativo' : '' }}">{{ $a['nome'] }}</a>
                 @endforeach
+                @if (\Illuminate\Support\Facades\Route::has('flower'))<a href="{{ route('flower') }}" class="nav-link {{ request()->routeIs('flower') ? 'ativo' : '' }}">Meu Flower</a>@endif
             </nav>
 
             <div class="flex items-center gap-2 shrink-0">
@@ -889,6 +890,7 @@
             @foreach (\App\Models\Tarefa::AREAS as $slug => $a)
                 <a href="{{ route('areas.show', $slug) }}" class="{{ request()->is('areas/'.$slug) ? 'ativo' : '' }}">{{ $a['nome'] }}</a>
             @endforeach
+            @if (\Illuminate\Support\Facades\Route::has('flower'))<a href="{{ route('flower') }}" class="{{ request()->routeIs('flower') ? 'ativo' : '' }}">Meu Flower</a>@endif
         </nav>
     </header>
 
