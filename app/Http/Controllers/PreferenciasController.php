@@ -14,6 +14,8 @@ use Illuminate\Http\Request;
 class PreferenciasController extends Controller
 {
     public const CHAVE = 'preferencias';
+    public const MAX_TRECHOS = 200;
+    public const MAX_TEXTO = 5000;
 
     /** Lê as preferências do usuário (sempre um array, mesmo sem nada salvo). */
     public static function de(?int $usuarioId): array
@@ -33,11 +35,13 @@ class PreferenciasController extends Controller
             'tutorialVisto' => ['sometimes', 'boolean'],
             'atalhos'       => ['sometimes', 'nullable', 'array', 'max:80'],
             'favoritos'     => ['sometimes', 'nullable', 'array', 'max:60'],
+            'trechos'       => ['sometimes', 'nullable', 'array', 'max:' . self::MAX_TRECHOS],
+            'expansorLigado' => ['sometimes', 'boolean'],
         ]);
 
         $atual = self::de($request->user()->id);
 
-        foreach (['organizarAuto', 'tutorialVisto'] as $campo) {
+        foreach (['organizarAuto', 'tutorialVisto', 'expansorLigado'] as $campo) {
             if ($request->has($campo)) $atual[$campo] = $request->boolean($campo);
         }
 
@@ -70,6 +74,23 @@ class PreferenciasController extends Controller
                 ];
             }
             $atual['favoritos'] = array_slice($favs, 0, 60);
+        }
+
+        if ($request->has('trechos')) {
+            // textos rápidos (js/expansor.js): atalho sem espaços que, digitado, vira o texto; atalho repetido fica o primeiro
+            $trechos = [];
+            foreach ((array) $request->input('trechos', []) as $t) {
+                if (! is_array($t)) continue;
+                $atalho = trim((string) ($t['atalho'] ?? ''));
+                $texto = (string) ($t['texto'] ?? '');
+                if ($atalho === '' || mb_strlen($atalho) > 30 || preg_match('/\s/u', $atalho) || trim($texto) === '' || isset($trechos[$atalho])) continue;
+                $trechos[$atalho] = [
+                    'atalho' => $atalho,
+                    'texto'  => mb_substr(str_replace("\0", '', $texto), 0, self::MAX_TEXTO),
+                    'nome'   => mb_substr(trim((string) ($t['nome'] ?? '')), 0, 60),
+                ];
+            }
+            $atual['trechos'] = array_values($trechos);
         }
 
         CorpoDado::updateOrCreate(

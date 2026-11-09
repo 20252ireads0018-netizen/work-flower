@@ -159,11 +159,12 @@
             function enviar() {
                 const corpo = fila; fila = {};
                 if (!url || !Object.keys(corpo).length) return;
+                const json = JSON.stringify(corpo);
                 fetch(url, {
-                    method: 'PUT', credentials: 'same-origin', keepalive: true,
+                    method: 'PUT', credentials: 'same-origin', keepalive: json.length < 60000, // keepalive recusa corpo acima de 64 KB
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',
                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' },
-                    body: JSON.stringify(corpo),
+                    body: json,
                 }).catch(() => {});
             }
             window.addEventListener('pagehide', () => { if (t) { clearTimeout(t); t = 0; enviar(); } });
@@ -1236,6 +1237,9 @@
                 </template>
                 <p class="text-xs texto-2"><kbd>Esc</kbd> fecha este painel e <kbd>Ctrl</kbd> + clique marca vários cartões (essas duas não mudam).</p>
             </div>
+
+            {{-- textos rápidos (atalho que vira texto ao digitar): desenhado por public/js/expansor.js --}}
+            <div id="wf-expansor-painel" class="space-y-3" style="border-top: 1px solid var(--linha); padding-top: 1rem"></div>
         </section>
 
         </div>
@@ -1775,6 +1779,11 @@
         .wf-item.fav-pisca { box-shadow: 0 0 0 3px #f2c230, 0 14px 36px rgba(0,0,0,.4); transition: box-shadow .3s; }
     </style>
     <script src="{{ asset('js/favoritos.js') }}?v={{ @filemtime(public_path('js/favoritos.js')) }}" defer></script>
+    {{-- textos rápidos: atalho digitado vira o texto salvo em qualquer campo (public/js/expansor.js) --}}
+    @if ($usuario)
+        <script src="{{ asset('js/expansor.js') }}?v={{ @filemtime(public_path('js/expansor.js')) }}" defer
+                data-nome="{{ $usuario->name }}" data-email="{{ $usuario->email }}"></script>
+    @endif
     {{-- imagem/GIF arrastado de outro site ou link colado no fundo: baixa pelo servidor (public/js/baixar-imagem.js) --}}
     <script src="{{ asset('js/baixar-imagem.js') }}?v={{ @filemtime(public_path('js/baixar-imagem.js')) }}" data-url="{{ route('fundo.baixar') }}"></script>
     {{-- GIFs grandes (até 25 MB) dos fundos e dos cartões: envio em pedaços (public/js/midia.js) --}}
