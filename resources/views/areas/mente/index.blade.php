@@ -184,6 +184,8 @@
 <script src="{{ asset('js/quadro.js') }}?v={{ @filemtime(public_path('js/quadro.js')) }}"></script>
 {{-- cartões Gráfico e Hábitos (estende o quadro.js) --}}
 @include('partials.graficos')
+{{-- cartões de estudo: Flashcards, Pomodoro, Plano de estudos e Matemática (estende o quadro.js; usa o graficos.js) --}}
+@include('partials.estudo')
 <script src="{{ asset('js/mente.js') }}?v={{ @filemtime(public_path('js/mente.js')) }}"></script>
 {{-- tabela.js estende menteAbas(): precisa vir DEPOIS de mente.js (importar/exportar CSV) --}}
 <script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
