@@ -1,0 +1,1 @@
+<?php ob_start(); ?><?php $__blade->comecar('conteudo'); ?><h1><?php echo e($post->titulo); ?></h1><small><?php echo e($post->created_at->diffForHumans()); ?></small><?php $__blade->terminar(); ?><?php ob_end_clean(); echo $__blade->incluir('layouts.app', get_defined_vars()); ?>
