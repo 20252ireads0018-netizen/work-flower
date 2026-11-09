@@ -18,7 +18,9 @@ class PreferenciasTest extends TestCase
         $u = User::factory()->create();
 
         $this->actingAs($u)->putJson('/preferencias', ['organizarAuto' => false])->assertOk();
-        $this->actingAs($u)->putJson('/preferencias', ['atalhos' => ['novo.texto' => 'Alt+Q', 'excluir' => '', 'ruim id!' => 'Alt+Z', 'topo' => '<script>']])->assertOk();
+        $this->actingAs($u)->putJson('/preferencias', ['atalhos' => ['novo.texto' => 'Alt+Q', 'excluir' => '', 'ruim id!' => 'Alt+Z', 'topo' => '<b>x']])->assertOk();
+        // <script> nem chega ao controller: o filtro de ataques (FiltroAtaques) recusa antes
+        $this->actingAs($u)->putJson('/preferencias', ['atalhos' => ['topo' => '<script>']])->assertForbidden();
 
         $p = PreferenciasController::de($u->id);
         $this->assertFalse($p['organizarAuto']);

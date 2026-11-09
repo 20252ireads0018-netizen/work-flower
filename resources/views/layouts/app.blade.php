@@ -828,6 +828,12 @@
                             <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5"/></svg>
                             Armazenamento
                         </a>
+                        @if (\Illuminate\Support\Facades\Route::has('seguranca'))
+                            <a href="{{ route('seguranca') }}" class="menu-item" role="menuitem">
+                                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+                                Segurança (2 etapas)
+                            </a>
+                        @endif
 
                         @if ($wfAmb && ! $wfDono)
                             {{-- fundo próprio (imagem ou GIF) e música (áudio ou YouTube) só desta área: partials/ambiente --}}
@@ -931,6 +937,14 @@
                 </div>
             @endif
         </div>
+        {{-- conta de administração sem verificação em duas etapas: lembrete até ativar (DoisFatoresController) --}}
+        @if (auth()->user()?->eAdmin() && ! auth()->user()->temDoisFatores() && ! request()->routeIs('seguranca') && \Illuminate\Support\Facades\Route::has('seguranca'))
+            <div class="mb-4 p-3 rounded-lg text-sm flex flex-wrap items-center gap-3" role="alert" data-aviso-2fa
+                 style="background: color-mix(in srgb, #d97706 15%, transparent); color: #92400e; border: 1px solid color-mix(in srgb, #d97706 40%, transparent)">
+                <span class="flex-1 min-w-0"><b>Conta de administração sem verificação em duas etapas.</b> Ative para que só a senha não baste para entrar.</span>
+                <a href="{{ route('seguranca') }}" class="btn !py-1 text-sm">Ativar agora</a>
+            </div>
+        @endif
         @yield('conteudo')
     </main>
 

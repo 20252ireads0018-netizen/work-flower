@@ -81,6 +81,34 @@ class Sincronia
         return self::AREAS[$area];
     }
 
+    /** Profundidade máxima do JSON dos quadros (mapas mentais e pastas aninhadas ficam bem abaixo disso). */
+    public const PROFUNDIDADE_MAX = 128;
+
+    /**
+     * O que os quadros gravam é sempre texto JSON (quadro.js, enviar), menos os pedaços do cartão Banco de dados
+     * (sqlz.*, gzip em base64). O tamanho máximo vem da validação de cada controller (6–8 MB).
+     * Devolve a mensagem de erro, ou null se o valor pode ser gravado.
+     */
+    public static function valorInvalido(string $chave, ?string $valor): ?string
+    {
+        if ($valor === null) {
+            return $chave === 'estado' ? 'O estado do quadro veio vazio.' : null;
+        }
+        if (str_starts_with($chave, 'sqlz.')) {
+            return preg_match('~^[A-Za-z0-9+/=]*$~', $valor) ? null : 'Pedaço do banco em formato inválido.';
+        }
+        try {
+            $dado = json_decode($valor, false, self::PROFUNDIDADE_MAX, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return 'Os dados do quadro vieram em formato inválido (JSON) ou aninhados demais.';
+        }
+        if ($chave === 'estado' && ! is_object($dado) && ! is_array($dado)) {
+            return 'O estado do quadro precisa ser um objeto JSON.';
+        }
+
+        return null;
+    }
+
     /** Versão atual do estado da área do dono ('' = nunca gravado). */
     public static function versaoAtual(string $area, int $donoId): string
     {
@@ -96,6 +124,9 @@ class Sincronia
     public static function gravar(Request $request, string $area, int $donoId, string $chave, ?string $valor): JsonResponse
     {
         [$classe, $prefixo] = self::modelo($area);
+        if ($erro = self::valorInvalido($chave, $valor)) {
+            return response()->json(['message' => $erro], 422);
+        }
         $base = $request->header('X-WF-Versao');
 
         if ($chave !== 'estado' || $base === null) {

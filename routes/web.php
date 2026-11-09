@@ -87,6 +87,9 @@ Route::post('/whatsapp/webhook', [\App\Http\Controllers\ZapController::class, 'r
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'formLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
+    // verificação em duas etapas: código do app autenticador depois da senha
+    Route::get('/login/dois-fatores', [\App\Http\Controllers\DoisFatoresController::class, 'formCodigo'])->name('login.dois-fatores');
+    Route::post('/login/dois-fatores', [\App\Http\Controllers\DoisFatoresController::class, 'conferirCodigo'])->middleware('throttle:20,1');
     Route::get('/registro', [AuthController::class, 'formRegistro'])->name('registro');
     Route::post('/registro', [AuthController::class, 'registro']);
 });
@@ -132,6 +135,15 @@ Route::middleware('auth')->group(function () {
             ->whereNumber('promocao')->middleware('throttle:30,1')->name('promocoes.admin.encerrar');
     });
     Route::post('/sair', [AuthController::class, 'logout'])->name('logout');
+
+    // Configurações › Segurança: verificação em duas etapas (app autenticador + códigos de recuperação)
+    Route::prefix('/seguranca')->name('seguranca')->controller(\App\Http\Controllers\DoisFatoresController::class)->group(function () {
+        Route::get('/', 'pagina')->name('');
+        Route::post('/dois-fatores/iniciar', 'iniciar')->middleware('throttle:10,1')->name('.iniciar');
+        Route::post('/dois-fatores/confirmar', 'confirmar')->middleware('throttle:10,1')->name('.confirmar');
+        Route::post('/dois-fatores/desativar', 'desativar')->middleware('throttle:10,1')->name('.desativar');
+        Route::post('/dois-fatores/codigos', 'novosCodigosRecuperacao')->middleware('throttle:10,1')->name('.codigos');
+    });
     
     Route::get('/painel', [PainelController::class, 'index'])->name('painel');
 
