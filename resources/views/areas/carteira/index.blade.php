@@ -14,6 +14,12 @@
         'modo'    => $modo,
         'url'     => url('/' . $modo . '/dados'),
         'cotacao' => route('carteira.cotacao'),
+        // Investimentos: dados de mercado, filtro e simulador (InvestimentosController)
+        'mercado' => $modo === 'carteira' ? [
+            'ativos' => route('carteira.mercado.ativos'),
+            'lista' => route('carteira.mercado.lista'),
+            'simular' => route('carteira.mercado.simular'),
+        ] : null,
         'negocios' => route('areas.negocios'),
         'clientesLoja' => $modo === 'negocios' ? route('negocios.clientes.loja') : null,
         'produtos' => $modo === 'negocios' ? route('negocios.produtos') : null,
@@ -428,6 +434,8 @@
                     </ul>
                 </div>
             </x-carteira.item>
+
+            @include('areas.carteira.partials.investimentos-mercado')
 
             @include('areas.carteira.partials.blocos', ['sec' => 'invest'])
         </section>

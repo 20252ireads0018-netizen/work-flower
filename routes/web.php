@@ -159,6 +159,10 @@ Route::middleware('auth')->group(function () {
     // Carteira: precisa vir ANTES da rota genérica /areas/{area}
     Route::get('/areas/carteira', [CarteiraController::class, 'show'])->name('areas.carteira');
     Route::get('/carteira/cotacao', [CarteiraController::class, 'cotacao'])->middleware('throttle:30,1')->name('carteira.cotacao');
+    // Carteira › Investimentos: mercado (brapi, com cache), screener e simulador
+    Route::get('/carteira/mercado/ativos', [\App\Http\Controllers\InvestimentosController::class, 'ativos'])->middleware('throttle:30,1')->name('carteira.mercado.ativos');
+    Route::get('/carteira/mercado/lista', [\App\Http\Controllers\InvestimentosController::class, 'lista'])->middleware('throttle:30,1')->name('carteira.mercado.lista');
+    Route::post('/carteira/mercado/simular', [\App\Http\Controllers\InvestimentosController::class, 'simular'])->middleware('throttle:60,1')->name('carteira.mercado.simular');
     Route::put('/carteira/dados/{chave}', [CarteiraController::class, 'salvar'])
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('carteira.dados.salvar');
     Route::delete('/carteira/dados/{chave}', [CarteiraController::class, 'remover'])
