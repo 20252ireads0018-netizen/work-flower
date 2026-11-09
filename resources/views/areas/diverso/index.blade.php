@@ -13,6 +13,11 @@
         'csrf'    => csrf_token(),
         'dados'   => (object) $diversoDados->all(),
         'tarefas' => $tarefasJs,
+        // áreas criadas pela conta (App\Support\AreasConta): as abas delas têm "grupo" e aparecem só na página delas
+        'grupo'   => $diversoGrupo ?? null,
+        'grupos'  => $diversoGrupos ?? [],
+        'todas'   => !empty($diversoTodas),
+        'areasUrl' => url('/areas-config'),
     ];
 @endphp
 
@@ -468,8 +473,8 @@
 <div x-data="diversoAbasDiagrama()" class="space-y-6">
 
     {{-- Abas: só as que você criar (cada uma com nome e ícone) + o botão de nova aba --}}
-    <nav class="flex flex-wrap items-start gap-x-5 gap-y-4" aria-label="Abas do Diverso">
-        <template x-for="a in estado.abas" :key="a.id">
+    <nav class="flex flex-wrap items-start gap-x-5 gap-y-4" aria-label="Abas da área">
+        <template x-for="a in abasVisiveis()" :key="a.id">
             <div class="flex flex-col items-center">
                 <button type="button" class="circ" :class="{ 'ativo': aba === a.id, 'wf-novo': novidades[a.id] }"
                         @click="irPara(a.id)" @dblclick="editarAba(a)"
@@ -486,7 +491,7 @@
             </div>
         </template>
 
-        <div class="flex flex-col items-center" x-show="estado.abas.length < 12">
+        <div class="flex flex-col items-center" x-show="abasVisiveis().length < maxAbas">
             <button type="button" class="circ circ-nova" @click="abrirNovaAba()" title="Criar nova aba">
                 <span class="circ-bola">+</span>
                 <span class="circ-rotulo">Nova aba</span>
@@ -503,6 +508,14 @@
                 <input id="aba-nome" x-ref="nomeAba" type="text" maxlength="40" class="campo" placeholder="Ex.: Casa, Trabalho, Compras…"
                        :value="formAba ? formAba.nome : ''" @input="formAba.nome = $event.target.value"
                        @keydown.enter.prevent="salvarAba()" @keydown.escape.prevent="cancelarAba()">
+            </div>
+            {{-- Áreas criadas pela conta (engrenagem › Áreas): a aba pode ir inteira para outra delas ou voltar ao Diverso --}}
+            <div x-show="formAba && formAba.id && formAba.id !== 'quadro' && grupos.length" x-cloak>
+                <label class="rotulo" for="aba-grupo">Área</label>
+                <select id="aba-grupo" class="campo" :value="formAba ? formAba.grupo : ''" @change="formAba.grupo = $event.target.value">
+                    <option value="">Diverso</option>
+                    <template x-for="g in grupos" :key="g.id"><option :value="g.id" x-text="g.nome" :selected="formAba && formAba.grupo === g.id"></option></template>
+                </select>
             </div>
         </div>
         <div class="flex flex-wrap gap-1.5" role="listbox" aria-label="Ícones">

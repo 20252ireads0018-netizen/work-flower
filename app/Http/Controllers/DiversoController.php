@@ -24,15 +24,32 @@ class DiversoController extends Controller
     /** Prefixo dos pedaços do cartão Banco de dados. */
     public const PEDACO = 'sqlz.';
 
-    public function show(Request $request): View
+    /** Área criada pela conta: a mesma página, só com as abas daquela área (estado.abas[].grupo = id). */
+    public function extra(Request $request, string $id): View
+    {
+        $x = \App\Support\AreasConta::extra($request->user(), $id);
+        abort_unless($x, 404);
+
+        return $this->show($request, $x);
+    }
+
+    public function show(Request $request, ?array $extra = null): View
     {
         $id = Compartilhar::dono($request, self::SLUG);
         $tarefas = Tarefa::daArea($id, self::SLUG)->get();
         $dados = static::dados($id);
+        $area = Tarefa::AREAS[self::SLUG];
+        if ($extra) {
+            $area = ['nome' => $extra['nome'], 'descricao' => 'Área criada por você: abas com quadros livres.', 'icone' => \App\Support\AreasConta::ICONE_EXTRA] + $area;
+        }
 
         return view('areas.diverso.index', [
             'slug'         => self::SLUG,
-            'area'         => Tarefa::AREAS[self::SLUG],
+            'area'         => $area,
+            // áreas criadas (abas com grupo): qual está aberta, quais existem e se mostra todas (workflow de outra pessoa)
+            'diversoGrupo' => $extra['id'] ?? null,
+            'diversoGrupos' => array_map(fn ($x) => ['id' => $x['id'], 'nome' => $x['nome']], \App\Support\AreasConta::config($request->user())['extras']),
+            'diversoTodas' => $id !== $request->user()->id,
             'tarefas'      => $tarefas,
             'tarefasJs'    => $tarefas->map(fn ($t) => ['id' => $t->id, 'titulo' => $t->titulo, 'status' => $t->status])->values(),
             'diversoDados' => $dados,

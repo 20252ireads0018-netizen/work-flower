@@ -81,6 +81,18 @@ class Sincronia
         return self::AREAS[$area];
     }
 
+    /** [classe do modelo, prefixo das chaves] onde a área guarda os dados (usado ao mover cartões entre áreas). */
+    public static function armazenamento(string $area): array
+    {
+        return self::modelo($area);
+    }
+
+    /** O estado da área foi mudado pelo servidor (mover cartões entre áreas): quem está com a página aberta recebe. */
+    public static function avisarMudanca(Request $request, string $area, int $donoId, ?string $valor): void
+    {
+        self::marcar($request, $area, $donoId, self::versao($valor), true);
+    }
+
     /** Versão atual do estado da área do dono ('' = nunca gravado). */
     public static function versaoAtual(string $area, int $donoId): string
     {

@@ -808,11 +808,6 @@
             @include('areas.mente.partials.blocos', ['sec' => 'faculdade'])
         </section>
 
-        {{-- ================= MAPA MENTAL (só blocos) ================= --}}
-        <section class="wf-quadro" x-show="aba === 'mapa'" x-cloak :style="{ minHeight: alturaQuadro('mapa') + 'px' }">
-            @include('areas.mente.partials.blocos', ['sec' => 'mapa'])
-        </section>
-
         {{-- ================= CONCURSOS (só blocos; começa com o cartão Questões de concurso, o mesmo do Diverso) ================= --}}
         <section class="wf-quadro" x-show="aba === 'concursos'" x-cloak :style="{ minHeight: alturaQuadro('concursos') + 'px' }">
             <p x-show="!blocosDe('concursos').length" class="text-sm texto-2">

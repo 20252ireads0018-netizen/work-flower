@@ -678,11 +678,6 @@
             @include('areas.corpo.partials.blocos', ['sec' => 'metas'])
         </section>
 
-        {{-- ================= MAPA MENTAL (só blocos) ================= --}}
-        <section class="wf-quadro" x-show="aba === 'mapa'" x-cloak :style="{ minHeight: alturaQuadro('mapa') + 'px' }">
-            @include('areas.corpo.partials.blocos', ['sec' => 'mapa'])
-        </section>
-
         {{-- ================= QUADRO LIVRE (só blocos) ================= --}}
         <section class="wf-quadro" x-show="aba === 'livre'" x-cloak :style="{ minHeight: alturaQuadro('livre') + 'px' }">
             <p x-show="!blocosDe('livre').length" class="text-sm texto-2">

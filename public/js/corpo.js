@@ -54,7 +54,6 @@
             'cal-diario': { x: 396, y: 396, w: 692, h: 420 },
         },
         metas: { 'metas': { x: 0, y: 0, w: 560, h: 480 } },
-        mapa: {},
         livre: {},
     };
 
@@ -234,11 +233,9 @@
         c.metas ??= { kcal: 2000, p: 150, c: 250, gd: 70, fib: 25 };
         c.dia ??= hoje(); c.itens ??= []; c.hist ??= {};
         e.alimentos ??= []; e.metas ??= []; e.blocos ??= [];
-        if (!e.mapaSemeado) {
-            e.mapaSemeado = true;
-            e.blocos.push(mapaSemente());
-            (e.layout.mapa ??= {})['mapa-inicial'] = { x: 0, y: 0, w: 1088, h: 560, z: 1 };
-        }
+        // a aba "Mapa mental" saiu em 09/11/2026 (os cartões dela foram para o Quadro livre, App\Support\AbasRetiradas):
+        // conta nova não ganha mais o mapa inicial; o mapa mental continua no "+ Bloco"
+        e.mapaSemeado = true;
         return e;
     }
 
@@ -304,8 +301,13 @@
                 (r.filhos || []).forEach((f, k) => nos.push({ id: uid(), t: f.texto || 'Detalhe', x: 560, y: y + k * 46, pai: rn.id, cor }));
                 y += Math.max(1, (r.filhos || []).length) * 46 + 24;
             });
+            // mapa antigo (salvo só no navegador): vira um cartão de mapa mental no Quadro livre
             const semente = e.blocos.find(b => b.id === 'mapa-inicial');
             if (semente) semente.dados.nos = nos;
+            else {
+                e.blocos.push({ ...mapaSemente(), secao: 'livre', dados: { nos } });
+                (e.layout.livre ??= {})['mapa-inicial'] = { x: 0, y: 0, w: 1088, h: 560, z: 1 };
+            }
         }
     }
 
@@ -355,7 +357,6 @@
                 { id: 'agua', nome: 'Água', icone: '<path d="M12 3.5C9 7.5 6.5 10.2 6.5 13.5a5.5 5.5 0 0011 0C17.5 10.2 15 7.5 12 3.5z"/>' },
                 { id: 'calorias', nome: 'Calorias', icone: '<path d="M12 3c1 4 5 5 5 10a5 5 0 01-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z"/>' },
                 { id: 'metas', nome: 'Metas', icone: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>' },
-                { id: 'mapa', nome: 'Mapa mental', icone: '<circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="20" r="2"/><path d="M10 10.5L6.5 7.5M14 10.5l3.5-3M12 14.5v3.5"/>' },
                 { id: 'livre', nome: 'Quadro livre', icone: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4" rx="1.5"/><rect x="13" y="10" width="7" height="10" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/>' },
             ],
             tiposBloco: [

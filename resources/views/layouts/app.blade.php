@@ -48,6 +48,10 @@
     $preferencias = $usuario ? \App\Http\Controllers\PreferenciasController::de($usuario->id) : [];
     $preferenciasUrl = $usuario && \Illuminate\Support\Facades\Route::has('preferencias.salvar') ? route('preferencias.salvar') : '';
 
+    // Áreas do menu de cima: ordem, nomes e quais aparecem são de cada conta (App\Support\AreasConta, engrenagem › Áreas)
+    $wfAreasNav = $usuario ? \App\Support\AreasConta::lista($usuario, true) : [];
+    $wfUrlAqui  = url()->current();
+
     // Workflow compartilhado (ver App\Support\Compartilhar): de quem é a área aberta e se outras pessoas usam
     $wfArea     = request()->attributes->get('wf_area');
     $wfDono     = request()->attributes->get('wf_dono');
@@ -767,8 +771,8 @@
 
             <nav class="hidden md:flex items-stretch h-16 gap-6 text-sm" aria-label="Principal">
                 <a href="{{ route('painel') }}" class="nav-link {{ request()->routeIs('painel') ? 'ativo' : '' }}">Painel</a>
-                @foreach (\App\Models\Tarefa::AREAS as $slug => $a)
-                    <a href="{{ route('areas.show', $slug) }}" class="nav-link {{ request()->is('areas/'.$slug) ? 'ativo' : '' }}">{{ $a['nome'] }}</a>
+                @foreach ($wfAreasNav as $slug => $a)
+                    <a href="{{ $a['url'] }}" class="nav-link {{ $wfUrlAqui === $a['url'] ? 'ativo' : '' }}">{{ $a['nome'] }}</a>
                 @endforeach
             </nav>
 
@@ -798,6 +802,12 @@
                         <button type="button" class="menu-item" role="menuitem" @click="aberto = false; $dispatch('abrir-atalhos')">
                             <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg>
                             Atalhos
+                        </button>
+
+                        {{-- Áreas: esconder, renomear, reordenar, criar e mover (partials/areas-config) --}}
+                        <button type="button" class="menu-item" role="menuitem" @click="aberto = false; $dispatch('abrir-areas')">
+                            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><path d="M16.5 13.5v6M13.5 16.5h6"/></svg>
+                            Áreas
                         </button>
 
                         <button type="button" class="menu-item" role="menuitem" @click="aberto = false; $dispatch('abrir-workflows')">
@@ -886,8 +896,8 @@
 
         <nav x-show="menu" x-cloak class="nav-mobile md:hidden px-4 pb-3 space-y-1 text-sm" aria-label="Principal (celular)">
             <a href="{{ route('painel') }}" class="{{ request()->routeIs('painel') ? 'ativo' : '' }}">Painel</a>
-            @foreach (\App\Models\Tarefa::AREAS as $slug => $a)
-                <a href="{{ route('areas.show', $slug) }}" class="{{ request()->is('areas/'.$slug) ? 'ativo' : '' }}">{{ $a['nome'] }}</a>
+            @foreach ($wfAreasNav as $slug => $a)
+                <a href="{{ $a['url'] }}" class="{{ $wfUrlAqui === $a['url'] ? 'ativo' : '' }}">{{ $a['nome'] }}</a>
             @endforeach
         </nav>
     </header>
@@ -1781,6 +1791,8 @@
     <script src="{{ asset('js/midia.js') }}?v={{ @filemtime(public_path('js/midia.js')) }}" data-url="{{ url('/midia') }}"></script>
     {{-- fundo próprio de cada cartão (cor, transparência, imagem ou GIF): public/js/fundo-cartao.js --}}
     <script src="{{ asset('js/fundo-cartao.js') }}?v={{ @filemtime(public_path('js/fundo-cartao.js')) }}"></script>
+    {{-- tela "Áreas" e "Mover para outra área" dos cartões (public/js/areas-config.js e mover-area.js) --}}
+    @include('partials.areas-config')
 @endauth
 @include('partials.cookies')
 

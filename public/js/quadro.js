@@ -1485,6 +1485,7 @@
                     { rotulo: 'Cor do cartão', icone: '●', sub: PALETA.map(c => ({ rotulo: NOMES_COR[c] || c, cor: c, marcado: cor === c, acao: () => { this.setCor(sec, b.id, c); this.agendar(); } })) },
                     { rotulo: 'Fundo do cartão…', icone: '🖼', acao: () => this.fundoDoCartao(sec, b.id, el) },
                     b.tipo !== 'pasta' ? { rotulo: 'Salvar na biblioteca', icone: '★', acao: () => this.guardarBloco(b) } : null,
+                    this.podeMoverArea() ? { rotulo: b.tipo === 'pasta' ? 'Mover a pasta para outra área…' : 'Mover para outra área…', icone: '⇄', acao: () => this.moverParaArea(sec, [b.id]) } : null,
                     { rotulo: this.sel.includes(b.id) ? 'Tirar da seleção' : 'Selecionar', icone: '▣', acao: () => { this.sel = this.sel.includes(b.id) ? this.sel.filter(x => x !== b.id) : [...this.sel, b.id]; } },
                     '-',
                     { rotulo: 'Excluir', icone: '🗑', perigo: true, acao: () => this.removerBloco(b) },
@@ -1520,7 +1521,29 @@
                     { rotulo: 'Reorganizar os cartões', icone: '⤢', acao: () => this.reorganizar() },
                     { rotulo: 'Selecionar todos', icone: '▣', acao: () => this.selecionarTodos(sec) },
                     this.pastaAberta(sec) ? { rotulo: 'Fechar a pasta', icone: '⤴', acao: () => this.fecharPasta(sec) } : null,
+                    this.podeMoverArea() && this.estado.blocos.some(b => b.secao === sec)
+                        ? { rotulo: 'Mover os cartões desta aba para outra área…', icone: '⇄', acao: () => this.moverParaArea(sec, null) } : null,
                 ]);
+            },
+            /* ---------- mover cartões para outra área (public/js/mover-area.js, App\Support\MoverCartoes) ---------- */
+            /** Área desta página como o servidor conhece: corpo, mente, carteira, negocios, diverso ou o id da área criada. */
+            areaDaPagina() { return (this.cfg && this.cfg.grupo) || metaWF('wf-area'); },
+            /** Só nos dados da própria conta (não num workflow de outra pessoa) e fora do modo cartão ativo. */
+            podeMoverArea() { return !EMBED && !!window.WFMoverArea && !!this.areaDaPagina() && !document.querySelector('meta[name="wf-dono"]'); },
+            /** Abre a janela de mover: ids = cartões escolhidos (null = todos os cartões da aba). */
+            moverParaArea(sec, ids) {
+                if (!this.podeMoverArea()) return;
+                const n = ids ? ids.length : this.estado.blocos.filter(b => b.secao === sec).length;
+                window.WFMoverArea.abrir({
+                    de: this.areaDaPagina(), aba: sec, abaNome: this.nomeAba(sec), ids, quantos: n,
+                    // grava o que está pendente antes: o servidor move a partir do estado guardado
+                    antes: async () => {
+                        if (this.salvo !== 'ok') await this.gravarEstado();
+                        if (this.salvo !== 'ok') throw new Error('Não consegui salvar as últimas mudanças. Tente de novo.');
+                    },
+                    // depois de mover, a página recarrega com o estado novo (sem gravar o antigo por cima)
+                    depois: () => { this._silencio = true; clearTimeout(this._t); this.salvo = 'ok'; },
+                });
             },
             selecionarTodos(sec) {
                 this.sel = this.blocosDe(sec || this.aba).map(b => b.id);
@@ -2019,6 +2042,8 @@ Antes de mudar algo, use ler_pagina (e ler_cartao quando precisar do conteúdo).
             },
             /** Lista das abas desta página, na ordem dos botões. */
             listaAbas() {
+                // Diverso e áreas criadas: só as abas que aparecem nesta página
+                if (typeof this.abasVisiveis === 'function') return this.abasVisiveis().map(a => a.id);
                 if (Array.isArray(this.abas)) return this.abas.map(a => (typeof a === 'string' ? a : a.id));
                 if (this.estado && Array.isArray(this.estado.abas)) return this.estado.abas.map(a => a.id);
                 return Object.keys(PADRAO || {});

@@ -19,6 +19,8 @@ class CarteiraController extends Controller
     {
         $user = $request->user();
         $donoId = Compartilhar::dono($request, self::SLUG); // workflow compartilhado: dados do dono
+        // abas retiradas (Trabalho e Mapa mental): os cartões delas vão para o Quadro livre antes de ler o estado
+        \App\Support\AbasRetiradas::migrarConta(self::SLUG, $donoId);
 
         $dados = CarteiraDado::where('user_id', $donoId)->pluck('valor', 'chave');
 

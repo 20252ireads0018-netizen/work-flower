@@ -635,62 +635,6 @@
             @include('areas.carteira.partials.blocos', ['sec' => 'tarefas'])
         </section>
 
-        @if ($modo === 'carteira')
-        {{-- ================= TRABALHO ================= --}}
-        <section class="wf-quadro" x-show="aba === 'trabalho'" x-cloak :style="{ minHeight: alturaQuadro('trabalho') + 'px' }">
-
-            <x-carteira.item sec="'trabalho'" bid="'projetos'" titulo="Projetos" :minw="480" :minh="260">
-                <x-slot name="acoes">
-                    <input class="campo !w-44 !py-1" x-model="novoProj" placeholder="Novo projeto" @keydown.enter.prevent="addProjeto()" aria-label="Novo projeto">
-                    <button type="button" class="btn" @click="addProjeto()">+</button>
-                </x-slot>
-                <div class="wf-kanban">
-                    <template x-for="col in colunas" :key="col.id">
-                        <div class="wf-col-k">
-                            <div class="flex justify-between"><h3 class="titulo text-sm" x-text="col.nome"></h3><span class="text-xs texto-2" x-text="projDe(col.id).length"></span></div>
-                            <template x-for="p in projDe(col.id)" :key="p.id">
-                                <div class="wf-proj space-y-1.5">
-                                    <div class="flex items-center gap-1">
-                                        <input class="wf-cel font-medium flex-1" x-model="p.nome" aria-label="Nome do projeto">
-                                        <button type="button" class="mini-btn" x-show="col.id !== 'fazer'" title="Voltar" @click="moverProj(p, -1)">←</button>
-                                        <button type="button" class="mini-btn" x-show="col.id !== 'feito'" title="Avançar" @click="moverProj(p, 1)">→</button>
-                                        <button type="button" class="mini-btn perigo" title="Remover" @click="remProj(p.id)">✕</button>
-                                    </div>
-                                    <textarea class="campo" rows="2" x-model="p.nota" placeholder="Notas"></textarea>
-                                    <select class="campo wf-link-sel" x-model="p.doc" aria-label="Documento do projeto">
-                                        <option value="">Sem documento</option>
-                                        <template x-for="d in estado.docs" :key="d.id"><option :value="d.id" x-text="d.titulo"></option></template>
-                                    </select>
-                                    <button type="button" class="link-prim text-xs" x-show="p.doc" @click="abrirLink({ t: 'doc', id: p.doc })">Abrir documento</button>
-                                    {{-- Anexos externos --}}
-                                    <div class="space-y-1" x-data="{ link: '' }">
-                                        <template x-for="a in (p.anexos || [])" :key="a.id">
-                                            <div class="flex items-center gap-1 text-xs">
-                                                <button type="button" class="link-prim truncate flex-1 text-left" :title="a.nome" @click="abrirAnexo(a)"
-                                                        x-text="(a.tipo === 'link' ? '🔗 ' : '📎 ') + a.nome"></button>
-                                                <button type="button" class="mini-btn perigo" title="Remover anexo" @click="remAnexo(p, a.id)">✕</button>
-                                            </div>
-                                        </template>
-                                        <div class="flex items-center gap-1.5 pt-1">
-                                            <label class="link-prim text-xs cursor-pointer">+ Arquivo
-                                                <input type="file" class="hidden" accept=".pdf,.doc,.docx,.odt,.rtf,.txt"
-                                                    @change="anexarArquivo(p, $event.target.files[0]); $event.target.value = ''">
-                                            </label>
-                                            <input class="campo !py-0.5 !text-xs flex-1 min-w-0" x-model="link" placeholder="ou cole um link (Google Docs…)"
-                                                @keydown.enter.prevent="anexarLink(p, link); link = ''">
-                                        </div>
-                                    </div>
-                                </div>
-                            </template>
-                        </div>
-                    </template>
-                </div>
-            </x-carteira.item>
-
-            @include('areas.carteira.partials.blocos', ['sec' => 'trabalho'])
-        </section>
-
-        @endif
 
         @if ($modo === 'negocios')
         {{-- ================= DOCUMENTOS ================= --}}
@@ -706,19 +650,64 @@
         @include('areas.negocios.partials.secoes')
         @endif
 
-        @if ($modo === 'carteira')
-        {{-- ================= MAPA MENTAL (só blocos) ================= --}}
-        <section class="wf-quadro" x-show="aba === 'mapa'" x-cloak :style="{ minHeight: alturaQuadro('mapa') + 'px' }">
-            @include('areas.carteira.partials.blocos', ['sec' => 'mapa'])
-        </section>
-
-        @endif
-
-        {{-- ================= QUADRO LIVRE (só blocos) ================= --}}
+        {{-- ================= QUADRO LIVRE (só blocos) =================
+             As abas "Trabalho" e "Mapa mental" saíram em 09/11/2026: os cartões delas vieram para cá (App\Support\AbasRetiradas).
+             O cartão "Projetos" (da antiga aba Trabalho) aparece aqui só para quem tem projetos (carteira.js, projetosNoLivre). --}}
         <section class="wf-quadro" x-show="aba === 'livre'" x-cloak :style="{ minHeight: alturaQuadro('livre') + 'px' }">
-            <p x-show="!blocosDe('livre').length" class="text-sm texto-2">
+            <p x-show="!blocosDe('livre').length && !projetosNoLivre" class="text-sm texto-2">
                 Quadro vazio. Use “+ Bloco” para adicionar texto, tabela, lista, imagem ou mapa mental — ou arraste arquivos (.md, .txt, .csv, imagens, .wf.json) para cá.
             </p>
+            @if ($modo === 'carteira')
+            <template x-if="projetosNoLivre">
+                <x-carteira.item sec="'livre'" bid="'projetos'" titulo="Projetos" :minw="480" :minh="260">
+                    <x-slot name="acoes">
+                        <input class="campo !w-44 !py-1" x-model="novoProj" placeholder="Novo projeto" @keydown.enter.prevent="addProjeto()" aria-label="Novo projeto">
+                        <button type="button" class="btn" @click="addProjeto()">+</button>
+                    </x-slot>
+                    <div class="wf-kanban">
+                        <template x-for="col in colunas" :key="col.id">
+                            <div class="wf-col-k">
+                                <div class="flex justify-between"><h3 class="titulo text-sm" x-text="col.nome"></h3><span class="text-xs texto-2" x-text="projDe(col.id).length"></span></div>
+                                <template x-for="p in projDe(col.id)" :key="p.id">
+                                    <div class="wf-proj space-y-1.5">
+                                        <div class="flex items-center gap-1">
+                                            <input class="wf-cel font-medium flex-1" x-model="p.nome" aria-label="Nome do projeto">
+                                            <button type="button" class="mini-btn" x-show="col.id !== 'fazer'" title="Voltar" @click="moverProj(p, -1)">←</button>
+                                            <button type="button" class="mini-btn" x-show="col.id !== 'feito'" title="Avançar" @click="moverProj(p, 1)">→</button>
+                                            <button type="button" class="mini-btn perigo" title="Remover" @click="remProj(p.id)">✕</button>
+                                        </div>
+                                        <textarea class="campo" rows="2" x-model="p.nota" placeholder="Notas"></textarea>
+                                        <select class="campo wf-link-sel" x-model="p.doc" aria-label="Documento do projeto">
+                                            <option value="">Sem documento</option>
+                                            <template x-for="d in estado.docs" :key="d.id"><option :value="d.id" x-text="d.titulo"></option></template>
+                                        </select>
+                                        <button type="button" class="link-prim text-xs" x-show="p.doc" @click="abrirLink({ t: 'doc', id: p.doc })">Abrir documento</button>
+                                        {{-- Anexos externos --}}
+                                        <div class="space-y-1" x-data="{ link: '' }">
+                                            <template x-for="a in (p.anexos || [])" :key="a.id">
+                                                <div class="flex items-center gap-1 text-xs">
+                                                    <button type="button" class="link-prim truncate flex-1 text-left" :title="a.nome" @click="abrirAnexo(a)"
+                                                            x-text="(a.tipo === 'link' ? '🔗 ' : '📎 ') + a.nome"></button>
+                                                    <button type="button" class="mini-btn perigo" title="Remover anexo" @click="remAnexo(p, a.id)">✕</button>
+                                                </div>
+                                            </template>
+                                            <div class="flex items-center gap-1.5 pt-1">
+                                                <label class="link-prim text-xs cursor-pointer">+ Arquivo
+                                                    <input type="file" class="hidden" accept=".pdf,.doc,.docx,.odt,.rtf,.txt"
+                                                        @change="anexarArquivo(p, $event.target.files[0]); $event.target.value = ''">
+                                                </label>
+                                                <input class="campo !py-0.5 !text-xs flex-1 min-w-0" x-model="link" placeholder="ou cole um link (Google Docs…)"
+                                                    @keydown.enter.prevent="anexarLink(p, link); link = ''">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </x-carteira.item>
+            </template>
+            @endif
             @include('areas.carteira.partials.blocos', ['sec' => 'livre'])
         </section>
     </div>
