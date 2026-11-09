@@ -381,7 +381,7 @@
                             <path :d="mmLinhas(b)" fill="none" stroke="var(--tinta-2)" stroke-width="1.5" stroke-linecap="round" opacity=".6"/>
                         </svg>
                         <template x-for="n in b.dados.nos" :key="n.id">
-                            <div class="wf-no" :style="'left:' + n.x + 'px;top:' + n.y + 'px;--no:' + n.cor">
+                            <div class="wf-no" :style="'left:' + n.x + 'px;top:' + n.y + 'px;--no:' + (n.cor === '#2f6fc7' ? 'var(--prim)' : n.cor)">
                                 <span class="wf-no-grip" title="Arrastar" @pointerdown.stop.prevent="mmMover($event, b, n)">⠿</span>
                                 <button type="button" class="wf-ponto shrink-0" title="Trocar cor" @click="mmCor(n)"></button>
                                 <input class="wf-no-t" x-model="n.t" aria-label="Ideia">

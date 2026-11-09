@@ -163,13 +163,16 @@
     }
 
     /* ---------- desenho das formas e das ligações ---------- */
+    // na tela, o fundo das formas pode ficar translúcido (cartão com fundo próprio: --wf-no-fundo, em fundo-cartao.js)
     function pintura(exp) {
         return exp
             ? { fundo: '#ffffff', tinta: '#111827', suave: '#6b7280', sup: '#ffffff' }
-            : { fundo: 'var(--superficie-2)', tinta: 'var(--tinta)', suave: 'var(--tinta-2)', sup: 'var(--superficie)' };
+            : { fundo: 'var(--wf-no-fundo, var(--superficie-2))', tinta: 'var(--tinta)', suave: 'var(--tinta-2)', sup: 'var(--wf-no-sup, var(--superficie))' };
     }
+    // na tela, o azul padrão acompanha a cor do tema escolhida pela pessoa; ao exportar (PNG/SVG) fica o azul
+    const corTela = (c, exp) => { const k = corOk(c); return !exp && k.toLowerCase() === '#2f6fc7' ? 'var(--prim)' : k; };
     function formaSvg(n, exp) {
-        const g = geo(n), c = corOk(n.cor), P = pintura(exp), w = g.w, h = g.h, hw = w / 2, hh = h / 2;
+        const g = geo(n), c = corTela(n.cor, exp), P = pintura(exp), w = g.w, h = g.h, hw = w / 2, hh = h / 2;
         const tr = `stroke:${c};stroke-width:1.6;stroke-linejoin:round;`;
         const duo = (tag, at) => `<${tag} ${at} style="fill:${P.fundo};stroke:none"/><${tag} ${at} style="${tr}fill:${c};fill-opacity:.14"/>`;
         const linha = d => `<path d="${d}" style="${tr}fill:none"/>`;
@@ -262,7 +265,7 @@
             const A = mapa.get(l.de), B = mapa.get(l.para);
             if (!A || !B) return;
             const r = rota(A, B, l.estilo, l.de === l.para);
-            const c = COR_OK.test(l.cor || '') ? l.cor : P.suave, w = limitar(num(l.w) || 1.8, 1, 6);
+            const c = COR_OK.test(l.cor || '') ? corTela(l.cor, exp) : P.suave, w = limitar(num(l.w) || 1.8, 1, 6);
             const dash = TRACOS[l.traco] ? `stroke-dasharray:${TRACOS[l.traco]};` : '';
             const ini = l.ini == null ? 'nenhum' : l.ini, fim = l.fim == null ? 'seta' : l.fim;
             let g = `<g data-lig="${esc(l.id)}">`;
@@ -346,7 +349,7 @@
             ddCampos(n) { return campos(n); },
             ddNoEstilo(n) {
                 const g = geo(n);
-                return `left:${g.x}px;top:${g.y}px;width:${g.w}px;height:${g.h}px;z-index:${g.f === 'raia' ? 1 : 4};--no:${corOk(n.cor)};`;
+                return `left:${g.x}px;top:${g.y}px;width:${g.w}px;height:${g.h}px;z-index:${g.f === 'raia' ? 1 : 4};--no:${corTela(n.cor, false)};`;
             },
             ddClasse(b, n) {
                 const d = this.dd(b), sel = d.sel.includes(n.id), f = F[n.forma] ? n.forma : 'mapa';

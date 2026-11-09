@@ -100,6 +100,19 @@
 
     /** Cria um bloco: usa criarBloco (Diverso) ou, se não existir, novoBloco (Corpo e Mente) e depois ajusta título, dados e posição. */
     function criar(c, sec, tipo, pos, over) {
+        const id = criarSolto(c, sec, tipo, pos, over);
+        // dentro de uma pasta: a pasta em que o arquivo foi solto (cartão de pasta) ou a pasta aberta na aba.
+        // O criarBloco do Diverso não passa pelo "dentro da pasta" do quadro.js, então o cartão ia para a pasta de fora.
+        const nb = id && c.estado.blocos.find(b => b.id === id);
+        if (nb) {
+            const alvo = pastaAlvo && pastaAlvo !== id ? pastaAlvo : (typeof c.pastaAberta === 'function' ? c.pastaAberta(sec) : null);
+            if (alvo && alvo !== nb.id) nb.pasta = alvo;
+            else if (alvo === null && !pastaAlvo) delete nb.pasta;
+        }
+        return id;
+    }
+    let pastaAlvo = null; // pasta (cartão) sobre a qual os arquivos foram soltos
+    function criarSolto(c, sec, tipo, pos, over) {
         over = over || {};
         if (!permitido(c, tipo)) { avisar(c, 'Esta página não tem esse tipo de bloco.'); return null; }
         // Diverso: criarBloco sabe os tipos básicos; os das extensões (questões, hábitos…) saem pelo novoBloco, que elas embrulham
@@ -451,17 +464,23 @@
         return false;
     }
 
-    async function soltar(arquivos, x, y) {
+    async function soltar(arquivos, x, y, pasta) {
         const c = comp();
         if (!c) return;
         if (!c.aba) { avisar(c, 'Crie uma aba antes de soltar arquivos.'); return; }
+        // soltou em cima de um cartão de pasta: os arquivos entram nela
+        const p = pasta && c.estado.blocos.find(b => b.id === pasta && b.tipo === 'pasta' && b.secao === c.aba);
+        pastaAlvo = p ? p.id : null;
         let n = 0;
-        for (const f of arquivos) {
-            try {
-                if (await importar(c, f, { x: Math.max(0, x + n * 28), y: Math.max(0, y + n * 28) })) n++;
-            } catch (_) { avisar(c, `Não consegui ler "${f.name}".`); }
-        }
-        if (n) avisar(c, n === 1 ? 'Bloco criado a partir do arquivo.' : `${n} blocos criados a partir dos arquivos.`);
+        try {
+            for (const f of arquivos) {
+                try {
+                    if (await importar(c, f, { x: Math.max(0, x + n * 28), y: Math.max(0, y + n * 28) })) n++;
+                } catch (_) { avisar(c, `Não consegui ler "${f.name}".`); }
+            }
+        } finally { pastaAlvo = null; }
+        const onde = p ? ` na pasta “${(p.titulo || 'Pasta').trim()}”` : '';
+        if (n) avisar(c, n === 1 ? `Bloco criado a partir do arquivo${onde}.` : `${n} blocos criados a partir dos arquivos${onde}.`);
     }
 
     /* ---------- arrastar e soltar ---------- */
@@ -490,7 +509,8 @@
         marcar(null, false);
         if (!q) return;
         const r = q.getBoundingClientRect();
-        soltar(Array.from(e.dataTransfer.files || []), e.clientX - r.left, e.clientY - r.top);
+        const cartao = e.target.closest && e.target.closest('.wf-item[data-bid]');
+        soltar(Array.from(e.dataTransfer.files || []), e.clientX - r.left, e.clientY - r.top, cartao ? cartao.dataset.bid : null);
     });
 
     /* ---------- botão de baixar em TODO cartão ---------- */

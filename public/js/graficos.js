@@ -80,28 +80,42 @@
             return { n: i + 1, iso: k, sem: SEM[d.getDay()], dsem: d.getDay(), fds: d.getDay() === 0 || d.getDay() === 6, futuro: k > hoje, hoje: k === hoje };
         });
     }
+    // hábito com "Pular fins de semana" (h.semFds): sábado e domingo não contam, não quebram a sequência e não são marcados
+    const ehFds = d => d.getDay() === 0 || d.getDay() === 6;
+    const pula = (h, d) => !!(h && h.semFds) && ehFds(d);
     function pctHabito(dados, h, mes) {
-        const dias = diasDoMes(mes).filter(d => !d.futuro);
+        const dias = diasDoMes(mes).filter(d => !d.futuro && !(h.semFds && d.fds));
         if (!dias.length) return 0;
         const f = (dados.feitos || {})[h.id] || {};
         return Math.round(dias.filter(d => f[d.iso]).length / dias.length * 100);
     }
-    /** Dias seguidos até hoje (se hoje ainda não foi marcado, conta até ontem). */
+    /** Dias seguidos até hoje (se hoje ainda não foi marcado, conta até ontem). Fins de semana pulados não quebram. */
     function sequencia(dados, h) {
         const f = (dados.feitos || {})[h.id] || {};
         const d = new Date();
         if (!f[iso(d)]) d.setDate(d.getDate() - 1);
-        let n = 0;
-        while (f[iso(d)] && n < 3660) { n++; d.setDate(d.getDate() - 1); }
+        let n = 0, voltas = 0;
+        while (voltas++ < 4000) {
+            if (pula(h, d)) { d.setDate(d.getDate() - 1); continue; }
+            if (!f[iso(d)]) break;
+            n++; d.setDate(d.getDate() - 1);
+        }
         return n;
     }
-    /** Maior sequência já feita. */
+    /** Maior sequência já feita (com fins de semana pulados, sexta seguida de segunda conta como seguido). */
     function melhorSequencia(dados, h) {
         const dias = Object.keys((dados.feitos || {})[h.id] || {}).sort();
         let melhor = 0, atual = 0, ant = null;
         dias.forEach(k => {
             const d = new Date(k + 'T00:00');
-            atual = ant && Math.round((d - ant) / 864e5) === 1 ? atual + 1 : 1;
+            if (pula(h, d)) return;
+            let seguido = false;
+            if (ant) {
+                const x = new Date(ant); x.setDate(x.getDate() + 1);
+                while (pula(h, x) && x < d) x.setDate(x.getDate() + 1);
+                seguido = iso(x) === iso(d);
+            }
+            atual = seguido ? atual + 1 : 1;
             melhor = Math.max(melhor, atual);
             ant = d;
         });
@@ -112,7 +126,7 @@
         const f = (dados.feitos || {})[h.id] || {}, d = new Date();
         d.setDate(d.getDate() - d.getDay());
         let n = 0;
-        for (let i = 0; i < 7; i++) { if (f[iso(d)]) n++; d.setDate(d.getDate() + 1); }
+        for (let i = 0; i < 7; i++) { if (f[iso(d)] && !pula(h, d)) n++; d.setDate(d.getDate() + 1); }
         return n;
     }
 
@@ -536,7 +550,7 @@
         },
         hbFeito(b, h, dia) { return !!((b.dados.feitos || {})[h.id] || {})[dia]; },
         hbAlternar(b, h, d) {
-            if (d.futuro) return;
+            if (d.futuro || (h.semFds && d.fds)) return;
             b.dados.feitos ??= {};
             const f = (b.dados.feitos[h.id] ??= {});
             const antes = sequencia(b.dados, h);
@@ -548,7 +562,8 @@
         hbSeq(b, h) { return sequencia(b.dados, h); },
         hbMelhor(b, h) { return melhorSequencia(b.dados, h); },
         hbSemana(b, h) { return naSemana(b.dados, h); },
-        hbMeta(h) { return Math.max(1, Math.min(7, +h.meta || 7)); },
+        hbMeta(h) { return Math.max(1, Math.min(h.semFds ? 5 : 7, +h.meta || 7)); },
+        hbFds(h) { h.semFds = !h.semFds; if (h.semFds && +h.meta > 5) h.meta = 5; },
         hbSemanaOk(b, h) { return naSemana(b.dados, h) >= this.hbMeta(h); },
         /** Selos já ganhos (pela maior sequência) e o próximo. */
         hbSelos(b, h) {

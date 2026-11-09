@@ -51,6 +51,9 @@
             `${sel}::before{content:"";position:absolute;${blur}z-index:-1;pointer-events:none;background:${fundo};opacity:${op};border-radius:inherit}`,
             // o topo e o corpo ficam translúcidos para o fundo aparecer
             `${sel}>.wf-topo{background:color-mix(in srgb,var(--superficie-2) ${Math.min(55, f.opac)}%,transparent)!important}`,
+            // mapas mentais e diagramas: as formas deixam o fundo do cartão aparecer em vez de caixas cinza opacas
+            `${sel}{--wf-no-fundo:color-mix(in srgb,var(--superficie-2) 58%,transparent);--wf-no-sup:color-mix(in srgb,var(--superficie) 70%,transparent)}`,
+            `${sel} .wf-no{background:color-mix(in srgb,var(--superficie) 62%,transparent)!important;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}`,
         ].join('\n');
     }
 

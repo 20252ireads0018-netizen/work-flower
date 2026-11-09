@@ -39,7 +39,7 @@
             </div>
 
             <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="lembrar" value="1"> Manter conectado neste aparelho
+                <input type="checkbox" name="lembrar" value="1" @checked(old('lembrar', true))> Manter conectado neste aparelho
             </label>
 
             <button type="submit" class="btn w-full">Entrar</button>

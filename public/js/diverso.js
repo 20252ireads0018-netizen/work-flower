@@ -487,6 +487,8 @@
                 this.formAba = null;
                 this.aba = this.estado.abas[0]?.id ?? null;
                 this.aviso('Aba excluída.');
+                // os favoritos dos cartões desta aba saem junto (public/js/favoritos.js)
+                if (window.wfFavoritosLimpar) this.$nextTick(() => window.wfFavoritosLimpar());
             },
 
             /* ---------- blocos ---------- */

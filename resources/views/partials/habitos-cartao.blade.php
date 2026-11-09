@@ -59,8 +59,9 @@
                             </td>
                             <template x-for="d in hbDias(b)" :key="d.iso">
                                 <td :class="{ 'fds': d.fds, 'hoje': d.hoje }">
-                                    <button type="button" class="hb-dia" :disabled="d.futuro"
-                                            :class="{ 'feito': hbFeito(b, h, d.iso) }" :style="hbFeito(b, h, d.iso) ? '--c:' + h.cor : ''"
+                                    <button type="button" class="hb-dia" :disabled="d.futuro || (h.semFds && d.fds)"
+                                            :class="{ 'feito': hbFeito(b, h, d.iso), 'hb-pulado': h.semFds && d.fds }" :style="hbFeito(b, h, d.iso) ? '--c:' + h.cor : ''"
+                                            :title="h.semFds && d.fds ? 'Fim de semana pulado neste hábito' : ''"
                                             :aria-pressed="hbFeito(b, h, d.iso)" :aria-label="h.nome + ', dia ' + d.n"
                                             @click="hbAlternar(b, h, d)"></button>
                                 </td>
@@ -102,8 +103,11 @@
             <div class="cx-grade">
                 <label class="flex flex-col gap-0.5">Meta por semana
                     <select class="campo !py-0.5 !text-xs" x-model.number="h.meta">
-                        <template x-for="n in 7" :key="n"><option :value="n" :selected="hbMeta(h) === n" x-text="n === 7 ? 'Todo dia (7×)' : n + (n === 1 ? ' vez' : ' vezes')"></option></template>
+                        <template x-for="n in (h.semFds ? 5 : 7)" :key="n"><option :value="n" :selected="hbMeta(h) === n" x-text="n === 7 ? 'Todo dia (7×)' : (n === 5 && h.semFds ? 'Todo dia útil (5×)' : n + (n === 1 ? ' vez' : ' vezes'))"></option></template>
                     </select>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer" title="Sábado e domingo ficam fora: não contam na porcentagem e não quebram a sequência">
+                    <input type="checkbox" :checked="!!h.semFds" @change="hbFds(h)"> Pular fins de semana
                 </label>
                 <label class="flex flex-col gap-0.5">Lembrete diário
                     <span class="flex gap-1"><input type="time" class="campo !py-0.5 !text-xs flex-1" x-model="hora">

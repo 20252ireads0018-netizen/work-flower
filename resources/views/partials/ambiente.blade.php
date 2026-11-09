@@ -121,9 +121,79 @@
     </style>
 
     {{-- vídeo do YouTube (o tocador precisa ficar visível; dá para esconder) --}}
-    <div class="wf-amb-yt" x-show="atual && atual.tipo === 'youtube' && ytPronto" :class="{ 'escondido': !mostrarVideo || !tocando }">
+    <div class="wf-amb-yt" id="wf-amb-yt" x-show="atual && atual.tipo === 'youtube' && ytPronto" :class="{ 'escondido': !mostrarVideo || !tocando }">
         <div x-ref="yt"></div>
+        {{-- mover (barra de cima), aumentar e diminuir (botões e canto); lembrado neste aparelho --}}
+        <div class="wf-yt-barra" title="Arraste para mover · clique duplo volta ao lugar">
+            <span aria-hidden="true">⠿</span>
+            <button type="button" data-yt="menos" title="Diminuir" aria-label="Diminuir o vídeo">−</button>
+            <button type="button" data-yt="mais" title="Aumentar" aria-label="Aumentar o vídeo">+</button>
+        </div>
+        <span class="wf-yt-canto" title="Arraste para mudar o tamanho" aria-hidden="true"></span>
     </div>
+    <style>
+        .wf-amb-yt { touch-action: none; }
+        .wf-amb-yt > div:first-child, .wf-amb-yt iframe { width: 100%; height: 100%; display: block; }
+        .wf-yt-barra { position: absolute; left: 0; right: 0; top: 0; height: 1.6rem; display: flex; align-items: center; gap: .25rem; padding: 0 .35rem;
+            background: linear-gradient(rgba(0,0,0,.7), rgba(0,0,0,0)); color: #fff; cursor: grab; opacity: 0; transition: opacity .15s; }
+        .wf-amb-yt:hover .wf-yt-barra, .wf-amb-yt.mexendo .wf-yt-barra { opacity: 1; }
+        .wf-yt-barra span { flex: 1; font-size: .8rem; opacity: .8; }
+        .wf-yt-barra button { width: 1.35rem; height: 1.35rem; border: 0; border-radius: .35rem; background: rgba(255,255,255,.18); color: #fff; font-weight: 700; cursor: pointer; line-height: 1; }
+        .wf-yt-barra button:hover { background: rgba(255,255,255,.32); }
+        .wf-yt-canto { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; opacity: 0; transition: opacity .15s;
+            background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,.85) 50%, rgba(255,255,255,.85) 60%, transparent 60%, transparent 72%, rgba(255,255,255,.85) 72%, rgba(255,255,255,.85) 82%, transparent 82%); }
+        .wf-amb-yt:hover .wf-yt-canto, .wf-amb-yt.mexendo .wf-yt-canto { opacity: 1; }
+        .wf-amb-yt.mexendo iframe { pointer-events: none; }
+        .wf-amb-yt.movido { bottom: auto !important; }
+    </style>
+    <script>
+    (function () {
+        const el = document.getElementById('wf-amb-yt');
+        if (!el || el.dataset.pronto) return;
+        el.dataset.pronto = '1';
+        const K = 'wf-amb-yt-pos', MIN = 160;
+        const ler = () => { try { return JSON.parse(localStorage.getItem(K)) || {}; } catch (e) { return {}; } };
+        const gravar = v => { try { localStorage.setItem(K, JSON.stringify(v)); } catch (e) {} };
+        const maxW = () => Math.max(MIN, Math.min(innerWidth - 16, 960));
+        let pos = ler();
+        function aplicar() {
+            const w = Math.max(MIN, Math.min(maxW(), Number(pos.w) || 220));
+            el.style.width = w + 'px';
+            if (pos.x != null && pos.y != null) {
+                const h = w * 9 / 16;
+                el.classList.add('movido');
+                el.style.left = Math.max(0, Math.min(innerWidth - w, pos.x)) + 'px';
+                el.style.top = Math.max(0, Math.min(innerHeight - h, pos.y)) + 'px';
+            } else { el.classList.remove('movido'); el.style.left = ''; el.style.top = ''; }
+        }
+        aplicar();
+        addEventListener('resize', aplicar);
+        function arrastar(e, modo) {
+            if (e.button !== 0 || e.target.closest('button')) return;
+            e.preventDefault();
+            const r = el.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY;
+            el.classList.add('mexendo');
+            const mover = ev => {
+                if (modo === 'mover') { pos.x = r.left + ev.clientX - x0; pos.y = r.top + ev.clientY - y0; }
+                else { pos.w = r.width + ev.clientX - x0; if (pos.x == null) { pos.x = r.left; pos.y = r.top; } }
+                aplicar();
+            };
+            const fim = () => { el.classList.remove('mexendo'); removeEventListener('pointermove', mover); removeEventListener('pointerup', fim); gravar(pos); };
+            addEventListener('pointermove', mover);
+            addEventListener('pointerup', fim);
+        }
+        el.querySelector('.wf-yt-barra').addEventListener('pointerdown', e => arrastar(e, 'mover'));
+        el.querySelector('.wf-yt-canto').addEventListener('pointerdown', e => arrastar(e, 'tamanho'));
+        el.querySelector('.wf-yt-barra').addEventListener('dblclick', () => { pos = {}; gravar(pos); aplicar(); });
+        el.querySelectorAll('[data-yt]').forEach(b => b.addEventListener('click', () => {
+            const r = el.getBoundingClientRect();
+            const w = Math.max(MIN, Math.min(maxW(), r.width * (b.dataset.yt === 'mais' ? 1.35 : 1 / 1.35)));
+            // cresce mantendo o canto de baixo à esquerda no lugar
+            pos.x = r.left; pos.y = r.bottom - w * 9 / 16;
+            pos.w = Math.round(w); aplicar(); gravar(pos);
+        }));
+    })();
+    </script>
     <audio x-ref="audio" loop preload="none"></audio>
 
     <div class="wf-amb-pilula" :class="{ 'tocando': tocando }" role="group" aria-label="Música e fundo deste workflow">

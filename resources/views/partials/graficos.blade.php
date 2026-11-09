@@ -51,6 +51,7 @@
     .hb-dia { display: block; width: 1.3rem; height: 1.3rem; border-radius: .3rem; background: var(--superficie-2); border: 1px solid var(--linha); cursor: pointer; padding: 0; }
     .hb-dia.feito { background: var(--c, var(--prim)); border-color: var(--c, var(--prim)); }
     .hb-dia:disabled { opacity: .3; cursor: default; }
+    .hb-dia.hb-pulado { opacity: .18; background: repeating-linear-gradient(135deg, transparent 0 3px, var(--linha) 3px 4px); cursor: not-allowed; }
     .hb-dia:focus-visible { outline: 2px solid var(--tinta); outline-offset: 1px; }
     .hb-num { text-align: right; font-weight: 600; padding: 0 .25rem; font-size: .75rem; white-space: nowrap; }
     .hb-cor { width: .85rem; height: .85rem; border-radius: 9999px; flex-shrink: 0; cursor: pointer; border: 0; padding: 0; }

@@ -99,9 +99,50 @@
             s.textContent = f.area;
             a.append(n, s);
             if (f.url === aqui()) a.addEventListener('click', e => { e.preventDefault(); irPara(f.bid, f.sec); barra.classList.remove('aberta'); });
-            barra.append(a);
+            // tirar dos favoritos pela própria barra
+            const x = document.createElement('button');
+            x.type = 'button';
+            x.className = 'fav-tirar';
+            x.textContent = '×';
+            x.title = 'Tirar dos favoritos';
+            x.setAttribute('aria-label', 'Tirar ' + f.nome + ' dos favoritos');
+            x.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); salvar(lista().filter(g => !(g.bid === f.bid && g.url === f.url))); });
+            const linha = document.createElement('div');
+            linha.className = 'fav-linha';
+            linha.append(a, x);
+            barra.append(linha);
         });
     }
+    const st = document.createElement('style');
+    st.textContent = '.fav-linha{display:flex;align-items:stretch;gap:.15rem}.fav-linha .fav-item{flex:1;min-width:0}'
+        + '.fav-tirar{flex:none;width:1.6rem;border:0;border-radius:.4rem;background:none;color:inherit;opacity:.45;cursor:pointer;font-size:1rem}'
+        + '.fav-tirar:hover,.fav-tirar:focus-visible{opacity:1;background:rgba(239,68,68,.15);color:#f87171}';
+    document.head.appendChild(st);
+
+    /* ---------- favoritos de cartões ou abas que não existem mais (nesta página) saem sozinhos ---------- */
+    function componente() {
+        const q = document.querySelector('.wf-quadro');
+        try { const d = q && window.Alpine ? Alpine.$data(q) : null; return d && d.estado && Array.isArray(d.estado.blocos) ? d : null; } catch (e) { return null; }
+    }
+    let pronto = false;
+    function limpar() {
+        const c = componente();
+        if (!c || !pronto) return;
+        const abas = Array.isArray(c.estado.abas) ? c.estado.abas.map(a => a.id) : null; // Diverso: abas criadas pela pessoa
+        const existe = f => {
+            if (abas && f.sec && !abas.includes(f.sec) && !(c.estado.layout && c.estado.layout[f.sec])) return false; // a aba foi apagada
+            if (c.estado.blocos.some(b => b.id === f.bid)) return true;
+            if (Object.values(c.estado.layout || {}).some(l => l && l[f.bid])) return true;
+            return !!document.querySelector(`.wf-item[data-bid="${CSS.escape(f.bid)}"]`);
+        };
+        const l = lista(), nova = l.filter(f => f.url !== aqui() || existe(f));
+        if (nova.length !== l.length) salvar(nova);
+    }
+    window.wfFavoritosLimpar = limpar;
+    // só depois da página montar (antes disso o estado ainda não carregou e tudo pareceria apagado)
+    setTimeout(() => { if (componente()) { pronto = true; limpar(); } }, 2500);
+    new MutationObserver(() => { clearTimeout(limpar._t); limpar._t = setTimeout(limpar, 600); })
+        .observe(document.documentElement, { childList: true, subtree: true });
 
     /* ---------- abrir o cartão favorito ---------- */
     function irPara(bid, sec) {
@@ -111,6 +152,20 @@
                 try { const d = Alpine.$data(el); if (d && 'aba' in d && Array.isArray(d.abas || d.estado?.abas)) d.aba = sec; } catch (e) { /* não é a área */ }
             });
         }
+        // cartão guardado numa pasta: abre a pasta dele; fora de pasta: volta para o quadro da aba
+        setTimeout(() => {
+            const c = componente();
+            const b = c && typeof c.blocoPorId === 'function' ? c.blocoPorId(bid) : null;
+            const s = (b && b.secao) || sec;
+            try {
+                if (b && b.pasta && typeof c.abrirPasta === 'function') {
+                    const p = c.blocoPorId(b.pasta);
+                    if (p && p.tipo === 'pasta') c.abrirPasta(p, bid);
+                } else if (s && c && c.pasta && c.pasta[s]) {
+                    c.pasta = { ...c.pasta, [s]: null };
+                }
+            } catch (e) { /* página sem pastas */ }
+        }, 60);
         let n = 0;
         const achar = () => {
             const c = document.querySelector(`.wf-item[data-bid="${CSS.escape(bid)}"]`);

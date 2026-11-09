@@ -136,7 +136,7 @@ class AuthController extends Controller
             'password' => Hash::make($dados['password']),
         ]);
 
-        Auth::login($usuario);
+        Auth::login($usuario, true); // conta nova já fica conectada no aparelho (cookie "lembrar")
         $request->session()->regenerate();
 
         return redirect()->route('painel');
