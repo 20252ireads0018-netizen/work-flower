@@ -18,6 +18,17 @@ class PortfolioTest extends TestCase
     {
         parent::setUp();
         Storage::fake('local');
+        // estes testes mandam <script> e javascript: de propósito para conferir a limpeza do próprio portfólio
+        // (segunda camada); no site o filtro de ataques recusa antes (ver test_filtro_de_ataques_barra_script_no_portfolio)
+        $this->withoutMiddleware(\App\Http\Middleware\FiltroAtaques::class);
+    }
+
+    public function test_filtro_de_ataques_barra_script_no_portfolio(): void
+    {
+        $this->withMiddleware(\App\Http\Middleware\FiltroAtaques::class);
+        $u = User::factory()->create();
+        $this->actingAs($u)->postJson('/negocios/portfolio', ['slug' => 'ana-x', 'publicado' => false, 'dados' => $this->dados()])->assertStatus(403);
+        $this->assertSame(0, Portfolio::count());
     }
 
     private function dados(array $extra = []): array
