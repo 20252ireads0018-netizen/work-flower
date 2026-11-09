@@ -34,8 +34,30 @@
         { id: 'callout', nome: 'Destaque',            desc: 'Caixa de aviso ou nota',    ic: '💡',  k: 'destaque callout aviso nota' },
         { id: 'code',    nome: 'Código',              desc: 'Bloco de código',           ic: '</>', k: 'codigo code programacao' },
         { id: 'hr',      nome: 'Divisor',             desc: 'Linha separadora',          ic: '—',   k: 'divisor linha separador hr' },
+        { id: 'imagem',  nome: 'Imagem',              desc: 'Envie, cole ou arraste uma imagem', ic: '🖼',  k: 'imagem foto figura picture print', acao: true },
         { id: 'hoje',    nome: 'Data de hoje',        desc: 'Insere a data atual',       ic: '📅',  k: 'data hoje dia agora', acao: true },
     ];
+    // blocos sem texto editável (divisor e imagem): o cursor pula por cima deles
+    const SEM_TXT = t => t === 'hr' || t === 'img';
+    /* Imagem no meio do texto: uma linha Markdown própria
+       ![legenda](img:<cartão>.t.<id>){width=60% align=left}  (a imagem fica no quadro, chave img.<cartão>.t<id>)
+       ![legenda](https://…)                                  (imagem externa)
+       As opções entre chaves só aparecem quando fogem do padrão (largura 100%, centralizada). */
+    const RE_IMG = /^!\[([^\]\n]*)\]\(((?:img:[A-Za-z0-9._-]{1,56})|(?:https?:\/\/[^\s()]+))\)(?:\{([^}\n]*)\})?\s*$/;
+    const ALINHA = { left: 'e', center: 'c', right: 'd' }, ALINHA_MD = { e: 'left', d: 'right' };
+    function imgOpc(src, attrs) {
+        const a = /align=(left|center|right)/.exec(attrs || ''), w = /width=(\d{1,3})%/.exec(attrs || '');
+        return { s: src, a: a ? ALINHA[a[1]] : 'c', w: w ? Math.max(10, Math.min(100, +w[1])) : 100 };
+    }
+    const sufixo = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    /** Arquivos de imagem de um DataTransfer (colar ou soltar). */
+    function imagensDe(dt) {
+        if (!dt) return [];
+        const out = [];
+        Array.from(dt.items || []).forEach(it => { if (it.kind === 'file' && /^image\//.test(it.type)) { const f = it.getAsFile(); if (f) out.push(f); } });
+        if (!out.length) Array.from(dt.files || []).forEach(f => { if (/^image\//.test(f.type)) out.push(f); });
+        return out;
+    }
     // tipos para os quais um bloco existente pode ser transformado (sem divisor e sem ações)
     const TIPOS = ITENS.filter(it => !it.acao && it.id !== 'hr');
     const PH = { h1: 'Título 1', h2: 'Título 2', h3: 'Título 3', ul: 'Item da lista', ol: 'Item da lista', todo: 'Tarefa', quote: 'Citação', callout: 'Escreva um destaque…' };
@@ -76,6 +98,7 @@
                 continue;
             }
             i++;
+            if ((m = RE_IMG.exec(ln))) { out.push(novo('img', m[1], imgOpc(m[2], m[3]))); continue; }
             if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(ln)) { out.push(novo('hr')); continue; }
             const ind = /^( *)/.exec(ln)[1].length;
             const nv = Math.min(3, Math.floor(ind / 2));
@@ -122,18 +145,23 @@
         }).join('');
     }
 
-    window.WFEscrita = function (b) {
+    /** b = o bloco do quadro; ctx = os dados do quadro (imagens e cfg.url), passado pela view como $data. */
+    window.WFEscrita = function (b, ctx) {
         // histórico (fora do estado reativo)
         let pilha = [], pos = -1, tHist = 0;
-        const assinatura = bls => bls.map(x => x.id + ':' + x.t + ':' + (x.n || 0) + ':' + (x.f ? 1 : 0)).join('|');
+        const assinatura = bls => bls.map(x => x.id + ':' + x.t + ':' + (x.n || 0) + ':' + (x.f ? 1 : 0) + (x.t === 'img' ? ':' + x.s + ':' + x.a + ':' + x.w : '')).join('|');
+        const Q = () => window.WFQuadro;
+        const loja = () => (ctx && ctx.imagens && ctx.cfg && ctx.cfg.url && Q()) ? ctx : null;
 
         return {
             blocos: [], foco: null, menu: null, opcBl: null, sumario: false,
             arrastar: null, sobre: -1, dica: '', itens: ITENS, tipos: TIPOS, _ult: null, _t: null,
             selecao: [], selTxt: false, tipoMenu: false, recolhidos: [], todo: false,
             pH: 0, nH: 1, _anc: null, _fim: null, _uf: null,
+            enviando: [], _imgEm: null, modoFoco: false,
 
             iniciar() {
+                if ((!ctx || !ctx.imagens) && window.Alpine && this.$root.parentElement) { try { ctx = window.Alpine.$data(this.$root.parentElement); } catch (_) { /* sem quadro */ } }
                 if (!b.dados) b.dados = {};
                 if (!b.dados.tam) b.dados.tam = 'm';
                 if (typeof b.dados.texto !== 'string') b.dados.texto = b.dados.texto == null ? '' : String(b.dados.texto);
@@ -152,7 +180,12 @@
                 });
                 // ao sair do modo "texto inteiro" a folha estava oculta: recalcula a altura de todos os campos
                 this.$watch('todo', v => { if (!v) this.ajustar(); });
+                this.$nextTick(() => this.arrumarImagens());
+                // modo foco em tela cheia: sair com Esc (o navegador) também desliga o modo
+                this._fsSai = () => { if (!document.fullscreenElement && this.modoFoco) { this.modoFoco = false; this.ajustar(); } };
+                document.addEventListener('fullscreenchange', this._fsSai);
             },
+            destroy() { if (this._fsSai) document.removeEventListener('fullscreenchange', this._fsSai); },
             carregar(t) { const r = parse(t); return r.length ? r : [novo('p')]; },
 
             /* ---------- Markdown ---------- */
@@ -170,6 +203,12 @@
                         case 'callout': return '!> ' + bl.x;
                         case 'hr': return '---';
                         case 'code': return '```' + (bl.l || '') + '\n' + bl.x + '\n```';
+                        case 'img': {
+                            const op = [];
+                            if ((bl.w || 100) !== 100) op.push('width=' + bl.w + '%');
+                            if (ALINHA_MD[bl.a]) op.push('align=' + ALINHA_MD[bl.a]);
+                            return '![' + String(bl.x || '').replace(/[[\]\n]/g, '') + '](' + bl.s + ')' + (op.length ? '{' + op.join(' ') + '}' : '');
+                        }
                         default: return bl.x;
                     }
                 }).join('\n');
@@ -211,7 +250,7 @@
             /** Último bloco em que o cursor esteve (continua valendo quando o foco vai para a barra de ferramentas). */
             ultimo() {
                 const u = this.atual() || this.blocos.find(x => x.id === this._uf) || null;
-                return u && u.t !== 'hr' ? u : null;
+                return u && !SEM_TXT(u.t) ? u : null;
             },
             aoFocar(bl, el) {
                 this.foco = bl.id; this._uf = bl.id;
@@ -356,7 +395,8 @@
                     e.preventDefault();
                     const bl = this.blocos.find(x => x.id === this.selecao[0]);
                     this.limparSel();
-                    if (bl && bl.t !== 'hr') this.focar(bl.id, -1);
+                    if (bl && bl.t === 'img') this.depoisDe(this.idx(bl.id));
+                    else if (bl && bl.t !== 'hr') this.focar(bl.id, -1);
                     return;
                 }
                 if (k === 'Backspace' || k === 'Delete') { e.preventDefault(); this.removerSel(); return; }
@@ -390,7 +430,7 @@
             },
             duplicarSel() {
                 const ix = this.indices(); if (!ix.length) return;
-                const copias = ix.map(i => { const o = this.blocos[i]; return novo(o.t, o.x, { n: o.n, f: o.f, l: o.l }); });
+                const copias = ix.map(i => this.copiaDe(this.blocos[i]));
                 this.blocos.splice(ix[ix.length - 1] + 1, 0, ...copias);
                 this.selecao = copias.map(c => c.id); this._anc = copias[0].id; this._fim = copias[copias.length - 1].id;
                 this.focarFolha();
@@ -402,7 +442,7 @@
                 if (!this.blocos.length) this.blocos.push(novo('p'));
                 this.limparSel();
                 const o = this.blocos[Math.min(a, this.blocos.length - 1)];
-                if (o.t !== 'hr') this.focar(o.id, -1); else this.foco = null;
+                if (!SEM_TXT(o.t)) this.focar(o.id, -1); else this.foco = null;
             },
             indentarSel(d) {
                 let mudou = false;
@@ -422,13 +462,13 @@
                 if (!this.selTxt) this.tipoMenu = false;
             },
             bolhaEm(id) {
-                if (this.selecao.length) return this.selecao[0] === id;
+                if (this.selecao.length) return this.selecao[0] === id && this.alvos().some(x => !SEM_TXT(x.t));
                 const bl = this.atual();
-                return !!bl && bl.id === id && this.selTxt && bl.t !== 'hr';
+                return !!bl && bl.id === id && this.selTxt && !SEM_TXT(bl.t);
             },
-            podeFormatar() { return this.alvos().some(x => x.t !== 'code' && x.t !== 'hr'); },
+            podeFormatar() { return this.alvos().some(x => x.t !== 'code' && !SEM_TXT(x.t)); },
             tipoAtual() {
-                const ts = [...new Set(this.alvos().map(x => x.t).filter(t => t !== 'hr'))];
+                const ts = [...new Set(this.alvos().map(x => x.t).filter(t => !SEM_TXT(t)))];
                 return ts.length === 1 ? ts[0] : (ts.length ? '' : 'p');
             },
             rotuloTipo() {
@@ -446,7 +486,7 @@
             },
             transformar(id) {
                 if (!TIPOS.some(t => t.id === id)) return;
-                const alvo = this.alvos().filter(x => x.t !== 'hr');
+                const alvo = this.alvos().filter(x => !SEM_TXT(x.t));
                 if (!alvo.length) { this.tipoMenu = false; this.avisar('Clique em um bloco de texto primeiro.'); return; }
                 const ids = new Set(alvo.map(x => x.id));
                 const emSel = this.selecao.length > 0, focoAnt = this.foco || this._uf;
@@ -496,6 +536,11 @@
                     return;
                 }
                 bl.x = '';
+                if (id === 'imagem') {
+                    const t1 = this.ta(bl.id); if (t1) t1.value = '';
+                    this.escolherImagem(bl.id);
+                    return;
+                }
                 if (id === 'hr') {
                     bl.t = 'hr'; bl.n = 0; bl.f = false; bl.l = '';
                     const nb = novo('p');
@@ -590,7 +635,7 @@
             },
             ir(e, i, d, pos2) {
                 let j = i + d;
-                while (this.blocos[j] && (this.blocos[j].t === 'hr' || !this.visivel(j))) j += d;
+                while (this.blocos[j] && (SEM_TXT(this.blocos[j].t) || !this.visivel(j))) j += d;
                 const o = this.blocos[j]; if (!o) return;
                 e.preventDefault(); this.focar(o.id, pos2);
             },
@@ -632,6 +677,8 @@
                 e.preventDefault();
                 const ant = this.blocos[i - 1];
                 if (ant.t === 'hr') { this.blocos.splice(i - 1, 1); this.focar(bl.id, 0); return; }
+                // antes de uma imagem: o primeiro Backspace seleciona a imagem (o segundo a apaga)
+                if (ant.t === 'img') { if (!bl.x) this.blocos.splice(i, 1); this.selUm(ant.id); return; }
                 if (ant.t === 'code') { if (!bl.x) this.blocos.splice(i, 1); this.focar(ant.id, -1); return; }
                 const pos2 = ant.x.length;
                 ant.x += bl.x; this.blocos.splice(i, 1); this.focar(ant.id, pos2);
@@ -642,13 +689,20 @@
                 const prox = this.blocos[i + 1]; if (!prox) return;
                 e.preventDefault();
                 if (prox.t === 'hr') { this.blocos.splice(i + 1, 1); return; }
+                if (prox.t === 'img') { this.selUm(prox.id); return; }
                 if (prox.t === 'code') return;
                 const pos2 = bl.x.length;
                 bl.x += prox.x; this.blocos.splice(i + 1, 1); this.focar(bl.id, pos2);
             },
             colar(e, bl, i) {
+                const dt = e.clipboardData || window.clipboardData;
+                const txt0 = dt ? (dt.getData('text') || '') : '';
+                // imagem copiada (print, imagem da internet): vira um bloco de imagem aqui
+                // (texto copiado do Word/Docs também traz uma imagem da seleção; nesse caso vale o texto)
+                const imgs = txt0.trim() ? [] : imagensDe(dt);
+                if (imgs.length) { e.preventDefault(); this.imagensEm(imgs, bl, i); return; }
                 if (bl.t === 'code') return;
-                const txt = (e.clipboardData || window.clipboardData).getData('text') || '';
+                const txt = txt0;
                 const limpo = txt.replace(/\r\n?/g, '\n').replace(/\n+$/, '');
                 if (limpo.indexOf('\n') < 0) return;
                 e.preventDefault();
@@ -663,6 +717,7 @@
                     if (depois) { const r = novo('p', depois); novos.push(r); foco = r.id; pos2 = 0; } else foco = novos[novos.length - 1].id;
                     this.blocos.splice(i + 1, 0, ...novos);
                 }
+                novos.forEach(n => { if (n.t === 'img') this.adotar(n); });
                 this.focar(foco, pos2);
             },
 
@@ -708,17 +763,17 @@
                 this.blocos.splice(j, 0, m);
                 if (tinha) this.focar(m.id, -1);
             },
+            copiaDe(o) { return novo(o.t, o.x, o.t === 'img' ? { s: o.s, a: o.a, w: o.w } : { n: o.n, f: o.f, l: o.l }); },
             duplicar(i) {
-                const o = this.blocos[i];
-                const c = novo(o.t, o.x, { n: o.n, f: o.f, l: o.l });
+                const c = this.copiaDe(this.blocos[i]);
                 this.blocos.splice(i + 1, 0, c);
-                this.focar(c.id, -1);
+                if (!SEM_TXT(c.t)) this.focar(c.id, -1);
             },
             remover(i) {
                 this.blocos.splice(i, 1);
                 if (!this.blocos.length) this.blocos.push(novo('p'));
                 const o = this.blocos[Math.min(i, this.blocos.length - 1)];
-                if (o.t !== 'hr') this.focar(o.id, -1); else this.foco = null;
+                if (!SEM_TXT(o.t)) this.focar(o.id, -1); else this.foco = null;
             },
             depoisDe(i) { const nb = novo('p'); this.blocos.splice(i + 1, 0, nb); this.focar(nb.id, 0); },
             addAbaixo(i) {
@@ -766,7 +821,13 @@
                 return { feitas: t.filter(x => x.f).length, total: t.length };
             },
             baixar() {
-                const blob = new Blob([this.serializar()], { type: 'text/markdown;charset=utf-8' });
+                // as imagens do quadro vão embutidas no .md (data:…), para o arquivo abrir sozinho em outro lugar
+                const md = this.md(this.blocos.map(x => {
+                    if (x.t !== 'img' || !/^img:/.test(x.s)) return x;
+                    const src = this.srcImg(x);
+                    return /^data:image\//.test(src) || /^https?:\/\//.test(src) ? Object.assign({}, x, { s: src }) : x;
+                }));
+                const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
                 a.download = (String(b.titulo || 'texto').replace(/[\\/:*?"<>|]+/g, '').trim() || 'texto') + '.md';
@@ -776,16 +837,163 @@
             copiar() { return this.copiarTexto(this.serializar(), 'Markdown copiado.'); },
             async importar(f) {
                 if (!f) return;
-                const txt = await f.text();
+                let txt = await f.text();
                 if (this.palavras() && !window.confirm('Substituir o texto atual pelo conteúdo do arquivo? (dá para desfazer com Ctrl+Z)')) return;
                 this.limparSel(); this.recolhidos = [];
+                // imagens embutidas (como o "Exportar .md" gera) voltam para o quadro
+                const L = loja(), subir = [];
+                txt = String(txt).replace(/^!\[([^\]\n]*)\]\((data:image\/[a-z+]+;base64,[A-Za-z0-9+\/=]+)\)/gm, (m, alt, src) => {
+                    if (!L || src.length > 5500000) return m;
+                    const k = b.id + '.' + sufixo();
+                    subir.push([k, src]);
+                    return '![' + alt + '](img:' + k + ')';
+                });
+                subir.forEach(([k, src]) => {
+                    L.imagens[k] = src;
+                    Q().enviar(`${L.cfg.url}/img.${k}`, JSON.stringify(src)).catch(() => this.avisar('Não consegui salvar uma imagem do arquivo.'));
+                });
                 this.blocos = this.carregar(txt);
                 this.avisar('Arquivo importado.');
+            },
+
+            /* ---------- imagens no meio do texto ---------- */
+            /** Endereço da imagem do bloco: do quadro (img:…) ou externo (https://…). */
+            srcImg(bl) {
+                if (!bl || !bl.s) return '';
+                if (/^https?:\/\//i.test(bl.s)) return bl.s;
+                const L = loja(); if (!L) return '';
+                const v = L.imagens[bl.s.slice(4)];
+                return typeof v === 'string' && /^(data:image\/|https?:\/\/|\/)/i.test(v) ? v : '';
+            },
+            /** Abre o seletor de arquivos; a imagem entra no lugar do bloco id (se vazio) ou depois dele. */
+            escolherImagem(id) {
+                if (!loja()) { this.avisar('Imagens não estão disponíveis neste cartão.'); return; }
+                const u = this.ultimo();
+                this._imgEm = id || (u && u.id) || null;
+                const inp = this.$root.querySelector('input.wf-es-arq');
+                if (inp) inp.click();
+            },
+            escolhidas(lista) {
+                const fs = Array.from(lista || []).filter(f => /^image\//.test(f.type));
+                const id = this._imgEm; this._imgEm = null;
+                if (!fs.length) return;
+                const i = id ? this.idx(id) : -1;
+                if (i < 0) { this.inserirImagens(fs, this.blocos.length); return; }
+                this.imagensEm(fs, this.blocos[i], i);
+            },
+            /** Coloca as imagens junto do bloco bl: no lugar dele se for um parágrafo vazio, senão logo abaixo. */
+            imagensEm(fs, bl, i) {
+                if (bl && bl.t === 'p' && !bl.x.trim()) { this.blocos.splice(i, 1); this.inserirImagens(fs, i); }
+                else this.inserirImagens(fs, i + 1);
+            },
+            /** Soltar arquivos sobre um bloco: imagens entram acima ou abaixo dele (conforme a metade); o resto segue para o quadro. */
+            soltarEm(e, i, fim) {
+                const dt = e.dataTransfer;
+                const temArq = dt && Array.from(dt.types || []).includes('Files');
+                if (!temArq) { this.soltar(i); return; }
+                this.arrastar = null; this.sobre = -1;
+                const fs = imagensDe(dt);
+                if (!fs.length || fs.length !== (dt.files || []).length) return; // outros arquivos: o quadro cuida (arquivos.js)
+                e.stopPropagation();
+                let p = i;
+                if (!fim && e.currentTarget && e.currentTarget.getBoundingClientRect) {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    if (e.clientY > r.top + r.height / 2) p = i + 1;
+                }
+                this.inserirImagens(fs, p);
+            },
+            /** Reduz cada imagem no navegador (máx. 1400 px, JPEG), mostra na hora e grava em img.<cartão>.t<id>. GIF vai inteiro (/midia), para continuar animado. */
+            async inserirImagens(fs, p) {
+                const L = loja();
+                if (!L) { this.avisar('Imagens não estão disponíveis neste cartão.'); return; }
+                this.limparSel(); this.menu = null;
+                const novos = fs.map(() => novo('img', '', { s: 'img:' + b.id + '.' + sufixo(), a: 'c', w: 100 }));
+                p = Math.max(0, Math.min(p, this.blocos.length));
+                this.blocos.splice(p, 0, ...novos);
+                // sempre há uma linha de texto depois da última imagem, para continuar escrevendo
+                const depois = this.blocos[p + novos.length];
+                if (!depois || SEM_TXT(depois.t)) this.blocos.splice(p + novos.length, 0, novo('p'));
+                this.enviando.push(...novos.map(n => n.id));
+                this.avisar(fs.length > 1 ? 'Enviando ' + fs.length + ' imagens…' : 'Enviando imagem…');
+                let falhas = 0;
+                await Promise.all(fs.map(async (f, k) => {
+                    const bl = novos[k], chave = bl.s.slice(4);
+                    try {
+                        let src;
+                        if (f.type === 'image/gif' && window.wfEnviarMidia) src = (await window.wfEnviarMidia(f)).url;
+                        else {
+                            if (f.size > 40 * 1024 * 1024) throw new Error('grande');
+                            src = await Q().reduzir(f, 1400, 0.85);
+                        }
+                        L.imagens[chave] = src;
+                        await Q().enviar(`${L.cfg.url}/img.${chave}`, JSON.stringify(src));
+                    } catch (_) {
+                        falhas++;
+                        delete L.imagens[chave];
+                        const j = this.idx(bl.id); if (j >= 0) this.blocos.splice(j, 1);
+                    } finally {
+                        this.enviando = this.enviando.filter(x => x !== bl.id);
+                    }
+                }));
+                if (!this.blocos.length) this.blocos.push(novo('p'));
+                this.avisar(falhas ? 'Não consegui salvar ' + (falhas > 1 ? falhas + ' imagens.' : 'a imagem.') : (fs.length > 1 ? 'Imagens inseridas.' : 'Imagem inserida.'));
+                const ultI = this.idx(novos[novos.length - 1].id);
+                const seg = ultI >= 0 ? this.blocos[ultI + 1] : null;
+                if (seg && !SEM_TXT(seg.t)) this.focar(seg.id, 0);
+            },
+            /** Imagem que veio de outro cartão (cartão duplicado, blocos colados): ganha uma cópia própria. */
+            adotar(bl) {
+                const L = loja();
+                if (!L || bl.t !== 'img' || !/^img:/.test(bl.s)) return false;
+                const k = bl.s.slice(4);
+                if (k.startsWith(b.id + '.') || typeof L.imagens[k] !== 'string') return false;
+                const nk = b.id + '.' + sufixo();
+                L.imagens[nk] = L.imagens[k];
+                bl.s = 'img:' + nk;
+                Q().enviar(`${L.cfg.url}/img.${nk}`, JSON.stringify(L.imagens[nk])).catch(() => this.avisar('Não consegui copiar uma imagem.'));
+                return true;
+            },
+            /** Ao abrir: copia imagens de outros cartões e apaga do servidor as deste cartão que o texto não usa mais. */
+            arrumarImagens() {
+                const L = loja(); if (!L) return;
+                this.blocos.forEach(bl => this.adotar(bl));
+                const usadas = new Set(this.blocos.filter(x => x.t === 'img' && /^img:/.test(x.s)).map(x => x.s.slice(4)));
+                const pref = b.id + '.';
+                Object.keys(L.imagens).filter(k => k.startsWith(pref) && /^t[a-z0-9]{6,}$/.test(k.slice(pref.length)) && !usadas.has(k)).forEach(k => {
+                    delete L.imagens[k];
+                    Q().enviar(`${L.cfg.url}/img.${k}`, null, 'DELETE').catch(() => {});
+                });
+            },
+            alinharImg(bl, a) { bl.a = a; },
+            larguraImg(bl, w) { bl.w = Math.max(10, Math.min(100, Math.round(+w || 100))); },
+            /** Puxador no canto: arrasta para mudar a largura (em % da folha). */
+            puxarImg(e, bl) {
+                const caixa = e.currentTarget.closest('.wf-es-fig-caixa'), fig = caixa && caixa.parentElement;
+                if (!caixa || !fig) return;
+                e.preventDefault(); e.stopPropagation();
+                const x0 = e.clientX, w0 = caixa.getBoundingClientRect().width, W = fig.getBoundingClientRect().width || 1;
+                const k = bl.a === 'c' ? 2 : (bl.a === 'd' ? -1 : 1);
+                const mover = ev => { this.larguraImg(bl, (w0 + (ev.clientX - x0) * k) / W * 100); };
+                const fim = () => { window.removeEventListener('pointermove', mover); window.removeEventListener('pointerup', fim); };
+                window.addEventListener('pointermove', mover);
+                window.addEventListener('pointerup', fim);
+            },
+            legenda(e, bl) { bl.x = e.target.value.replace(/[[\]\n]/g, ''); },
+
+            /* ---------- modo foco ---------- */
+            /** Esconde as barras, centraliza o texto e apaga os outros blocos; em tela cheia quando o navegador deixa. */
+            alternarFoco() {
+                this.modoFoco = !this.modoFoco;
+                try {
+                    if (this.modoFoco && this.$root.requestFullscreen && !document.fullscreenElement) this.$root.requestFullscreen().catch(() => {});
+                    else if (!this.modoFoco && document.fullscreenElement === this.$root) document.exitFullscreen().catch(() => {});
+                } catch (_) { /* sem tela cheia: fica só o modo foco */ }
+                this.ajustar();
             },
         };
     };
     /* Versão do editor: a view confere este número e avisa se algo estiver desatualizado. */
-    window.WFEscrita.versao = 3;
+    window.WFEscrita.versao = 4;
 })();
 </script>
 @endverbatim

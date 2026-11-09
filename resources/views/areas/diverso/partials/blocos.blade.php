@@ -1692,6 +1692,40 @@
     .wf-es-ic { width: 1.7rem; height: 1.7rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 700; border: 1px solid var(--linha); border-radius: .35rem; background: var(--superficie-2); }
     .wf-es-vazio { padding: .4rem; font-size: .75rem; color: var(--tinta-2); }
     .wf-es-fim { flex: 1; min-height: 3rem; cursor: text; }
+    /* Imagem no meio do texto */
+    .wf-es-corpo.t-img { display: block; }
+    .wf-es-fig { margin: .35rem 0; display: flex; flex-direction: column; align-items: center; gap: .15rem; }
+    .wf-es-fig.al-e { align-items: flex-start; }
+    .wf-es-fig.al-d { align-items: flex-end; }
+    .wf-es-fig-caixa { position: relative; min-width: 3rem; max-width: 100%; border-radius: .4rem; cursor: pointer; }
+    .wf-es-fig-caixa img { display: block; width: 100%; height: auto; border-radius: .4rem; user-select: none; }
+    .wf-es-bloco.selecionado .wf-es-fig-caixa { outline: 2px solid var(--prim); outline-offset: 2px; }
+    .wf-es-fig-vazio { display: flex; align-items: center; justify-content: center; min-height: 6rem; padding: 1rem; font-size: .8rem; color: var(--tinta-2); border: 1px dashed var(--linha); border-radius: .4rem; background: var(--superficie-2); }
+    .wf-es-fig-barra { position: absolute; top: .35rem; right: .35rem; display: flex; align-items: center; gap: .1rem; padding: .15rem; border-radius: .45rem; background: rgba(15, 18, 28, .82); color: #fff; opacity: 0; pointer-events: none; transition: opacity .12s; font-size: .72rem; }
+    .wf-es-fig-caixa:hover .wf-es-fig-barra, .wf-es-bloco.selecionado .wf-es-fig-barra { opacity: 1; pointer-events: auto; }
+    .wf-es-fig-barra button { min-width: 1.6rem; padding: .15rem .3rem; border: 0; border-radius: .3rem; background: none; color: inherit; cursor: pointer; line-height: 1.1; }
+    .wf-es-fig-barra button:hover { background: rgba(255, 255, 255, .15); }
+    .wf-es-fig-barra button.sel { background: rgba(99, 140, 255, .55); }
+    .wf-es-fig-barra .wf-es-bsep { width: 1px; align-self: stretch; background: rgba(255, 255, 255, .25); margin: 0 .15rem; }
+    .wf-es-fig-puxa { position: absolute; right: -5px; bottom: -5px; width: 12px; height: 12px; border-radius: 3px; background: var(--prim); border: 2px solid var(--superficie); cursor: nwse-resize; opacity: 0; touch-action: none; }
+    .wf-es-fig-puxa.esq { right: auto; left: -5px; cursor: nesw-resize; }
+    .wf-es-fig-caixa:hover .wf-es-fig-puxa, .wf-es-bloco.selecionado .wf-es-fig-puxa { opacity: 1; }
+    .wf-es-leg { max-width: 100%; min-width: 8rem; padding: .1rem .2rem; font-size: .8em; text-align: center; color: var(--tinta-2); background: transparent; border: 0; outline: 0; }
+    .wf-es-fig.al-e .wf-es-leg { text-align: left; }
+    .wf-es-fig.al-d .wf-es-leg { text-align: right; }
+    .wf-es-leg:placeholder-shown { opacity: 0; }
+    .wf-es-bloco:hover .wf-es-leg:placeholder-shown, .wf-es-leg:focus { opacity: .8; }
+    /* Modo foco: sem barras, texto centralizado, linhas fora do cursor apagadas (tela cheia quando o navegador deixa) */
+    .wf-es-sair-foco { display: none; }
+    .wf-es.wf-es-foco { position: relative; background: var(--superficie); }
+    .wf-es.wf-es-foco:fullscreen { padding: 2.5rem 1rem 1rem; overflow: auto; }
+    .wf-es.wf-es-foco > .wf-es-barra, .wf-es.wf-es-foco > .wf-es-sum { display: none !important; }
+    .wf-es.wf-es-foco .wf-es-sair-foco { display: inline-flex; position: absolute; top: .4rem; right: .4rem; z-index: 40; padding: .2rem .6rem; font-size: .75rem; opacity: .55; }
+    .wf-es.wf-es-foco .wf-es-sair-foco:hover { opacity: 1; }
+    .wf-es.wf-es-foco .wf-es-folha { border-color: transparent; background: transparent; padding-top: 1.5rem; }
+    .wf-es.wf-es-foco .wf-es-folha > .wf-es-bloco, .wf-es.wf-es-foco .wf-es-fim { width: 100%; max-width: 46rem; margin-left: auto; margin-right: auto; }
+    .wf-es.wf-es-foco .wf-es-folha:focus-within > .wf-es-bloco:not(.foco):not(.selecionado) { opacity: .38; transition: opacity .2s; }
+    .wf-es.wf-es-foco .wf-es-rodape { justify-content: center; opacity: .6; }
     .wf-es-rodape { display: flex; flex-wrap: wrap; gap: .2rem 1rem; font-size: .7rem; color: var(--tinta-2); }
     @media (max-width: 899px) {
         .wf-es { height: auto; min-height: 0; }
@@ -1824,8 +1858,13 @@
                 </template>
 
                 <template x-if="b.tipo === 'texto'">
-                    <div class="wf-es" x-data="WFEscrita(b)" x-init="iniciar()"
+                    <div class="wf-es" x-data="WFEscrita(b, $data)" x-init="iniciar()" :class="{ 'wf-es-foco': modoFoco }"
                         @click.outside="foco = null; menu = null; opcBl = null; sumario = false; tipoMenu = false; limparSel()">
+
+                        {{-- Imagens no meio do texto: o botão "Imagem", o comando "/imagem", colar (Ctrl+V) e arrastar usam este campo --}}
+                        <input type="file" accept="image/*" multiple class="hidden wf-es-arq" tabindex="-1" aria-hidden="true"
+                               @change="escolhidas($event.target.files); $event.target.value = ''">
+                        <button type="button" class="btn-sec wf-es-sair-foco" x-show="modoFoco" x-cloak @click="alternarFoco()" title="Sair do modo foco">Sair do foco</button>
 
                         <div class="wf-es-barra">
                             <button type="button" class="btn-sec wf-opc-btn" :class="{ 'fechada': b.dados.opcoes === false }"
@@ -1842,6 +1881,8 @@
                                     title="Mostra o texto inteiro numa caixa só, já selecionado, para copiar com Ctrl+C (atalho: Ctrl+A três vezes)"
                                     x-text="todo ? 'Voltar ao editor' : 'Selecionar tudo'"></button>
                             <button type="button" class="btn-sec" @click="copiar()" title="Copiar o texto inteiro (Markdown) para a área de transferência">Copiar tudo</button>
+                            <button type="button" class="btn-sec" @click="alternarFoco()" :aria-pressed="modoFoco"
+                                    title="Modo foco: tela cheia, sem barras e com a linha atual em destaque">Modo foco</button>
                         </div>
 
                         <div class="wf-es-barra" role="toolbar" aria-label="Ferramentas de escrita" x-show="b.dados.opcoes !== false && !todo" x-cloak>
@@ -1860,6 +1901,7 @@
                             <button type="button" class="btn-sec" :disabled="semAlvo()" @mousedown.prevent @click="envolver('==', '==')" title="Marca-texto (Ctrl+Shift+H)"><mark style="background:rgba(250,204,21,.45);color:inherit;padding:0 .2em;border-radius:.2rem">A</mark></button>
                             <button type="button" class="btn-sec" :disabled="semAlvo()" @mousedown.prevent @click="envolver('`', '`')" title="Código em linha (Ctrl+E)">&lt;/&gt;</button>
                             <button type="button" class="btn-sec" :disabled="!ultimo()" @mousedown.prevent @click="link()" title="Link (Ctrl+K)">Link</button>
+                            <button type="button" class="btn-sec" @mousedown.prevent @click="escolherImagem()" title="Inserir imagem abaixo da linha atual (também dá para colar com Ctrl+V ou arrastar para o texto)">🖼 Imagem</button>
                             <span class="wf-es-sep"></span>
                             <button type="button" class="btn-sec" :disabled="!titulos().length" @click="sumario = !sumario" :aria-expanded="sumario" title="Sumário pelos títulos">Sumário</button>
                             <button type="button" class="btn-sec" x-show="recolhidos.length" x-cloak @click="recolhidos = []" title="Expandir todas as seções">Expandir seções</button>
@@ -1901,7 +1943,7 @@
                                 <div class="wf-es-bloco" :data-es="bl.id" x-show="visivel(i)"
                                     :class="{ 'foco': foco === bl.id, 'selecionado': ehSel(bl.id), 'sobre': sobre === i && arrastar !== bl.id, 'arrastando': arrastar === bl.id }"
                                     :draggable="arrastar === bl.id ? 'true' : 'false'"
-                                    @dragstart="dragIni($event, bl)" @dragover.prevent="sobre = i" @drop.prevent="soltar(i)"
+                                    @dragstart="dragIni($event, bl)" @dragover.prevent="sobre = i" @drop.prevent="soltarEm($event, i)"
                                     @dragend="arrastar = null; sobre = -1">
 
                                     <div class="wf-es-lado">
@@ -1964,7 +2006,37 @@
 
                                         <template x-if="bl.t === 'hr'"><hr class="wf-es-hr"></template>
 
-                                        <template x-if="bl.t !== 'hr'">
+                                        {{-- Imagem: clique seleciona (Delete apaga, Enter cria uma linha abaixo); barra com alinhamento e tamanho; puxador no canto --}}
+                                        <template x-if="bl.t === 'img'">
+                                            <figure class="wf-es-fig" :class="'al-' + (bl.a || 'c')">
+                                                <div class="wf-es-fig-caixa" :style="`width:${bl.w || 100}%`" @click="selUm(bl.id)">
+                                                    <template x-if="srcImg(bl)">
+                                                        <img :src="srcImg(bl)" :alt="bl.x || 'Imagem'" draggable="false" loading="lazy">
+                                                    </template>
+                                                    <template x-if="!srcImg(bl)">
+                                                        <div class="wf-es-fig-vazio" x-text="enviando.includes(bl.id) ? 'Enviando imagem…' : 'Imagem não encontrada'"></div>
+                                                    </template>
+                                                    <div class="wf-es-fig-barra" role="toolbar" aria-label="Imagem" @click.stop @mousedown.stop>
+                                                        <button type="button" :class="{ 'sel': bl.a === 'e' }" @click="alinharImg(bl, 'e')" title="Alinhar à esquerda" aria-label="Alinhar à esquerda">⇤</button>
+                                                        <button type="button" :class="{ 'sel': (bl.a || 'c') === 'c' }" @click="alinharImg(bl, 'c')" title="Centralizar" aria-label="Centralizar">↔</button>
+                                                        <button type="button" :class="{ 'sel': bl.a === 'd' }" @click="alinharImg(bl, 'd')" title="Alinhar à direita" aria-label="Alinhar à direita">⇥</button>
+                                                        <span class="wf-es-bsep"></span>
+                                                        <template x-for="w in [25, 50, 75, 100]" :key="w">
+                                                            <button type="button" :class="{ 'sel': (bl.w || 100) === w }" @click="larguraImg(bl, w)" :title="'Largura ' + w + '%'" x-text="w + '%'"></button>
+                                                        </template>
+                                                        <span class="wf-es-bsep"></span>
+                                                        <button type="button" @click="remover(i)" title="Excluir a imagem" aria-label="Excluir a imagem">🗑</button>
+                                                    </div>
+                                                    <span class="wf-es-fig-puxa" :class="bl.a === 'd' ? 'esq' : ''" @pointerdown="puxarImg($event, bl)" @click.stop title="Arraste para mudar o tamanho" aria-hidden="true"></span>
+                                                </div>
+                                                <input class="wf-es-leg" :value="bl.x" placeholder="Legenda (opcional)" aria-label="Legenda da imagem"
+                                                       :style="`width:${bl.w || 100}%`"
+                                                       @focus="limparSel(); foco = null" @input="legenda($event, bl)"
+                                                       @keydown.enter.prevent="depoisDe(i)" @keydown.escape.prevent="selUm(bl.id)">
+                                            </figure>
+                                        </template>
+
+                                        <template x-if="bl.t !== 'hr' && bl.t !== 'img'">
                                             <div class="wf-es-txt">
                                                 <template x-if="bl.t === 'code'">
                                                     <input class="wf-es-lang" :value="bl.l" placeholder="linguagem (opcional)" aria-label="Linguagem do código"
@@ -1997,14 +2069,14 @@
                                     </template>
                                 </div>
                             </template>
-                            <div class="wf-es-fim" @click="aoFim()" @dragover.prevent @drop.prevent="soltar(blocos.length)" aria-hidden="true"></div>
+                            <div class="wf-es-fim" @click="aoFim()" @dragover.prevent @drop.prevent="soltarEm($event, blocos.length, true)" aria-hidden="true"></div>
                         </div>
 
                         <div class="wf-es-rodape" aria-live="polite">
                             <span x-text="palavras() + ' palavra(s) · ' + caracteres() + ' caractere(s) · ~' + leitura() + ' min de leitura'"></span>
                             <span x-show="tarefas().total" x-cloak x-text="'Tarefas: ' + tarefas().feitas + '/' + tarefas().total"></span>
                             <span x-show="selecao.length" x-cloak x-text="selecao.length + ' bloco(s) selecionado(s)'"></span>
-                            <span x-show="b.dados.opcoes !== false" x-cloak>Dica: “/” abre os comandos · Esc seleciona o bloco · Shift+↑/↓ amplia · Ctrl+Alt+1/2/3 vira título</span>
+                            <span x-show="b.dados.opcoes !== false" x-cloak>Dica: “/” abre os comandos · cole ou arraste imagens no texto · Esc seleciona o bloco · Shift+↑/↓ amplia · Ctrl+Alt+1/2/3 vira título</span>
                             <span x-show="dica" x-cloak style="color:var(--prim-forte)" x-text="dica"></span>
                         </div>
                     </div>
