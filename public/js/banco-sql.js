@@ -116,6 +116,18 @@
             for (let i = 0; i < n; i++) for (const p of pais[i]) if (camada[p] + 1 > camada[i] && camada[p] + 1 < 25) { camada[i] = camada[p] + 1; mudou = true; }
             if (!mudou) break;
         }
+        // tabela que só é referenciada (sem pais) vai para a camada logo antes do filho mais à esquerda:
+        // um "cupons" usado só por "pedidos" fica do lado de "pedidos", e não lá no começo com linha longa
+        for (let volta = 0; volta < 25; volta++) {
+            let mudou = false;
+            for (let i = 0; i < n; i++) {
+                if (pais[i].size || !filhos[i].size) continue;
+                let alvo = Infinity;
+                for (const f of filhos[i]) alvo = Math.min(alvo, camada[f] - 1);
+                if (alvo > camada[i]) { camada[i] = alvo; mudou = true; }
+            }
+            if (!mudou) break;
+        }
         const grupos = new Map();
         for (let i = 0; i < n; i++) { const r = achar(i); (grupos.get(r) || grupos.set(r, []).get(r)).push(i); }
         const pos = new Array(n);
@@ -126,25 +138,35 @@
             const porCamada = new Map();
             membros.forEach(i => (porCamada.get(camada[i]) || porCamada.set(camada[i], []).get(camada[i])).push(i));
             const cams = [...porCamada.keys()].sort((a, b) => a - b);
+            // ordem dentro de cada camada: baricentro dos vizinhos, indo e voltando algumas vezes (cruza menos linhas)
+            const ordem = cams.map(c => porCamada.get(c).sort((a, b) => filhos[b].size - filhos[a].size || tabelas[a].nome.localeCompare(tabelas[b].nome)));
+            const rank = new Map();
+            const marcar = l => l.forEach((i, r) => rank.set(i, (r + 0.5) / l.length));
+            ordem.forEach(marcar);
+            const bari = (i, viz) => { let s = 0, q = 0; for (const v of viz) if (rank.has(v)) { s += rank.get(v); q++; } return q ? s / q : rank.get(i); };
+            const varrer = (l, viz) => { const k = new Map(l.map(i => [i, bari(i, viz(i))])); l.sort((a, b) => k.get(a) - k.get(b)); marcar(l); };
+            for (let it = 0; it < 4; it++) {
+                for (let c = 1; c < ordem.length; c++) varrer(ordem[c], i => pais[i]);
+                for (let c = ordem.length - 2; c >= 0; c--) varrer(ordem[c], i => filhos[i]);
+            }
             let w = 0, h = 0, x = 0;
             const ys = new Map();
             // camada com muitas tabelas quebra em várias colunas (o componente fica perto de quadrado)
-            const areaC = membros.reduce((s, i) => s + (BOX_W + 60) * (alturaTabela(tabelas[i]) + 30), 0);
+            const areaC = membros.reduce((s, i) => s + (BOX_W + 90) * (alturaTabela(tabelas[i]) + 40), 0);
             const hMax = Math.max(1400, Math.sqrt(areaC) * 0.9);
-            cams.forEach(c => {
-                const lista = porCamada.get(c);
-                // ordem: média da altura dos pais já colocados (cruza menos linhas)
-                const m = i => { const ps = [...pais[i]].filter(p => ys.has(p)); return ps.length ? ps.reduce((s, p) => s + ys.get(p), 0) / ps.length : (filhos[i].size ? -1 : 1e9); };
-                const chave = new Map(lista.map(i => [i, m(i)]));
-                lista.sort((a, b) => chave.get(a) - chave.get(b) || filhos[b].size - filhos[a].size);
+            ordem.forEach((lista, ci) => {
                 let y = 0;
                 lista.forEach(i => {
                     const ht = alturaTabela(tabelas[i]);
-                    if (y > 0 && y + ht > hMax) { x += BOX_W + 40; y = 0; }
-                    pos[i] = { x, y }; ys.set(i, y); y += ht + 30; h = Math.max(h, y);
+                    // desce até a altura média dos pais, quando dá: as linhas ficam mais retas
+                    let s = 0, q = 0;
+                    if (ci) for (const p of pais[i]) if (ys.has(p)) { s += ys.get(p); q++; }
+                    let yy = q ? Math.max(y, Math.round(s / q / 10) * 10) : y;
+                    if (yy > 0 && yy + ht > hMax) { x += BOX_W + 100; yy = 0; }
+                    pos[i] = { x, y: yy }; ys.set(i, yy); y = yy + ht + 40; h = Math.max(h, y);
                 });
                 w = x + BOX_W;
-                x += BOX_W + 90;
+                x += BOX_W + 150;
             });
             blocos.push({ membros, w, h });
         }
@@ -169,6 +191,212 @@
             x += b.w + 100; alturaLinha = Math.max(alturaLinha, b.h);
         });
         return pos;
+    }
+
+    /* =================== diagrama: ligações em ângulo reto =================== */
+    // MX: quanto a linha anda para fora da tabela antes de virar (cabe o pé de galinha); MY: folga em cima/embaixo
+    const MX = 36, MY = 16, DOBRA = 30, LIM_NOS = 4000, MAX_OBST = 80, BALDE = 400;
+    const caixaDe = p => ({ x0: p.x, y0: p.y, x1: p.x + BOX_W, y1: p.y + p.h });
+    /** Linha da coluna k dentro da caixa (as que passam de MOSTRA_COL caem na linha "+ N colunas"). */
+    const yColuna = (p, k) => p.y + CAB_H + Math.min(Math.max(0, k), MOSTRA_COL) * LIN_H + LIN_H / 2 + 2;
+
+    /** Índice espacial em baldes, para achar as tabelas perto de uma ligação sem varrer todas. */
+    function Indice(P) {
+        this.P = P; this.b = new Map();
+        P.forEach((p, i) => {
+            const r = caixaDe(p);
+            for (let bx = Math.floor(r.x0 / BALDE); bx <= Math.floor(r.x1 / BALDE); bx++)
+                for (let by = Math.floor(r.y0 / BALDE); by <= Math.floor(r.y1 / BALDE); by++) {
+                    const k = bx + ',' + by;
+                    (this.b.get(k) || this.b.set(k, []).get(k)).push(i);
+                }
+        });
+    }
+    Indice.prototype.em = function (x0, y0, x1, y1) {
+        const achou = new Set();
+        for (let bx = Math.floor(x0 / BALDE); bx <= Math.floor(x1 / BALDE); bx++)
+            for (let by = Math.floor(y0 / BALDE); by <= Math.floor(y1 / BALDE); by++) {
+                const l = this.b.get(bx + ',' + by);
+                if (l) for (const i of l) {
+                    if (achou.has(i)) continue;
+                    const r = caixaDe(this.P[i]);
+                    if (r.x1 >= x0 && r.x0 <= x1 && r.y1 >= y0 && r.y0 <= y1) achou.add(i);
+                }
+            }
+        return [...achou];
+    };
+
+    /** Fila de prioridade (heap binário) para o A*. */
+    function Heap() { this.f = []; this.v = []; }
+    Heap.prototype.push = function (f, v) {
+        const F = this.f, V = this.v;
+        let i = F.length; F.push(f); V.push(v);
+        while (i > 0) { const p = (i - 1) >> 1; if (F[p] <= f) break; F[i] = F[p]; V[i] = V[p]; i = p; }
+        F[i] = f; V[i] = v;
+    };
+    Heap.prototype.pop = function () {
+        const F = this.f, V = this.v, top = V[0], fl = F.pop(), vl = V.pop(), n = F.length;
+        if (n) {
+            let i = 0;
+            for (;;) {
+                let c = 2 * i + 1;
+                if (c >= n) break;
+                if (c + 1 < n && F[c + 1] < F[c]) c++;
+                if (F[c] >= fl) break;
+                F[i] = F[c]; V[i] = V[c]; i = c;
+            }
+            F[i] = fl; V[i] = vl;
+        }
+        return top;
+    };
+
+    /**
+     * Rota em ângulo reto da coluna (tabela i, altura yA) até a coluna (tabela j, altura yB), contornando as tabelas.
+     * A* numa grade esparsa: as linhas da grade são as bordas das tabelas da região (com folga) e as alturas
+     * das duas colunas. Cada dobra custa DOBRA, então sai a rota mais curta com menos curvas.
+     * A linha sai e chega pela lateral (esquerda ou direita, a que der melhor). Devolve [[x,y],...] ou null.
+     */
+    function rotear(P, idx, i, yA, j, yB) {
+        const A = caixaDe(P[i]), B = caixaDe(P[j]);
+        const folga = 200;
+        const rx0 = Math.min(A.x0, B.x0) - folga, ry0 = Math.min(A.y0, B.y0) - folga, rx1 = Math.max(A.x1, B.x1) + folga, ry1 = Math.max(A.y1, B.y1) + folga;
+        const perto = idx.em(rx0, ry0, rx1, ry1);
+        if (perto.length > MAX_OBST) return null;
+        const obs = perto.map(k => { const r = caixaDe(P[k]); return { k, x0: r.x0 - MX + 2, y0: r.y0 - MY + 2, x1: r.x1 + MX - 2, y1: r.y1 + MY - 2 }; });
+        const xsS = new Set([rx0, rx1]), ysS = new Set([ry0, ry1, yA, yB]);
+        obs.forEach(o => { xsS.add(o.x0 - 2); xsS.add(o.x1 + 2); ysS.add(o.y0 - 2); ysS.add(o.y1 + 2); });
+        const xs = [...xsS].sort((a, b) => a - b), ys = [...ysS].sort((a, b) => a - b);
+        const NX = xs.length, NY = ys.length, NN = NX * NY;
+        // segmento (ou ponto) livre: não entra no miolo de nenhuma tabela (com folga); "sem" ignora até duas tabelas
+        const livreSeg = (xa, ya, xb, yb, sem1, sem2) => {
+            const lx = Math.min(xa, xb), hx = Math.max(xa, xb), ly = Math.min(ya, yb), hy = Math.max(ya, yb);
+            for (const o of obs) if (o.k !== sem1 && o.k !== sem2 && lx < o.x1 && hx > o.x0 && ly < o.y1 && hy > o.y0) return false;
+            return true;
+        };
+        const estado = new Int8Array(NN); // 0 não visto, 1 livre, 2 ocupado
+        const noLivre = n => { if (!estado[n]) estado[n] = livreSeg(xs[n % NX], ys[(n / NX) | 0], xs[n % NX], ys[(n / NX) | 0]) ? 1 : 2; return estado[n] === 1; };
+        const ix = x => xs.indexOf(x), iy = y => ys.indexOf(y);
+        // saídas (lado direito d=+1 ou esquerdo d=-1) e chegadas possíveis
+        const saidas = [], chegadas = new Map();
+        for (const d of [1, -1]) {
+            const px = d > 0 ? A.x1 : A.x0, sx = px + d * MX, n = iy(yA) * NX + ix(sx);
+            if (ix(sx) >= 0 && noLivre(n) && livreSeg(px, yA, sx, yA, i, i)) saidas.push({ n, d, px });
+            const qx = d > 0 ? B.x1 : B.x0, gx = qx + d * MX, m = iy(yB) * NX + ix(gx);
+            if (ix(gx) >= 0 && noLivre(m) && livreSeg(qx, yB, gx, yB, j, j)) chegadas.set(m, { d, qx, gx });
+        }
+        if (!saidas.length || !chegadas.size) return null;
+        const alvos = [...chegadas.values()];
+        const h = n => { const x = xs[n % NX], y = ys[(n / NX) | 0]; let m = Infinity; for (const a of alvos) m = Math.min(m, Math.abs(x - a.gx) + Math.abs(y - yB)); return m + MX; };
+        // estado = nó*4 + direção (0 +x, 1 −x, 2 +y, 3 −y); FIM é o estado "chegou na coluna"
+        const FIM = NN * 4, g = new Float64Array(FIM + 1).fill(Infinity), ant = new Int32Array(FIM + 1).fill(-1);
+        const fila = new Heap();
+        for (const s of saidas) { const st = s.n * 4 + (s.d > 0 ? 0 : 1); g[st] = MX; fila.push(MX + h(s.n), st); }
+        const DX = [1, -1, 0, 0], DY = [0, 0, 1, -1];
+        let vistos = 0;
+        while (fila.f.length) {
+            const st = fila.pop();
+            if (st === FIM) break;
+            if (++vistos > LIM_NOS) return null;
+            const n = st >> 2, dir = st & 3, gs = g[st], xi = n % NX, yi = (n / NX) | 0;
+            const ch = chegadas.get(n);
+            if (ch) {
+                // entrar na coluna: o último trecho é horizontal, apontando para a tabela
+                const fim = gs + MX + ((ch.d > 0 ? 1 : 0) === dir ? 0 : DOBRA);
+                if (fim < g[FIM]) { g[FIM] = fim; ant[FIM] = st; fila.push(fim, FIM); }
+            }
+            for (let nd = 0; nd < 4; nd++) {
+                if (nd === (dir ^ 1)) continue;
+                const nx = xi + DX[nd], ny = yi + DY[nd];
+                if (nx < 0 || ny < 0 || nx >= NX || ny >= NY) continue;
+                const m = ny * NX + nx;
+                if (!noLivre(m) || !livreSeg(xs[xi], ys[yi], xs[nx], ys[ny])) continue;
+                const ns = m * 4 + nd, c = gs + Math.abs(xs[nx] - xs[xi]) + Math.abs(ys[ny] - ys[yi]) + (nd === dir ? 0 : DOBRA);
+                if (c < g[ns]) { g[ns] = c; ant[ns] = st; fila.push(c + h(m), ns); }
+            }
+        }
+        if (ant[FIM] < 0) return null;
+        const nos = [];
+        for (let st = ant[FIM]; st >= 0; st = ant[st]) nos.push(st >> 2);
+        nos.reverse();
+        const pts = nos.map(n => [xs[n % NX], ys[(n / NX) | 0]]);
+        const s0 = saidas.find(s => s.n === nos[0]), c0 = chegadas.get(nos[nos.length - 1]);
+        pts.unshift([s0.px, yA]); pts.push([c0.qx, yB]);
+        return simplificar(pts);
+    }
+    /** Tira os pontos repetidos e os que ficam no meio de uma reta. */
+    function simplificar(pts) {
+        const o = [];
+        for (const p of pts) {
+            const a = o[o.length - 1];
+            if (a && a[0] === p[0] && a[1] === p[1]) continue;
+            const b = o[o.length - 2];
+            if (a && b && ((b[0] === a[0] && a[0] === p[0]) || (b[1] === a[1] && a[1] === p[1]))) o[o.length - 1] = p; else o.push(p);
+        }
+        return o;
+    }
+    /** Rota sem desvio (quando a busca não acha caminho ou ainda não deu tempo de calcular). */
+    function rotaSimples(P, i, yA, j, yB) {
+        const A = caixaDe(P[i]), B = caixaDe(P[j]);
+        let pts;
+        if (B.x0 >= A.x1 + 2 * MX) { const xm = (A.x1 + B.x0) / 2; pts = [[A.x1, yA], [xm, yA], [xm, yB], [B.x0, yB]]; }
+        else if (A.x0 >= B.x1 + 2 * MX) { const xm = (B.x1 + A.x0) / 2; pts = [[A.x0, yA], [xm, yA], [xm, yB], [B.x1, yB]]; }
+        else { const x = Math.max(A.x1, B.x1) + MX; pts = [[A.x1, yA], [x, yA], [x, yB], [B.x1, yB]]; }
+        return simplificar(pts);
+    }
+    /**
+     * Linhas que dividem o mesmo corredor ficam lado a lado em vez de uma em cima da outra: os trechos do meio
+     * (não os que encostam na tabela) que se sobrepõem no mesmo x (ou y) ganham trilhas separadas.
+     */
+    function espalhar(rotas) {
+        const out = rotas.map(r => r.map(p => p.slice()));
+        for (const eixo of [0, 1]) { // 0: trechos verticais (mexe x) · 1: horizontais (mexe y)
+            const grupos = new Map();
+            out.forEach((r, ri) => {
+                for (let s = 1; s < r.length - 2; s++) {
+                    const a = r[s], b = r[s + 1];
+                    if ((a[0] === b[0]) !== (eixo === 0)) continue;
+                    const o = 1 - eixo, k = Math.round(a[eixo]);
+                    (grupos.get(k) || grupos.set(k, []).get(k)).push({ ri, s, lo: Math.min(a[o], b[o]), hi: Math.max(a[o], b[o]) });
+                }
+            });
+            const meia = eixo === 0 ? 14 : 10, maxPasso = eixo === 0 ? 8 : 6;
+            for (const lista of grupos.values()) {
+                if (lista.length < 2) continue;
+                lista.sort((p, q) => p.lo - q.lo || p.hi - q.hi);
+                const fins = [];
+                lista.forEach(sg => { let t = fins.findIndex(f => f < sg.lo - 4); if (t < 0) { t = fins.length; fins.push(0); } fins[t] = sg.hi; sg.t = t; });
+                const T = fins.length;
+                if (T < 2) continue;
+                const passo = Math.min(maxPasso, (2 * meia) / (T - 1));
+                lista.forEach(sg => { const off = (sg.t - (T - 1) / 2) * passo, r = out[sg.ri]; r[sg.s][eixo] += off; r[sg.s + 1][eixo] += off; });
+            }
+        }
+        return out;
+    }
+    /** Caminho SVG com as curvas levemente arredondadas. */
+    function caminho(pts) {
+        let d = `M${pts[0][0]} ${pts[0][1]}`;
+        for (let k = 1; k < pts.length - 1; k++) {
+            const a = pts[k - 1], p = pts[k], b = pts[k + 1];
+            const la = Math.abs(p[0] - a[0]) + Math.abs(p[1] - a[1]), lb = Math.abs(b[0] - p[0]) + Math.abs(b[1] - p[1]);
+            const r = Math.min(6, la / 2, lb / 2);
+            if (r < 0.5) { d += `L${p[0]} ${p[1]}`; continue; }
+            const u = [Math.sign(p[0] - a[0]), Math.sign(p[1] - a[1])], v = [Math.sign(b[0] - p[0]), Math.sign(b[1] - p[1])];
+            d += `L${p[0] - u[0] * r} ${p[1] - u[1] * r}Q${p[0]} ${p[1]} ${p[0] + v[0] * r} ${p[1] + v[1] * r}`;
+        }
+        const z = pts[pts.length - 1];
+        return d + `L${z[0]} ${z[1]}`;
+    }
+    /**
+     * Pé de galinha na ponta da linha, encostado na tabela em (x, y); d = +1 quando a linha sai para a direita.
+     * 'muitos' = zero ou muitos (o<) · 'zeroUm' = zero ou um (o|) · 'um' = exatamente um (||).
+     */
+    function pe(x, y, d, tipo) {
+        const X = v => x + d * v;
+        let s = tipo === 'muitos' ? `M${X(12)} ${y}L${x} ${y - 6}M${X(12)} ${y}L${x} ${y + 6}` : `M${X(6)} ${y - 6}V${y + 6}`;
+        if (tipo === 'um') s += `M${X(11)} ${y - 6}V${y + 6}`;
+        const circ = tipo === 'muitos' ? `<circle class="bd-pe-c" cx="${X(18)}" cy="${y}" r="3.5"/>` : tipo === 'zeroUm' ? `<circle class="bd-pe-c" cx="${X(13)}" cy="${y}" r="3.5"/>` : '';
+        return `<path class="bd-pe" d="${s}"/>${circ}`;
     }
 
     /* =================== o cartão =================== */
@@ -412,8 +640,8 @@
                 <button type="button" class="btn-sec !py-1" data-a="mapa" title="Cria um cartão de Mapa mental com as tabelas, para editar">Copiar para Mapa mental</button>
             </div>
             <div class="bd-area" data-r="area" tabindex="0" aria-label="Diagrama das tabelas. Arraste o fundo para mover, use a roda do mouse para aproximar e clique duas vezes numa tabela para ver os dados.">
-                <svg class="bd-svg" width="100%" height="100%"><defs><marker id="bd-seta-${esc(c.b.id)}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="bd-seta" d="M0 0L10 5L0 10z"/></marker></defs><g data-r="vp"></g></svg>
-                <p class="bd-dica">Arraste o fundo para mover · roda do mouse para aproximar · clique duplo numa tabela abre os dados</p>
+                <svg class="bd-svg" width="100%" height="100%"><g data-r="vp"></g></svg>
+                <p class="bd-dica">Arraste o fundo para mover · roda do mouse para aproximar · passe o mouse numa linha ou tabela para destacar as ligações · clique duplo numa tabela abre os dados</p>
             </div>`;
         c.r.corpo.appendChild(el);
         this.r = {};
@@ -439,6 +667,14 @@
             this.zoomEm(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0018)), e.clientX - rc.left, e.clientY - rc.top);
         }, { passive: false });
         area.addEventListener('pointerdown', e => this.pegar(e));
+        // passar o mouse numa ligação (ou numa tabela) destaca a ligação, as duas tabelas e as colunas; o resto apaga
+        area.addEventListener('pointerover', e => {
+            if (this.arrastando) return;
+            const r = e.target.closest('.bd-rel'), t = r ? null : e.target.closest('[data-bd-t]');
+            const f = r ? 'r' + r.dataset.e : t ? 't' + t.dataset.bdT : null;
+            if (f !== this.foco) { this.foco = f; this.pintarFoco(); }
+        });
+        area.addEventListener('pointerleave', () => { if (this.foco) { this.foco = null; this.pintarFoco(); } });
         area.addEventListener('dblclick', e => {
             const g = e.target.closest('[data-bd-t]');
             if (!g) return;
@@ -450,7 +686,7 @@
         if (!ui.vp) requestAnimationFrame(() => this.ajustar()); else this.agendar();
     }
     const D = Diagrama.prototype;
-    D.sair = function () { this.ro && this.ro.disconnect(); };
+    D.sair = function () { this.ro && this.ro.disconnect(); clearTimeout(this._calc); this._calc = 0; };
     /** Posição de cada tabela: a que a pessoa arrastou, a do formato antigo, ou a da arrumação automática. */
     D.posicoes = function () {
         const s = this.c.s, ts = s.schema;
@@ -463,6 +699,51 @@
         }
         s.porNome = new Map(ts.map((t, i) => [t.nome.toLowerCase(), i]));
         this.p = s.pos;
+        // ligações (uma por coluna com chave estrangeira) e, de cada tabela, as ligações que tocam nela
+        if (s.arestasDe !== ts) {
+            s.arestasDe = ts;
+            s.arestas = [];
+            ts.forEach((t, i) => t.colunas.forEach((col, k) => {
+                if (!col.fk) return;
+                const j = s.porNome.get(String(col.fk.t).toLowerCase());
+                if (j === undefined) return;
+                const cj = ts[j].colunas;
+                let lj = cj.findIndex(x => x.n === col.fk.c);
+                if (lj < 0) lj = Math.max(0, cj.findIndex(x => x.pk));
+                // pontas: do lado da FK "zero ou muitos" (ou "zero ou um" se a coluna é única);
+                // do lado da PK "exatamente um" (ou "zero ou um" se a FK aceita nulo)
+                const unica = col.uq || (col.pk && t.colunas.filter(x => x.pk).length === 1);
+                s.arestas.push({ i, k, j, lj, pa: unica ? 'zeroUm' : 'muitos', pb: col.nn || col.pk ? 'um' : 'zeroUm' });
+            }));
+            s.deTabela = ts.map(() => []);
+            s.arestas.forEach((a, e) => { s.deTabela[a.i].push(e); if (a.j !== a.i) s.deTabela[a.j].push(e); });
+        }
+        this.rotas = new Map(); this.desenho = null; this.idx = null;
+    };
+    /** Esquece as rotas (de todas as ligações, ou só das da tabela i) depois que as tabelas mudam de lugar. */
+    D.mexeu = function (i) {
+        this.idx = null; this.desenho = null;
+        if (i == null) this.rotas.clear(); else for (const e of this.c.s.deTabela[i]) this.rotas.delete(e);
+    };
+    /** Rota da ligação e (sem caminho livre perto, ou com tabelas demais no caminho, sai a rota simples). */
+    D.rotaDe = function (e) {
+        const P = this.p, r = this.c.s.arestas[e], yA = yColuna(P[r.i], r.k), yB = yColuna(P[r.j], r.lj);
+        if (!this.idx) this.idx = new Indice(P);
+        return rotear(P, this.idx, r.i, yA, r.j, yB) || rotaSimples(P, r.i, yA, r.j, yB);
+    };
+    /** Calcula em segundo plano, em fatias de ~12 ms, as rotas que faltaram; redesenha quando termina. */
+    D.calcular = function (pend) {
+        this.pend = pend;
+        if (!pend.length || this._calc) return;
+        const fatia = () => {
+            this._calc = 0;
+            if (!this.r.area.isConnected) return;
+            const t0 = performance.now(), l = this.pend;
+            while (l.length && performance.now() - t0 < 12) { const e = l.pop(); if (!this.rotas.has(e)) this.rotas.set(e, this.rotaDe(e)); }
+            if (l.length) this._calc = setTimeout(fatia, 0);
+            else { this.desenho = null; this.agendar(); }
+        };
+        this._calc = setTimeout(fatia, 30);
     };
     D.agendar = function () {
         if (this._raf) return;
@@ -505,27 +786,44 @@
         const vx0 = -vp.tx / vp.z - m, vy0 = -vp.ty / vp.z - m, vx1 = (W0 - vp.tx) / vp.z + m, vy1 = (H0 - vp.ty) / vp.z + m;
         const vis = new Uint8Array(ts.length);
         for (let i = 0; i < ts.length; i++) { const p = P[i]; if (p.x + BOX_W >= vx0 && p.x <= vx1 && p.y + p.h >= vy0 && p.y <= vy1) vis[i] = 1; }
-        const simples = vp.z < 0.45, por = c.s.porNome;
+        const simples = vp.z < 0.45, AR = c.s.arestas;
         let linhas = '', caixas = '', nVis = 0;
-        const seta = `url(#bd-seta-${esc(c.b.id)})`;
+        // rotas: calculadas sob demanda (só as ligações que aparecem), guardadas até alguma tabela mudar de lugar.
+        // Um pouco aqui (para não piscar); o que faltar sai reto por enquanto e é calculado em segundo plano.
+        // Bem de longe, com muitas ligações, nem calcula: não daria para ver a diferença.
+        const barato = vp.z < 0.3 && AR.length > 300;
+        const t0 = performance.now(), pend = [];
+        let novas = false;
+        const usar = [];
+        for (let e = 0; e < AR.length; e++) {
+            const r = AR[e];
+            if (!vis[r.i] && !vis[r.j]) continue;
+            if (!this.rotas.has(e)) {
+                if (!barato && performance.now() - t0 < 10) { this.rotas.set(e, this.rotaDe(e)); novas = true; }
+                else {
+                    usar.push([e, rotaSimples(P, r.i, yColuna(P[r.i], r.k), r.j, yColuna(P[r.j], r.lj))]);
+                    if (!barato) pend.push(e);
+                    continue;
+                }
+            }
+            usar.push([e, null]);
+        }
+        this.calcular(pend);
+        if (novas || !this.desenho) {
+            // afasta as linhas que dividem o mesmo corredor (todas as rotas já calculadas, para não pular ao mover a vista)
+            const ks = [...this.rotas.keys()], esp = espalhar(ks.map(k => this.rotas.get(k)));
+            this.desenho = new Map(ks.map((k, n) => [k, esp[n]]));
+        }
+        for (const [e, prov] of usar) {
+            const r = AR[e], pts = prov || this.desenho.get(e), t = ts[r.i], col = t.colunas[r.k], u = pts[pts.length - 1];
+            const dA = Math.sign(pts[1][0] - pts[0][0]) || 1, dB = Math.sign(pts[pts.length - 2][0] - u[0]) || 1;
+            const rl = this.realce === r.i || this.realce === r.j ? ' on' : '', d = caminho(pts);
+            linhas += `<g class="bd-rel${rl}" data-e="${e}"><path class="bd-lig-hit" d="${d}"/><path class="bd-lig" d="${d}"/>`
+                + pe(pts[0][0], pts[0][1], dA, r.pa) + pe(u[0], u[1], dB, r.pb)
+                + `<title>${esc(t.nome + '.' + col.n + ' → ' + ts[r.j].nome + '.' + (col.fk.c || ''))}</title></g>`;
+        }
         for (let i = 0; i < ts.length; i++) {
             const t = ts[i];
-            for (let k = 0; k < t.colunas.length; k++) {
-                const col = t.colunas[k];
-                if (!col.fk) continue;
-                const j = por.get(String(col.fk.t).toLowerCase());
-                if (j === undefined || (!vis[i] && !vis[j])) continue;
-                const pa = P[i], pb = P[j];
-                const li = simples ? 0 : Math.min(k, MOSTRA_COL);
-                const lj = simples ? 0 : Math.min(Math.max(0, ts[j].colunas.findIndex(x => x.n === col.fk.c)), MOSTRA_COL);
-                const y1 = pa.y + (simples ? CAB_H / 2 : CAB_H + li * LIN_H + LIN_H / 2 + 2), y2 = pb.y + (simples ? CAB_H / 2 : CAB_H + lj * LIN_H + LIN_H / 2 + 2);
-                let d, x1;
-                if (i === j) { x1 = pa.x + BOX_W; d = `M${x1} ${y1}C${x1 + 40} ${y1},${x1 + 40} ${y2},${x1} ${y2}`; }
-                else if (Math.abs(pb.x - pa.x) < BOX_W / 2) { x1 = pa.x + BOX_W; const x2 = pb.x + BOX_W, dx = 40 + Math.abs(y2 - y1) * 0.1; d = `M${x1} ${y1}C${x1 + dx} ${y1},${x2 + dx} ${y2},${x2} ${y2}`; }
-                else { const dir = pb.x > pa.x ? 1 : -1; x1 = dir > 0 ? pa.x + BOX_W : pa.x; const x2 = dir > 0 ? pb.x : pb.x + BOX_W, dx = Math.max(30, Math.abs(x2 - x1) / 2) * dir; d = `M${x1} ${y1}C${x1 + dx} ${y1},${x2 - dx} ${y2},${x2} ${y2}`; }
-                const rl = this.realce === i || this.realce === j ? ' on' : '';
-                linhas += `<path class="bd-lig${rl}" d="${d}" marker-end="${seta}"><title>${esc(t.nome + '.' + col.n + ' → ' + ts[j].nome + '.' + (col.fk.c || ''))}</title></path>`;
-            }
             if (!vis[i]) continue;
             nVis++;
             const p = P[i], rl = this.realce === i ? ' on' : '';
@@ -542,7 +840,7 @@
             for (let k = 0; k < n; k++) {
                 const col = t.colunas[k], y = CAB_H + k * LIN_H + 14;
                 const tag = (col.pk ? 'PK' : '') + (col.pk && col.fk ? ',' : '') + (col.fk ? 'FK' : '') || (col.uq ? 'UK' : '');
-                g += `<text class="bd-tag" x="8" y="${y}">${tag}</text><text class="bd-col${col.pk ? ' pk' : ''}" x="40" y="${y}">${esc(col.n.length > 18 ? col.n.slice(0, 17) + '…' : col.n)}</text>`
+                g += `<text class="bd-tag" x="8" y="${y}">${tag}</text><text class="bd-col${col.pk ? ' pk' : ''}" data-k="${k}" x="40" y="${y}">${esc(col.n.length > 18 ? col.n.slice(0, 17) + '…' : col.n)}</text>`
                     + `<text class="bd-tipo" x="${BOX_W - 8}" y="${y}" text-anchor="end">${esc((col.tipo || '').replace(/\s*(unsigned|zerofill)/ig, '').slice(0, 14))}</text>`;
             }
             if (t.colunas.length > MOSTRA_COL) g += `<text class="bd-tipo" x="40" y="${CAB_H + MOSTRA_COL * LIN_H + 14}">+ ${t.colunas.length - MOSTRA_COL} colunas</text>`;
@@ -550,8 +848,40 @@
         }
         const g = this.r.vp;
         g.setAttribute('transform', `translate(${vp.tx},${vp.ty}) scale(${vp.z})`);
-        g.innerHTML = linhas + caixas;
+        g.innerHTML = `<g class="bd-ligs">${linhas}</g>` + caixas;
+        if (this.foco) this.pintarFoco();
         this.nVis = nVis;
+    };
+    /** Destaque do que está sob o mouse: a ligação (ou as ligações da tabela), as tabelas e as colunas das pontas. */
+    D.pintarFoco = function () {
+        const g = this.r.vp, s = this.c.s, f = this.foco;
+        g.querySelectorAll('.rel').forEach(n => n.classList.remove('rel'));
+        g.querySelectorAll('.bd-faixa').forEach(n => n.remove());
+        g.classList.toggle('foco', !!f);
+        if (!f) return;
+        const ligs = g.querySelector('.bd-ligs');
+        const tabela = i => g.querySelector(`[data-bd-t="${i}"]`);
+        let es;
+        if (f[0] === 'r') es = [Number(f.slice(1))];
+        else { const i = Number(f.slice(1)); es = s.deTabela[i] || []; const tg = tabela(i); if (tg) tg.classList.add('rel'); }
+        es.forEach(e => {
+            const a = s.arestas[e];
+            if (!a) return;
+            const n = ligs && ligs.querySelector(`.bd-rel[data-e="${e}"]`);
+            if (n) { n.classList.add('rel'); ligs.appendChild(n); } // por cima das outras linhas
+            [[a.i, a.k], [a.j, a.lj]].forEach(([t, k]) => {
+                const tg = tabela(t);
+                if (!tg) return;
+                tg.classList.add('rel');
+                const col = tg.querySelector(`.bd-col[data-k="${k}"]`);
+                if (!col || col.classList.contains('rel')) return;
+                col.classList.add('rel');
+                const fx = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                fx.setAttribute('class', 'bd-faixa');
+                fx.setAttribute('x', 1); fx.setAttribute('y', CAB_H + k * LIN_H + 1); fx.setAttribute('width', BOX_W - 2); fx.setAttribute('height', LIN_H);
+                tg.insertBefore(fx, tg.children[2] || null);
+            });
+        });
     };
     /** Arrastar o fundo move a vista; arrastar uma tabela muda a posição dela (fica salva no cartão). */
     D.pegar = function (e) {
@@ -565,9 +895,16 @@
         if (g) {
             const i = Number(g.dataset.bdT), p = this.p[i], px = p.x, py = p.y;
             let mexeu = false;
-            mover = ev => { mexeu = true; p.x = Math.round((px + (ev.clientX - x0) / vp.z) / 10) * 10; p.y = Math.round((py + (ev.clientY - y0) / vp.z) / 10) * 10; this.agendar(); };
+            this.arrastando = true;
+            mover = ev => {
+                const nx = Math.round((px + (ev.clientX - x0) / vp.z) / 10) * 10, ny = Math.round((py + (ev.clientY - y0) / vp.z) / 10) * 10;
+                if (nx === p.x && ny === p.y) return;
+                mexeu = true; p.x = nx; p.y = ny; this.mexeu(i); this.agendar();
+            };
             soltar = () => {
+                this.arrastando = false;
                 if (!mexeu) return;
+                this.mexeu(); this.agendar(); // de novo todas: a tabela pode ter caído no caminho de outras linhas
                 const nome = c.s.schema[i].nome;
                 c.b.dados.pos = { ...(raw(c.b.dados.pos) || {}), [nome]: [p.x, p.y] };
             };
