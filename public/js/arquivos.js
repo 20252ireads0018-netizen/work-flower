@@ -396,6 +396,8 @@
         if (f.size > MAX_ARQ) { avisar(c, `"${nome}" é grande demais (máx. 12 MB).`); return false; }
 
         if (ext === 'zip' || f.type === 'application/zip' || f.type === 'application/x-zip-compressed') {
+            // cofre do Obsidian (só notas .md e anexos, ou com .obsidian/): vira pasta de notas (public/js/notas.js)
+            if (window.WFNotas) { const r = await window.WFNotas.talvezCofreZip(c, f); if (r !== null) return r; }
             return await importarZip(c, f, pos, base);
         }
         if (f.type.startsWith('image/')) {
@@ -510,6 +512,9 @@
         if (!q) return;
         const r = q.getBoundingClientRect();
         const cartao = e.target.closest && e.target.closest('.wf-item[data-bid]');
+        // pasta arrastada (cofre do Obsidian): as entradas só valem durante o evento, então são lidas aqui
+        const pastas = window.WFNotas ? Array.from(e.dataTransfer.items || []).map(i => (i.kind === 'file' && i.webkitGetAsEntry) ? i.webkitGetAsEntry() : null).filter(x => x && x.isDirectory) : [];
+        if (pastas.length) { pastas.forEach(p => window.WFNotas.soltarPasta(p)); return; }
         soltar(Array.from(e.dataTransfer.files || []), e.clientX - r.left, e.clientY - r.top, cartao ? cartao.dataset.bid : null);
     });
 
@@ -578,5 +583,5 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
     else iniciar();
 
-    window.WFArquivos = { baixar, soltar };
+    window.WFArquivos = { baixar, soltar, lerZip, registrarDownload };
 })();

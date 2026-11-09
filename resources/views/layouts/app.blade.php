@@ -366,6 +366,10 @@
     <script src="{{ asset('js/lixeira.js') }}?v={{ @filemtime(public_path('js/lixeira.js')) }}"></script>
       <script src="{{ asset('js/planos.js') }}?v={{ @filemtime(public_path('js/planos.js')) }}"></script>
       <script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
+      {{-- Notion e Obsidian nos quadros: clique direito › Notion e Obsidian; cofre .zip ou pasta solta no quadro --}}
+      <meta name="wf-notion-url" content="{{ url('/integracoes/notion') }}">
+      <meta name="wf-negocios-url" content="{{ url('/areas/negocios') }}">
+      <script src="{{ asset('js/notas.js') }}?v={{ @filemtime(public_path('js/notas.js')) }}" defer></script>
       @if ($wfAmb)<script src="{{ asset('js/ambiente.js') }}?v={{ @filemtime(public_path('js/ambiente.js')) }}" defer></script>@endif
       @if ($wfArea)<script src="{{ asset('js/compartilhar.js') }}?v={{ @filemtime(public_path('js/compartilhar.js')) }}"></script>@endif
       @auth

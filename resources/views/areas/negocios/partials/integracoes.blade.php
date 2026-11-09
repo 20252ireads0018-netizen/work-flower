@@ -2,6 +2,7 @@
      servidor em CallController e IntegracaoController (routes/integracoes.php). Sempre sobre a conta de quem está
      logado: num workflow de outra pessoa, mostram as calls e o Discord da própria conta.
      Largura máxima de 1200px e grade que se ajusta sozinha (uma coluna no celular). --}}
+@if (session('notion_ok') || session('notion_erro'))<script>try { sessionStorage.setItem('negocios.aba', 'integracoes'); } catch (e) {}</script>@endif
 <script src="{{ asset('js/integracoes.js') }}?v={{ @filemtime(public_path('js/integracoes.js')) }}"></script>
 <style>
     .wf-int { max-width: 1200px; margin-inline: auto; }
@@ -117,7 +118,7 @@
 <div x-data="wfDiscord(@js(url('/integracoes/discord')))" x-effect="if (aba === 'integracoes') abrir()" class="space-y-4">
     <div>
         <h2 class="titulo text-xl">🔌 Integrações</h2>
-        <p class="text-sm texto-2">Ligue o Work Flower a outros aplicativos. Por enquanto: avisos no Discord e mensagens prontas de WhatsApp.</p>
+        <p class="text-sm texto-2">Ligue o Work Flower a outros aplicativos. Avisos no Discord, páginas do Notion e cofres do Obsidian virando cartões, e mensagens prontas de WhatsApp.</p>
     </div>
 
     <div class="wf-int-grade">
@@ -177,6 +178,58 @@
                     </template>
                 </div>
             </template>
+        </div>
+
+        {{-- Notion: conexão aqui; importar e sincronizar pelo clique direito em qualquer quadro (public/js/notas.js) --}}
+        <div class="card p-4 space-y-3" x-data="wfNotion(@js(url('/integracoes/notion')), @js(session('notion_ok')), @js(session('notion_erro')))" x-effect="if (aba === 'integracoes') abrir()">
+            <div class="flex items-center gap-2 min-w-0">
+                <h3 class="titulo text-lg shrink-0">Notion</h3>
+                <span class="text-xs wf-int-1linha flex-1 text-right" :title="estado()" :style="d.conectado ? 'color:#4ade80' : ''" x-text="estado()"></span>
+            </div>
+            <p class="text-sm texto-2">Traga páginas e bancos de dados do Notion para os seus quadros: páginas viram cartões de texto e bancos de dados viram tabelas. O botão “Sincronizar” atualiza os cartões quando a página muda no Notion.</p>
+            <template x-if="!d.conectado">
+                <div class="space-y-3">
+                    <button type="button" class="btn" x-show="d.oauth" @click="entrar()">Entrar com o Notion</button>
+                    <details class="text-sm" :open="!d.oauth">
+                        <summary class="cursor-pointer texto-2 text-xs" x-text="d.oauth ? 'Ou use um token de integração interna' : 'Conectar com um token de integração interna'"></summary>
+                        <div class="space-y-2 mt-2">
+                            <ol class="text-xs texto-2 space-y-1">
+                                <li>Em <b>notion.so/profile/integrations</b> › <b>Nova integração</b>, tipo <b>Interna</b>, no seu espaço de trabalho.</li>
+                                <li>Em Capacidades, deixe marcado <b>Ler conteúdo</b> e salve.</li>
+                                <li>Copie o <b>Internal Integration Secret</b> (começa com ntn_) e cole abaixo.</li>
+                                <li>No Notion, em cada página que quiser trazer: <b>•••</b> › <b>Conexões</b> › escolha a integração (as subpáginas vêm junto).</li>
+                            </ol>
+                            <input class="campo" type="password" autocomplete="off" x-model="token" placeholder="ntn_…" aria-label="Token da integração do Notion">
+                            <button type="button" class="btn-sec" @click="salvarToken()" :disabled="enviando || !token.trim()" x-text="enviando ? 'Conferindo…' : 'Conectar com o token'"></button>
+                        </div>
+                    </details>
+                </div>
+            </template>
+            <template x-if="d.conectado">
+                <div class="space-y-2 text-sm">
+                    <p><b>Como usar:</b> em qualquer quadro (Corpo, Mente, Carteira, Negócios ou Diverso), clique com o botão direito num espaço vazio › <b>Notion e Obsidian</b> › <b>Importar do Notion…</b> ou <b>Sincronizar com o Notion</b>.</p>
+                    <p class="text-xs texto-2">Só aparecem as páginas compartilhadas com a integração (no Notion: ••• › Conexões). A sincronização é manual e traz as mudanças do Notion para cá; o que você muda no cartão não volta para o Notion.</p>
+                    <p class="text-xs texto-2" x-show="d.ultimo_sync" x-text="'Última leitura: ' + (d.ultimo_sync ? new Date(d.ultimo_sync).toLocaleString('pt-BR') : '')"></p>
+                </div>
+            </template>
+            <p class="erro text-sm wf-int-quebra" x-show="erro" x-text="erro" role="alert"></p>
+            <p class="text-sm wf-int-quebra" style="color:#4ade80" x-show="ok" x-text="ok" role="status"></p>
+            <p class="text-xs wf-int-quebra" style="color:#f87171" x-show="d.ultimo_erro" x-text="'Último erro: ' + d.ultimo_erro"></p>
+            <div class="flex flex-wrap gap-2" x-show="d.conectado">
+                <button type="button" class="btn-sec" @click="desconectar()">Desconectar</button>
+            </div>
+            <p class="text-xs texto-2">O token fica guardado criptografado e não volta para esta tela.</p>
+        </div>
+
+        {{-- Obsidian: tudo no navegador (public/js/notas.js); aqui só a explicação --}}
+        <div class="card p-4 space-y-2">
+            <h3 class="titulo text-lg">Obsidian</h3>
+            <p class="text-sm texto-2">Leve um cofre do Obsidian para um quadro e traga de volta quando quiser.</p>
+            <ul class="text-sm space-y-1 list-disc pl-5">
+                <li><b>Importar:</b> arraste o .zip do cofre (ou a pasta dele) para qualquer quadro, ou clique com o botão direito › Notion e Obsidian › Importar cofre. Cada nota vira um cartão de texto, organizado pelas pastas do cofre ou pelas tags, com um mapa mental dos [[links]].</li>
+                <li><b>Exportar:</b> clique com o botão direito no quadro › Exportar a aba para o Obsidian, ou numa pasta › Exportar para o Obsidian. Sai um .zip que o Obsidian abre como cofre, com o frontmatter e as tags de volta.</li>
+            </ul>
+            <p class="text-xs texto-2">Nada sai do seu navegador além dos cartões que já são salvos na sua conta.</p>
         </div>
 
         <div class="card p-4 space-y-2">
