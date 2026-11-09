@@ -25,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // cabeçalhos de segurança e cookie de sessão "Secure" em HTTPS (antes do StartSession)
         $middleware->prepend(\App\Http\Middleware\CabecalhosSeguranca::class);
 
+        // WAF: recusa POST/PUT/PATCH/DELETE com assinaturas óbvias de SQL injection/XSS (isenta o JSON dos quadros)
+        $middleware->web(append: [\App\Http\Middleware\FiltroAtaques::class]);
+
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

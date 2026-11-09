@@ -231,7 +231,9 @@ class DiscordECallsTest extends TestCase
         $this->actingAs($dono)->putJson("/calls/{$c['id']}", ['plataforma' => 'meet', 'link' => 'https://us02web.zoom.us/j/123'] + $base)->assertOk()
             ->assertJsonPath('call.plataforma', 'zoom');
         $this->assertSame([$dono->id], Evento::where('call_id', $c['id'])->pluck('user_id')->all());
-        $this->actingAs($dono)->putJson("/calls/{$c['id']}", ['plataforma' => 'outro', 'link' => 'javascript:alert(1)'] + $base)->assertJsonValidationErrors('link');
+        $this->actingAs($dono)->putJson("/calls/{$c['id']}", ['plataforma' => 'outro', 'link' => 'ftp://exemplo.com/sala'] + $base)->assertJsonValidationErrors('link');
+        // javascript: nem chega ao controller: o filtro de ataques (FiltroAtaques) recusa antes
+        $this->actingAs($dono)->putJson("/calls/{$c['id']}", ['plataforma' => 'outro', 'link' => 'javascript:alert(1)'] + $base)->assertForbidden();
 
         $this->actingAs($dono)->deleteJson("/calls/{$c['id']}")->assertOk();
         $this->assertFalse(Call::exists());

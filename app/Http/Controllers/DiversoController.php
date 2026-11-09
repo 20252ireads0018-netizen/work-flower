@@ -73,7 +73,10 @@ class DiversoController extends Controller
         $q = DiversoDado::where('user_id', Compartilhar::dono($request, self::SLUG));
         if (str_starts_with($chave, self::PEDACO)) {
             // sqlz.{id} apaga todos os pedaços do cartão; sqlz.{id}.{versão} só os daquela leitura
-            $q->where(fn ($w) => $w->where('chave', $chave)->orWhere('chave', 'like', $chave . '.%'));
+            // "_" é curinga no LIKE (sqlz.a_c pegaria sqlz.abc.*): o LIKE só pré-filtra, o prefixo exato é conferido aqui
+            $chaves = (clone $q)->where('chave', 'like', $chave . '.%')->pluck('chave')
+                ->filter(fn ($c) => str_starts_with($c, $chave . '.'))->push($chave)->all();
+            $q->whereIn('chave', $chaves);
         } else {
             $q->where('chave', $chave);
         }

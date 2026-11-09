@@ -126,6 +126,7 @@ class NegociosController extends Controller
                 CarteiraDado::where('user_id', $donoId)
                     ->where(fn ($q) => $q->where('chave', 'img.' . $id)->orWhere('chave', 'like', 'img.' . $id . '.%'))
                     ->get(['chave', 'valor'])
+                    ->filter(fn ($l) => $l->chave === 'img.' . $id || str_starts_with($l->chave, 'img.' . $id . '.')) // "_" é curinga no LIKE
                     ->each(fn ($l) => NegocioDado::firstOrCreate(['user_id' => $donoId, 'chave' => $l->chave], ['valor' => $l->valor]));
             }
         });

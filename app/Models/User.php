@@ -19,9 +19,16 @@ class User extends Authenticatable
     // Não use o cast 'hashed' aqui, senão ela seria criptografada duas vezes.
     protected $fillable = ['name', 'email', 'password', 'cor_primaria', 'cor_cabecalho', 'cpf_cnpj', 'asaas_customer_id'];
 
-    protected $hidden = ['password', 'remember_token'];
+    protected $hidden = ['password', 'remember_token', 'dois_fatores_segredo', 'dois_fatores_recuperacao', 'dois_fatores_ultimo_passo'];
 
-    protected $casts = ['email_verified_at' => 'datetime'];
+    // Verificação em duas etapas (SegurancaController): segredo do app e hashes dos códigos de recuperação, criptografados.
+    // Fora do $fillable de propósito: só mudam por forceFill no SegurancaController.
+    protected $casts = [
+        'email_verified_at'        => 'datetime',
+        'dois_fatores_segredo'     => 'encrypted',
+        'dois_fatores_recuperacao' => 'encrypted:array',
+        'dois_fatores_ativo_em'    => 'datetime',
+    ];
 
     // Administração do site: respondem o "Reclame aqui" (/admin/reclamacoes) e veem as animações de anúncio.
     public const ADMINS = ['xexplosion20@gmail.com'];
@@ -29,6 +36,12 @@ class User extends Authenticatable
     public function eAdmin(): bool
     {
         return in_array(mb_strtolower(trim((string) $this->email)), self::ADMINS, true);
+    }
+
+    /** Pede o código do app autenticador depois da senha no /login. */
+    public function temDoisFatores(): bool
+    {
+        return $this->dois_fatores_ativo_em !== null && ! empty($this->dois_fatores_segredo);
     }
 
     public function tarefas(): HasMany

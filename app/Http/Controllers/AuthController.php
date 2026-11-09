@@ -69,7 +69,16 @@ class AuthController extends Controller
                 ->onlyInput('email');
         }
 
-        if (Auth::attempt($credenciais, $request->boolean('lembrar'))) {
+        // Conta com verificação em duas etapas: a senha certa não entra ainda, só leva à tela do código (DoisFatoresController)
+        $provedor = Auth::getProvider();
+        $conta = $provedor->retrieveByCredentials(['email' => $credenciais['email']]);
+        if ($conta instanceof User && $conta->temDoisFatores()) {
+            if ($provedor->validateCredentials($conta, $credenciais)) {
+                RateLimiter::clear($chaveConta);
+
+                return DoisFatoresController::pedirCodigo($request, $conta, $request->boolean('lembrar'));
+            }
+        } elseif (Auth::attempt($credenciais, $request->boolean('lembrar'))) {
             RateLimiter::clear($chaveConta);
             $request->session()->regenerate();
 
