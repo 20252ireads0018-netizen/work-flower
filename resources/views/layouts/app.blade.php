@@ -796,7 +796,8 @@
         @endif
     @endunless
 
-    <header class="cab-bg sticky top-0 z-30" x-data="{ menu: false }">
+    {{-- z-40: o cabeçalho (e o menu da engrenagem) fica acima dos painéis flutuantes z-30, como o Calendário do painel --}}
+    <header class="cab-bg sticky top-0 z-40" x-data="{ menu: false }">
         <div class="max-w-6xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4">
             <a href="{{ route('painel') }}" class="shrink-0" aria-label="Work Flower, ir para o painel">
                 @include('partials.marca', ['texto' => 'text-xl'])
