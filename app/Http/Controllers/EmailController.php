@@ -258,6 +258,8 @@ class EmailController extends Controller
         }
         $state = Str::random(40);
         $request->session()->put("emails_state.{$state}", now()->timestamp);
+        // veio do cartão Gmail do quadro: volta para a mesma página depois do Google
+        $request->session()->put('emails_voltar', $request->query('de') === 'cartao' ? YoutubeController::voltar($request) : null);
 
         return redirect()->away(Google::urlAutorizacao($state));
     }
@@ -299,7 +301,53 @@ class EmailController extends Controller
             $msg = "Gmail conectado ({$t['email']}), mas a primeira leitura falhou: " . $e->getMessage();
         }
 
-        return redirect()->route('emails')->with('emails_ok', $msg);
+        $voltar = $request->session()->pull('emails_voltar');
+
+        return $voltar ? redirect($voltar)->with('ok', $msg) : redirect()->route('emails')->with('emails_ok', $msg);
+    }
+
+    /* ---------------- cartão Gmail do quadro (public/js/integracoes-cartoes.js) ---------------- */
+
+    /** GET /negocios/emails/cartao[?q=][&categoria=][&conta=]: caixas e as 80 mensagens mais recentes do filtro. */
+    public function cartao(Request $request): JsonResponse
+    {
+        $uid = $request->user()->id;
+        $q = mb_substr(trim((string) $request->query('q', '')), 0, 80);
+        $cat = mb_substr(trim((string) $request->query('categoria', '')), 0, 40);
+        $conta = (int) $request->query('conta', 0);
+        $google = EmBreve::gmailLiberado($request->user());
+
+        $mensagens = EmailMensagem::where('user_id', $uid)
+            ->when($conta, fn ($w) => $w->where('conta_id', $conta))
+            ->when($cat !== '', fn ($w) => $w->where('categoria', $cat))
+            ->when($q !== '', function ($w) use ($q) {
+                $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%';
+                $w->where(fn ($o) => $o->where('assunto', 'like', $like)->orWhere('de_nome', 'like', $like)
+                    ->orWhere('de_email', 'like', $like)->orWhere('trecho', 'like', $like));
+            })
+            ->orderByDesc('recebido_em')->limit(80)->get()->map->paraTela()->values();
+
+        return response()->json([
+            'contas'     => EmailConta::where('user_id', $uid)->orderBy('id')->get()->map->paraTela()->values(),
+            'mensagens'  => $mensagens,
+            'categorias' => EmailMensagem::where('user_id', $uid)->distinct()->orderBy('categoria')->pluck('categoria')->filter()->values(),
+            'google'     => $google ? route('emails.google', ['de' => 'cartao']) : null,
+            'pagina'     => route('emails'),
+        ]);
+    }
+
+    /** GET /negocios/emails/mensagens/{mensagem}/corpo: a mensagem inteira, lida na hora na caixa. */
+    public function corpo(Request $request, EmailMensagem $mensagem): JsonResponse
+    {
+        abort_unless((int) $mensagem->user_id === (int) $request->user()->id, 404);
+
+        try {
+            $texto = \App\Support\Emails\Corpo::ler($mensagem);
+        } catch (EmailErro $e) {
+            return response()->json(['erro' => $e->getMessage(), 'texto' => (string) $mensagem->trecho], 422);
+        }
+
+        return response()->json(['mensagem' => $mensagem->paraTela(), 'texto' => $texto]);
     }
 
     /* ---------------- dados para a tela ---------------- */

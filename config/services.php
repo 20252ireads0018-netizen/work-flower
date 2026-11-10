@@ -48,9 +48,10 @@ return [
         // página de repasse (GitHub Pages, pasta docs/google): o mod_security da HostGator barra o retorno do Google
         // com 406 por causa do parâmetro iss=https://accounts.google.com; o repasse tira o iss e volta para o site
         'relay'         => rtrim((string) env('GOOGLE_RELAY_URL', ''), '/'),
-        // enquanto o app do Google está "Em teste", só a administração vê o Drive/Gmail; os outros veem "Em breve"
-        'publico'       => (bool) env('GOOGLE_APP_PUBLICADO', false),       // Drive (escopo drive.file, sem verificação)
-        'gmail_publico' => (bool) env('GOOGLE_GMAIL_PUBLICO', false),       // Gmail (escopo restrito: depois da verificação)
+        // Drive e Gmail liberados para todas as contas (cartões do quadro). Com o app do Google ainda "Em teste", ponha
+        // false para deixar só a administração (ver docs/google-integracoes.md)
+        'publico'       => (bool) env('GOOGLE_APP_PUBLICADO', true),        // Drive (escopo drive.file, sem verificação)
+        'gmail_publico' => (bool) env('GOOGLE_GMAIL_PUBLICO', true),        // Gmail (escopo restrito: tela "app não verificado" até a verificação)
     ],
     // Notion (Negócios › Integrações): integração pública criada pelo dono do site em notion.so/profile/integrations.
     // Vazio = só o token de integração interna colado por cada pessoa. O retorno padrão é /integracoes/notion/retorno;

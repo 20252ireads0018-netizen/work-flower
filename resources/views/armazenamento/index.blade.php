@@ -169,7 +169,7 @@
                 @if ($googleOk)
                     <a href="{{ route('armazenamento.google') }}" class="btn-sec">Google Drive</a>
                 @else
-                    <span class="btn-sec opacity-60 cursor-not-allowed" aria-disabled="true">Google Drive (em breve)</span>
+                    <span class="btn-sec opacity-60 cursor-not-allowed" aria-disabled="true">Google Drive (indisponível)</span>
                 @endif
             </div>
             @if (! $googleOk)
@@ -184,7 +184,7 @@
                         </ol>
                     </div>
                 @else
-                    <p class="text-xs texto-2">O Google Drive chega em breve para todas as contas. Enquanto isso, use um bucket.</p>
+                    <p class="text-xs texto-2">O Google Drive não está disponível neste Work Flower agora. Enquanto isso, use um bucket.</p>
                 @endif
             @endif
 

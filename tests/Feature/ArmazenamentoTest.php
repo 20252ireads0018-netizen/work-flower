@@ -310,7 +310,7 @@ class ArmazenamentoTest extends TestCase
         $u = User::factory()->create();
 
         $this->actingAs($u)->get('/armazenamento/google/conectar')->assertRedirect('/armazenamento')->assertSessionHasErrors('destino');
-        $this->actingAs($u)->get('/armazenamento')->assertOk()->assertSee('Google Drive (em breve)');
+        $this->actingAs($u)->get('/armazenamento')->assertOk()->assertSee('Google Drive (indisponível)');
     }
 
     // ------------------------------------------------------------------ uso

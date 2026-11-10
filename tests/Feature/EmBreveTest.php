@@ -29,21 +29,26 @@ class EmBreveTest extends TestCase
         $this->semNada();
         $html = $this->actingAs(User::factory()->create())->get('/painel')->assertOk()->getContent();
 
-        $this->assertStringContainsString('Em breve no Work Flower', $html);
-        foreach (['Google Drive', 'Lembretes por e-mail'] as $nome) {
-            $this->assertStringContainsString($nome, $html);
-        }
-        foreach (['.env', 'META_APP', 'TIKTOK_CLIENT', 'GOOGLE_', 'chave'] as $tecnico) {
-            $this->assertStringNotContainsString($tecnico, substr($html, strpos($html, 'Em breve no Work Flower'), 6000));
+        // Todas as integrações saíram do "Em breve": sem itens, a seção nem aparece.
+        $this->assertSame([], EmBreve::itens());
+        $this->assertStringNotContainsString('Em breve no Work Flower', $html);
+    }
+
+    public function test_drive_gmail_e_lembretes_sairam_do_em_breve(): void
+    {
+        $this->semNada();
+        $chaves = array_column(EmBreve::itens(), 'chave');
+        foreach (['drive', 'gmail', 'lembretes', 'youtube'] as $pronto) {
+            $this->assertNotContains($pronto, $chaves);
         }
     }
 
     public function test_item_some_quando_fica_pronto_e_secao_some_sem_itens(): void
     {
         $this->semNada();
-        $this->assertContains('lembretes', array_column(EmBreve::itens(), 'chave'));
+        $this->assertFalse(EmBreve::emailPronto());
         config(['mail.default' => 'smtp', 'mail.mailers.smtp.password' => 'senha-de-verdade']);
-        $this->assertNotContains('lembretes', array_column(EmBreve::itens(), 'chave'));
+        $this->assertTrue(EmBreve::emailPronto());
     }
 
     public function test_instagram_tiktok_shopee_e_amazon_sairam_do_em_breve(): void
@@ -55,18 +60,18 @@ class EmBreveTest extends TestCase
         }
     }
 
-    public function test_drive_so_para_admin_enquanto_o_app_do_google_esta_em_teste(): void
+    public function test_drive_liberado_por_padrao_e_so_admin_quando_desligado(): void
     {
         $this->semNada();
         $comum = User::factory()->create();
         $admin = User::factory()->create(['email' => User::ADMINS[0]]);
 
+        // GOOGLE_APP_PUBLICADO=false (app do Google ainda em teste): só a administração
         $this->assertFalse(EmBreve::driveLiberado($comum));
         $this->assertTrue(EmBreve::driveLiberado($admin));
         $this->actingAs($comum)->get('/armazenamento/google/conectar')->assertRedirect(route('armazenamento'));
 
         config(['services.google.publico' => true]);
         $this->assertTrue(EmBreve::driveLiberado($comum));
-        $this->assertNotContains('drive', array_column(EmBreve::itens(), 'chave'));
     }
 }

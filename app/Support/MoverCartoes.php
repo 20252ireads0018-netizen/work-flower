@@ -30,6 +30,7 @@ class MoverCartoes
     public const TIPOS_COMUNS = [
         'texto', 'tabela', 'lista', 'imagem', 'mapa', 'pasta', 'vivo', 'claude', 'criador', 'editorimg',
         'editorpdf', 'editorvid', 'grafico', 'habitos', 'musica', 'questoes', 'rh', 'cenas',
+        'gdrive', 'gmail', 'youtube', 'lembretes',
     ];
 
     public const TIPOS_SO_DA_AREA = [

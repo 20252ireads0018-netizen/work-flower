@@ -202,3 +202,5 @@
 <script src="{{ asset('js/criador-redes.js') }}?v={{ @filemtime(public_path('js/criador-redes.js')) }}" data-redes="{{ \Illuminate\Support\Facades\Route::has('redes.metricas') ? url('/redes') : '' }}"></script>
 {{-- cartão Cenas para escritores (js/cenas.js) --}}
 @include('partials.cenas')
+{{-- cartões Google Drive, Gmail, YouTube e Lembretes por e-mail (partials/integracoes-cartoes) --}}
+@include('partials.integracoes-cartoes-script')

@@ -52,6 +52,15 @@ class Mime
         return [mb_substr($nome, 0, 190), mb_substr($email, 0, 190)];
     }
 
+    /** Texto do corpo com as quebras de linha (para abrir a mensagem inteira no cartão Gmail). */
+    public static function texto(string $contentType, string $transferencia, string $corpo, int $tam = 20000): string
+    {
+        $texto = str_replace(["\r\n", "\r"], "\n", self::textoDaParte($contentType, $transferencia, $corpo, 0) ?? '');
+        $texto = preg_replace(["/[ \t\x{00A0}]+/u", "/ *\n */", "/\n{3,}/"], [' ', "\n", "\n\n"], $texto);
+
+        return mb_substr(trim((string) $texto), 0, $tam);
+    }
+
     /** Até $tam caracteres de texto puro do corpo (prefere text/plain; tira o HTML se só houver ele). */
     public static function trecho(string $contentType, string $transferencia, string $corpo, int $tam = 220): string
     {
