@@ -4,6 +4,7 @@ namespace App\Support\Marketplaces;
 
 use App\Models\MktAnuncio;
 use App\Models\MktConta;
+use App\Support\Integracoes\Repasse;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Http\Request;
@@ -34,10 +35,15 @@ abstract class Conector
         return config("marketplaces.canais.{$this->canal}" . ($chave ? ".{$chave}" : ''), $padrao);
     }
 
-    /** Endereço para onde o marketplace devolve o vendedor depois de autorizar. */
-    protected function retorno(): string
+    /**
+     * Endereço para onde o marketplace devolve o vendedor depois de autorizar. Shopee e Amazon podem passar pela
+     * página de repasse do GitHub Pages (docs/marketplaces/{canal}, INTEGRACOES_RELAY_URL), como o login do Google.
+     */
+    public function retorno(): string
     {
-        return route('carteira.mkt.retorno', $this->canal);
+        $direto = route('carteira.mkt.retorno', $this->canal);
+
+        return in_array($this->canal, ['shopee', 'amazon'], true) ? Repasse::url("marketplaces/{$this->canal}", $direto) : $direto;
     }
 
     /** true se as chaves do app de desenvolvedor estão no .env. */

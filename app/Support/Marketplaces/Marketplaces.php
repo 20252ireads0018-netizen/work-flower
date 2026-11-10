@@ -39,10 +39,13 @@ class Marketplaces
         return new $classe($canal);
     }
 
-    /** Conector de uma conta já conectada (a de demonstração não sai do Work Flower). */
+    /** Conector de uma conta já conectada (a de demonstração e a importada por planilha não saem do Work Flower). */
     public static function daConta(MktConta $conta): Conector
     {
-        return $conta->demo ? new Demo($conta->canal) : self::conector($conta->canal);
+        if ($conta->demo) return new Demo($conta->canal);
+        if ($conta->manual) return new Manual($conta->canal);
+
+        return self::conector($conta->canal);
     }
 
     /* ================= regras e margem ================= */
@@ -126,6 +129,12 @@ class Marketplaces
      */
     public static function sincronizar(MktConta $conta): array
     {
+        // conta importada por planilha: não há o que buscar (os dados chegam pelo "Importar planilha")
+        if ($conta->manual) {
+            $conta->update(['sincronizado_em' => $conta->sincronizado_em ?? now(), 'erro' => null]);
+
+            return ['ok' => true, 'anuncios' => $conta->anuncios()->count(), 'pedidos' => $conta->pedidos()->count(), 'erro' => null];
+        }
         @set_time_limit(180);
         $conector = self::daConta($conta);
         $nAnuncios = 0;

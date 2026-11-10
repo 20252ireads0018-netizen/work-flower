@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\RedeConta;
+use App\Models\RedeManual;
+use App\Support\Integracoes\Planilha;
+use App\Support\Integracoes\Repasse;
 use Illuminate\Http\Client\Response as RespostaHttp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -18,6 +21,9 @@ use Illuminate\Support\Str;
  *    O token curto vira um token longo (~60 dias), renovado sozinho quando faltam menos de 7 dias.
  *  - TikTok: Login Kit + Display API. O token vale 24 h e é renovado com o refresh_token (vale 1 ano).
  * As chaves dos apps ficam no .env (META_APP_ID/SECRET, TIKTOK_CLIENT_KEY/SECRET); os tokens, criptografados no banco.
+ * O retorno do OAuth pode passar pela página de repasse do GitHub Pages (docs/redes/{rede}, INTEGRACOES_RELAY_URL).
+ * Sem app configurado ou sem conta conectada, a pessoa importa os números à mão (CSV exportado da rede ou digitados):
+ * ficam em redes_manuais e aparecem no cartão do mesmo jeito. Passo a passo em docs/integracoes.md.
  */
 class RedesController extends Controller
 {
@@ -42,6 +48,12 @@ class RedesController extends Controller
         return $f;
     }
 
+    /** Endereço de retorno cadastrado no app da rede (repasse do GitHub Pages ou a rota direta). */
+    public static function retornoUrl(string $rede): string
+    {
+        return Repasse::url("redes/{$rede}", route('redes.retorno', $rede));
+    }
+
     private static function graph(): string
     {
         return 'https://graph.facebook.com/' . config('services.meta.versao', 'v21.0') . '/';
@@ -52,12 +64,12 @@ class RedesController extends Controller
     {
         $voltar = $this->voltar($request);
         if ($f = self::faltando($rede)) {
-            return redirect($voltar)->with('ok', self::REDES[$rede] . ' chega em breve ao Work Flower. Enquanto isso, o resto do cartão funciona normalmente.');
+            return redirect($voltar)->with('ok', 'A conexão automática com o ' . self::REDES[$rede] . ' ainda não foi ativada neste site. No cartão Criador, use “Importar números” (planilha CSV ou digitando).');
         }
 
         $state = Str::random(40);
         $request->session()->put("redes_state.{$state}", ['rede' => $rede, 'user' => $request->user()->id, 'em' => now()->timestamp, 'voltar' => $voltar]);
-        $retorno = route('redes.retorno', $rede);
+        $retorno = self::retornoUrl($rede);
 
         $url = $rede === 'instagram'
             ? 'https://www.facebook.com/' . config('services.meta.versao', 'v21.0') . '/dialog/oauth?' . http_build_query([
@@ -87,7 +99,7 @@ class RedesController extends Controller
             return redirect($voltar)->with('ok', "A conexão com o {$nome} foi cancelada.");
         }
         if ($f = self::faltando($rede)) {
-            return redirect($voltar)->with('ok', "{$nome} chega em breve ao Work Flower.");
+            return redirect($voltar)->with('ok', "A conexão automática com o {$nome} ainda não foi ativada neste site.");
         }
 
         try {
@@ -106,16 +118,30 @@ class RedesController extends Controller
         return redirect($voltar)->with('ok', "{$nome} conectado" . ($conta->usuario ? ' (@' . $conta->usuario . ')' : '') . '. Abra o cartão Criador para ver as métricas.');
     }
 
-    /** GET /redes/{rede}/metricas: seguidores e últimos posts/vídeos da conta conectada (guardado por 15 minutos). */
+    /**
+     * GET /redes/{rede}/metricas: seguidores e últimos posts/vídeos da conta conectada (guardado por 15 minutos).
+     * Sem app configurado ou sem conta conectada, devolve os números importados à mão (manual: true), se houver.
+     */
     public function metricas(Request $request, string $rede): JsonResponse
     {
         $nome = self::REDES[$rede];
-        if ($f = self::faltando($rede)) {
-            return response()->json(['ok' => false, 'configurado' => false, 'erro' => "O {$nome} chega em breve ao Work Flower."], 503);
-        }
-        $conta = RedeConta::where(['user_id' => $request->user()->id, 'rede' => $rede])->first();
+        $userId = $request->user()->id;
+        $configurado = ! self::faltando($rede);
+        $conta = $configurado ? RedeConta::where(['user_id' => $userId, 'rede' => $rede])->first() : null;
+
         if (! $conta) {
-            return response()->json(['ok' => false, 'conectado' => false, 'conectar' => route('redes.conectar', $rede), 'erro' => "Conecte sua conta do {$nome} para ver as métricas."], 409);
+            $conectar = $configurado ? route('redes.conectar', $rede) : null;
+            $manual = RedeManual::where(['user_id' => $userId, 'rede' => $rede])->first();
+            if ($manual) {
+                return response()->json(['ok' => true, 'rede' => $rede, 'manual' => true, 'conectar' => $conectar] + $this->doManual($manual));
+            }
+
+            return response()->json([
+                'ok' => false, 'conectado' => false, 'configurado' => $configurado, 'importar' => true, 'conectar' => $conectar,
+                'erro' => $configurado
+                    ? "Conecte sua conta do {$nome} ou importe os números (planilha CSV ou digitando) para ver as métricas."
+                    : "Importe os números do {$nome} (planilha CSV exportada da rede ou digitando) para ver as métricas aqui.",
+            ], 409);
         }
 
         try {
@@ -123,7 +149,7 @@ class RedesController extends Controller
         } catch (\RuntimeException $e) {
             $conta->update(['erro' => $e->getMessage()]);
 
-            return response()->json(['ok' => false, 'conectado' => false, 'conectar' => route('redes.conectar', $rede), 'erro' => $e->getMessage()], 409);
+            return response()->json(['ok' => false, 'conectado' => false, 'importar' => true, 'conectar' => route('redes.conectar', $rede), 'erro' => $e->getMessage()], 409);
         }
 
         $chave = 'redes.metricas.' . $conta->id;
@@ -139,7 +165,137 @@ class RedesController extends Controller
         }
         if ($conta->erro) $conta->update(['erro' => null]);
 
-        return response()->json(['ok' => true, 'rede' => $rede] + $dados);
+        // histórico de seguidores (um ponto por dia) para o gráfico do cartão
+        $extra = $conta->extra ?? [];
+        $hist = self::comPonto($extra['hist'] ?? [], (int) ($dados['conta']['seguidores'] ?? 0));
+        if ($hist !== ($extra['hist'] ?? [])) $conta->update(['extra' => ['hist' => $hist] + $extra]);
+
+        return response()->json(['ok' => true, 'rede' => $rede, 'manual' => false] + $dados + ['historico' => $hist]);
+    }
+
+    /** POST /redes/{rede}/importar { csv?, usuario?, seguidores?, seguindo?, posts?, curtidas? }: números importados à mão. */
+    public function importar(Request $request, string $rede): JsonResponse
+    {
+        $nome = self::REDES[$rede];
+        $d = $request->validate([
+            'csv'        => ['nullable', 'string', 'max:' . (int) config('integracoes.max_bytes', 2097152)],
+            'usuario'    => ['nullable', 'string', 'max:120'],
+            'seguidores' => ['nullable', 'string', 'max:30'],
+            'seguindo'   => ['nullable', 'string', 'max:30'],
+            'posts'      => ['nullable', 'string', 'max:30'],
+            'curtidas'   => ['nullable', 'string', 'max:30'],
+        ]);
+
+        $itens = null;
+        if (filled($d['csv'] ?? null)) {
+            $itens = $this->itensDoCsv($rede, (string) $d['csv']);
+            if (! $itens) {
+                return response()->json(['ok' => false, 'erro' => 'Não reconheci as colunas da planilha. A primeira linha precisa ter os nomes das colunas (ex.: Data; Legenda; Curtidas; Comentários; Alcance; Visualizações).'], 422);
+            }
+        }
+
+        $m = RedeManual::firstOrNew(['user_id' => $request->user()->id, 'rede' => $rede]);
+        $antes = $m->conta ?? [];
+        $conta = $antes;
+        $qtd = $rede === 'instagram' ? 'posts' : 'videos';
+        foreach (['seguidores' => 'seguidores', 'seguindo' => 'seguindo', 'posts' => $qtd, 'curtidas' => 'curtidas'] as $campo => $destino) {
+            $n = Planilha::inteiro($d[$campo] ?? null);
+            if ($n !== null) $conta[$destino] = max(0, $n);
+        }
+        if ($itens === null && $conta === $antes && ! filled($d['usuario'] ?? null)) {
+            return response()->json(['ok' => false, 'erro' => 'Cole a planilha ou preencha pelo menos um número.'], 422);
+        }
+        if ($itens !== null) {
+            $m->itens = $itens;
+            // sem o total digitado, a quantidade e as curtidas saem da planilha
+            if (($conta[$qtd] ?? 0) < count($itens)) $conta[$qtd] = count($itens);
+            if ($rede === 'tiktok' && Planilha::inteiro($d['curtidas'] ?? null) === null) {
+                $conta['curtidas'] = max((int) ($conta['curtidas'] ?? 0), (int) array_sum(array_column($itens, 'curtidas')));
+            }
+        }
+        if (filled($d['usuario'] ?? null)) $m->usuario = mb_substr(ltrim(trim($d['usuario']), '@'), 0, 120);
+        $m->conta = $conta;
+        if (isset($conta['seguidores'])) $m->historico = self::comPonto($m->historico ?? [], (int) $conta['seguidores']);
+        $m->save();
+
+        return response()->json([
+            'ok' => true, 'rede' => $rede, 'manual' => true, 'conectar' => self::faltando($rede) ? null : route('redes.conectar', $rede),
+            'mensagem' => "Números do {$nome} importados" . ($itens !== null ? ': ' . count($itens) . (count($itens) === 1 ? ' item' : ' itens') : '') . '.',
+        ] + $this->doManual($m));
+    }
+
+    /** DELETE /redes/{rede}/importar: apaga os números importados à mão. */
+    public function apagarImportacao(Request $request, string $rede): JsonResponse
+    {
+        RedeManual::where(['user_id' => $request->user()->id, 'rede' => $rede])->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Números importados no mesmo formato da leitura pela API. */
+    private function doManual(RedeManual $m): array
+    {
+        $c = $m->conta ?? [];
+        $conta = ['usuario' => $m->usuario, 'nome' => $m->usuario, 'seguidores' => $c['seguidores'] ?? null, 'seguindo' => $c['seguindo'] ?? null, 'foto' => null]
+            + ($m->rede === 'instagram' ? ['posts' => $c['posts'] ?? null] : ['curtidas' => $c['curtidas'] ?? null, 'videos' => $c['videos'] ?? null]);
+
+        return [
+            'conta'     => $conta,
+            $m->rede === 'instagram' ? 'posts' : 'videos' => $m->itens ?? [],
+            'historico' => $m->historico ?? [],
+            'em'        => ($m->updated_at ?? now())->toIso8601String(),
+        ];
+    }
+
+    /** Posts (Instagram) ou vídeos (TikTok) de uma planilha exportada da rede, no formato da API. */
+    private function itensDoCsv(string $rede, string $csv): array
+    {
+        $ap = [
+            'id'          => ['id', 'identificacao da publicacao', 'id da publicacao', 'post id', 'video id', 'media id'],
+            'data'        => ['data', 'date', 'horario de publicacao', 'data de publicacao', 'publicado em', 'publish time', 'post time', 'create time', 'created', 'timestamp', 'data do post'],
+            'texto'       => ['legenda', 'descricao', 'description', 'caption', 'titulo', 'title', 'texto', 'post', 'video title', 'titulo do video', 'nome'],
+            'link'        => ['link', 'link permanente', 'permalink', 'url', 'video link', 'share url', 'link do video'],
+            'tipo'        => ['tipo', 'tipo de publicacao', 'type', 'post type', 'media type', 'formato'],
+            'curtidas'    => ['curtidas', 'likes', 'like count', 'total likes', 'reacoes', 'reactions', 'gostei'],
+            'comentarios' => ['comentarios', 'comments', 'comments count', 'total comments'],
+            'alcance'     => ['alcance', 'reach', 'contas alcancadas', 'accounts reached'],
+            'views'       => ['visualizacoes', 'views', 'video views', 'total views', 'total de visualizacoes', 'reproducoes', 'plays', 'impressoes', 'impressions'],
+            'compart'     => ['compartilhamentos', 'shares', 'share count', 'total shares'],
+        ];
+        $saida = [];
+        $linhas = Planilha::linhas($csv, $ap);
+        $eua = Planilha::formatoEua(array_column($linhas, 'data'));
+        foreach ($linhas as $k => $l) {
+            $texto = mb_substr((string) ($l['texto'] ?? ''), 0, 120);
+            $link = preg_match('#^https?://\S+$#i', $l['link'] ?? '') ? mb_substr($l['link'], 0, 300) : null;
+            $data = Planilha::data($l['data'] ?? '', $eua)?->format('Y-m-d') ?? '';
+            $curtidas = Planilha::inteiro($l['curtidas'] ?? null);
+            $views = Planilha::inteiro($l['views'] ?? null);
+            if ($texto === '' && ! $link && $data === '' && $curtidas === null && $views === null) continue;
+            $base = [
+                'id'          => mb_substr((string) (($l['id'] ?? '') ?: 'imp' . ($k + 1)), 0, 60),
+                'link'        => $link,
+                'data'        => $data,
+                'curtidas'    => $curtidas ?? 0,
+                'comentarios' => Planilha::inteiro($l['comentarios'] ?? null) ?? 0,
+            ];
+            $saida[] = $rede === 'instagram'
+                ? $base + ['legenda' => $texto, 'tipo' => mb_substr((string) (($l['tipo'] ?? '') ?: 'Post'), 0, 20), 'alcance' => Planilha::inteiro($l['alcance'] ?? null), 'views' => $views]
+                : $base + ['titulo' => $texto, 'views' => $views ?? 0, 'compart' => Planilha::inteiro($l['compart'] ?? null) ?? 0];
+        }
+        usort($saida, fn ($a, $b) => strcmp($b['data'], $a['data']));
+
+        return array_slice($saida, 0, 200);
+    }
+
+    /** Guarda o número de seguidores do dia (até 400 dias). */
+    private static function comPonto(array $hist, int $seguidores): array
+    {
+        if ($seguidores <= 0) return $hist;
+        $hist[now()->toDateString()] = $seguidores;
+        ksort($hist);
+
+        return array_slice($hist, -400, null, true);
     }
 
     /** DELETE /redes/{rede}: desconecta (apaga os tokens). */
@@ -202,7 +358,7 @@ class RedesController extends Controller
     {
         $r = Http::timeout(15)->get(self::graph() . 'oauth/access_token', [
             'client_id' => config('services.meta.id'), 'client_secret' => config('services.meta.secret'),
-            'redirect_uri' => route('redes.retorno', 'instagram'), 'code' => $code,
+            'redirect_uri' => self::retornoUrl('instagram'), 'code' => $code,
         ]);
         if (! $r->successful() || ! $r->json('access_token')) throw new \RuntimeException('O Facebook recusou a autorização. Tente conectar de novo.');
 
@@ -298,7 +454,7 @@ class RedesController extends Controller
     {
         $r = Http::asForm()->timeout(15)->post(self::TT_API . 'oauth/token/', [
             'client_key' => config('services.tiktok.key'), 'client_secret' => config('services.tiktok.secret'),
-            'code' => $code, 'grant_type' => 'authorization_code', 'redirect_uri' => route('redes.retorno', 'tiktok'),
+            'code' => $code, 'grant_type' => 'authorization_code', 'redirect_uri' => self::retornoUrl('tiktok'),
         ]);
         if (! $r->successful() || ! $r->json('access_token')) throw new \RuntimeException('O TikTok recusou a autorização. Tente conectar de novo.');
 

@@ -230,6 +230,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/conectar', 'conectar')->middleware('throttle:20,1')->name('conectar');
         Route::get('/retorno', 'retorno')->middleware('throttle:20,1')->name('retorno');
         Route::get('/metricas', 'metricas')->middleware('throttle:30,1')->name('metricas');
+        Route::post('/importar', 'importar')->middleware('throttle:20,1')->name('importar');
+        Route::delete('/importar', 'apagarImportacao')->middleware('throttle:20,1')->name('importar.apagar');
         Route::delete('/', 'sair')->middleware('throttle:20,1')->name('sair');
     });
     // ---- fim feature/redes
@@ -275,6 +277,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/retorno/{canal}', [MarketplaceController::class, 'retorno'])
             ->whereIn('canal', ['mercadolivre', 'shopee', 'amazon'])->middleware('throttle:20,1')->name('.retorno');
         Route::post('/contas/demo', [MarketplaceController::class, 'demo'])->middleware('throttle:20,1')->name('.demo');
+        Route::post('/importar', [MarketplaceController::class, 'importar'])->middleware('throttle:20,1')->name('.importar');
         Route::patch('/contas', [MarketplaceController::class, 'editarContas'])->middleware('throttle:60,1')->name('.contas.editar');
         Route::delete('/contas', [MarketplaceController::class, 'removerContas'])->middleware('throttle:60,1')->name('.contas.remover');
         Route::post('/sincronizar', [MarketplaceController::class, 'sincronizar'])->middleware('throttle:30,1')->name('.sincronizar');
