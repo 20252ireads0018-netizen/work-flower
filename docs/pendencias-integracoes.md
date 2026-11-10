@@ -31,13 +31,16 @@ Projeto "My First Project" (ninth-sol-513721-a1), cliente OAuth "Work Flower sit
 - [ ] Para abrir a todos: verificar a empresa e mandar o app para análise da Meta
 - [ ] Conectar a @workflower.app ao portfólio/anúncios: o botão abre pop-up, fazer pelo Chrome normal em https://business.facebook.com/latest/settings/instagram_account?business_id=423685814163747
 
-## TikTok — CONFIGURADO, falta a análise
+## TikTok — CONFIGURADO, pronto para enviar à análise
 - [x] App "Work Flower" ID 7706490767908587540 (Indivíduo), Login Kit, retorno `.../redes/tiktok/`
 - [x] Escopos `user.info.basic`, `user.info.profile`, `user.info.stats`, `video.list`
 - [x] URL prefix `https://20252ireads0018-netizen.github.io/work-flower/` verificado (arquivo `docs/tiktok*.txt`). O websight.com.br não serve: o mod_security da HostGator dá 406 para o robô do TikTok, e o DNS do domínio está numa conta da Cloudflare que não é a victorbarretophp@gmail.com.
 - [x] Termos, privacidade e site apontando para as cópias em `docs/termos/`, `docs/privacidade/` e `docs/index.html`
 - [x] `.env`: `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`
-- [ ] O vídeo de demonstração anexado é PROVISÓRIO. Antes de "Submit for review": criar o Sandbox, pôr a conta do usuário como testadora, gravar o login com TikTok no cartão Criador mostrando perfil, números e vídeos, e trocar o vídeo.
+- [x] Sandbox "Demo Work Flower" (7706514306800666645) com a conta jonas0.82 como testadora
+- [x] Vídeo de demonstração real (`demo-tiktok-work-flower.mp4`, 1min34, 5,9 MB) no lugar do provisório; rascunho salvo
+- [x] `.env` de volta com as chaves de PRODUÇÃO (a de Sandbox começa com "sb")
+- [ ] O usuário clica em "Submit for review" e espera a análise do TikTok
 
 ## Shopee e Amazon — PULADAS (10/11/2026)
 O usuário não vende na Shopee nem na Amazon. Os cartões continuam com a importação manual (CSV/números colados). Se um dia vender:
