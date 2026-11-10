@@ -42,6 +42,13 @@ Projeto "My First Project" (ninth-sol-513721-a1), cliente OAuth "Work Flower sit
 - [x] `.env` de volta com as chaves de PRODUÇÃO (a de Sandbox começa com "sb")
 - [x] Enviado para análise em 10/11/2026 (status "In review"). Aguardar o e-mail do TikTok; se recusarem, ler os "Review comments" na página do app.
 
+## Discord — FALTA o app para o botão de um clique
+- [x] Conexão simplificada no ar (commit 6310964): colar o webhook no bloco ou em Integrações conecta sozinho e manda o teste
+- [ ] Criar o app em https://discord.com/developers/applications (New Application "Work Flower")
+- [ ] OAuth2 › Redirects: `https://websight.com.br/work-flower/integracoes/discord/retorno`
+- [ ] `.env` do servidor: `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` (o usuário cola)
+- [ ] Conferir: `/work-flower/integracoes/discord` devolve `"oauth": true` e o botão "Conectar com o Discord" aparece e funciona
+
 ## Shopee e Amazon — PULADAS (10/11/2026)
 O usuário não vende na Shopee nem na Amazon. Os cartões continuam com a importação manual (CSV/números colados). Se um dia vender:
 - Shopee: https://open.shopee.com, Redirect URL Domain `https://20252ireads0018-netizen.github.io`, `.env` `SHOPEE_PARTNER_ID`, `SHOPEE_PARTNER_KEY`.
