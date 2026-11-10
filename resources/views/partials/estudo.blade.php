@@ -37,6 +37,20 @@
     .fc-nota.n1 { border-color: rgba(251,146,60,.6); } .fc-nota.n1:hover { background: rgba(251,146,60,.15); }
     .fc-nota.n2 { border-color: rgba(34,197,94,.6); } .fc-nota.n2:hover { background: rgba(34,197,94,.15); }
     .fc-nota.n3 { border-color: rgba(47,111,199,.6); } .fc-nota.n3:hover { background: rgba(47,111,199,.15); }
+    .fc-baralho { padding: .45rem .55rem; border-radius: .6rem; border: 1px solid var(--linha); background: var(--superficie-2); }
+    .fc-img { display: block; max-width: 100%; max-height: 14rem; margin: .35rem 0; border-radius: .4rem; object-fit: contain; }
+    .fc-tex { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9em; padding: 0 .2rem; border-radius: .25rem; background: var(--superficie-2); }
+    .fc-previa { padding: .35rem .5rem; border-radius: .5rem; border: 1px dashed var(--linha); max-height: 10rem; overflow: auto; }
+    .fc-carta .katex-display { margin: .4em 0; overflow-x: auto; overflow-y: hidden; }
+
+    /* matemática: teclado de símbolos, exemplos por assunto e aviso de erro */
+    .mt-teclado { display: grid; grid-template-columns: repeat(auto-fill, minmax(2.6rem, 1fr)); gap: .25rem; flex-shrink: 0; }
+    .mt-tecla { padding: .3rem .2rem; border-radius: .45rem; border: 1px solid var(--linha); background: var(--superficie-2); color: var(--tinta); font-size: .8rem; line-height: 1.1; }
+    .mt-tecla:hover, .mt-tecla:focus-visible { border-color: var(--prim); }
+    .mt-grupo { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; margin-top: .3rem; }
+    .mt-grupo > b { min-width: 6.5rem; font-size: .7rem; }
+    .mt-aviso { padding: .3rem .55rem; border-radius: .5rem; background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.35); color: #b91c1c; flex-shrink: 0; }
+    html.dark .mt-aviso { color: #fca5a5; }
 
     /* pomodoro */
     .pm-relogio { position: relative; width: min(11rem, 60%); aspect-ratio: 1; }

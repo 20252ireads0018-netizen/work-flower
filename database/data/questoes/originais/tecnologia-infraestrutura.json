@@ -1,0 +1,1059 @@
+{
+  "area": "Tecnologia",
+  "questoes": [
+    {
+      "ref": "WF-RED-001",
+      "materia": "Redes de computadores",
+      "assunto": "Modelo OSI",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo ao modelo de referência OSI.\n\nNo modelo OSI, a camada de transporte é a responsável por determinar o caminho (roteamento) dos pacotes entre redes distintas.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "O roteamento entre redes distintas é função da camada de rede (camada 3). A camada de transporte (camada 4) cuida da comunicação fim a fim entre processos, com segmentação, controle de fluxo e, conforme o protocolo, confiabilidade."
+    },
+    {
+      "ref": "WF-RED-002",
+      "materia": "Redes de computadores",
+      "assunto": "Modelo OSI",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Um roteador, ao encaminhar pacotes com base no endereço IP de destino, atua principalmente na seguinte camada do modelo OSI:",
+      "alts": ["Física.", "Enlace.", "Rede.", "Transporte.", "Aplicação."],
+      "certa": 2,
+      "comentario": "O roteador decide o encaminhamento pelo endereço lógico (IP), atribuição da camada de rede. A camada física trata de sinais, a de enlace de quadros e endereços MAC (switches), a de transporte de portas e segmentos, e a de aplicação dos serviços ao usuário."
+    },
+    {
+      "ref": "WF-RED-003",
+      "materia": "Redes de computadores",
+      "assunto": "TCP x UDP",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Sobre os protocolos TCP e UDP da camada de transporte, assinale a afirmativa correta.",
+      "alts": [
+        "O TCP é orientado a conexão e oferece controle de fluxo, ordenação e retransmissão de segmentos perdidos.",
+        "O UDP estabelece conexão por meio do handshake de três vias antes de enviar dados.",
+        "O TCP não garante a entrega ordenada dos dados à aplicação.",
+        "O cabeçalho UDP é maior que o cabeçalho TCP, por carregar números de sequência.",
+        "TCP e UDP operam na camada de rede do modelo TCP/IP."
+      ],
+      "certa": 0,
+      "comentario": "O TCP é orientado a conexão e confiável, com controle de fluxo, ordenação e retransmissão. O handshake de três vias é do TCP, não do UDP; o TCP garante ordenação; o cabeçalho UDP (8 bytes) é menor que o do TCP e não tem números de sequência; ambos pertencem à camada de transporte."
+    },
+    {
+      "ref": "WF-RED-004",
+      "materia": "Redes de computadores",
+      "assunto": "Portas conhecidas",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Assinale a alternativa que apresenta a associação correta entre o protocolo e sua porta padrão.",
+      "alts": ["HTTPS – 80.", "SSH – 23.", "SMTP – 110.", "FTP (controle) – 22.", "DNS – 53."],
+      "certa": 4,
+      "comentario": "O DNS usa a porta 53. O HTTPS usa a 443 (a 80 é do HTTP), o SSH usa a 22 (a 23 é do Telnet), o SMTP usa a 25 (a 110 é do POP3) e o canal de controle do FTP usa a 21."
+    },
+    {
+      "ref": "WF-RED-005",
+      "materia": "Redes de computadores",
+      "assunto": "Sub-redes IPv4",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Um host está configurado com o endereço 192.168.10.77/26. O endereço de broadcast da sub-rede a que esse host pertence é:",
+      "alts": ["192.168.10.255", "192.168.10.63", "192.168.10.64", "192.168.10.127", "192.168.10.126"],
+      "certa": 3,
+      "comentario": "O prefixo /26 gera blocos de 64 endereços no último octeto: 0–63, 64–127, 128–191 e 192–255. O 77 está no bloco 64–127, cujo endereço de rede é 192.168.10.64 e o de broadcast é 192.168.10.127; o .126 é o último host válido."
+    },
+    {
+      "ref": "WF-RED-006",
+      "materia": "Redes de computadores",
+      "assunto": "Máscara e hosts",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Em uma sub-rede IPv4 com prefixo /27, a quantidade de endereços que podem ser atribuídos a hosts é:",
+      "alts": ["14", "32", "62", "16", "30"],
+      "certa": 4,
+      "comentario": "Com /27 sobram 5 bits para hosts: 2^5 = 32 endereços. Descontando o endereço de rede e o de broadcast, restam 30 utilizáveis; 32 é o total do bloco, e 14 e 62 correspondem a /28 e /26."
+    },
+    {
+      "ref": "WF-RED-007",
+      "materia": "Redes de computadores",
+      "assunto": "Sub-redes IPv4",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Uma empresa recebeu o bloco 10.0.0.0/24 e precisa dividi-lo em sub-redes de mesmo tamanho, cada uma com pelo menos 50 endereços utilizáveis para hosts. Considerando utilizáveis todas as sub-redes geradas, o maior número de sub-redes possível é:",
+      "alts": ["2", "4", "6", "8", "16"],
+      "certa": 1,
+      "comentario": "Para ter ao menos 50 hosts são necessários 6 bits de host (2^6 − 2 = 62), pois 5 bits dariam só 30. Assim o prefixo fica /26, e de /24 para /26 emprestam-se 2 bits: 2^2 = 4 sub-redes. Com 8 sub-redes (/27) cada uma teria apenas 30 hosts."
+    },
+    {
+      "ref": "WF-RED-008",
+      "materia": "Redes de computadores",
+      "assunto": "CIDR e sumarização",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Um roteador conhece as redes 172.16.0.0/24, 172.16.1.0/24, 172.16.2.0/24 e 172.16.3.0/24. A rota sumarizada que abrange exatamente essas quatro redes é:",
+      "alts": ["172.16.0.0/22", "172.16.0.0/23", "172.16.0.0/21", "172.16.3.0/22", "172.16.0.0/24"],
+      "certa": 0,
+      "comentario": "Os terceiros octetos 0, 1, 2 e 3 diferem apenas nos 2 bits finais, então o prefixo comum tem 24 − 2 = 22 bits: 172.16.0.0/22 (de 172.16.0.0 a 172.16.3.255). O /23 cobre só duas redes, o /21 cobriria oito, e 172.16.3.0 não é endereço de rede válido para um /22."
+    },
+    {
+      "ref": "WF-RED-009",
+      "materia": "Redes de computadores",
+      "assunto": "Máscara e CIDR",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "A máscara de sub-rede 255.255.255.240 corresponde, em notação CIDR, ao prefixo:",
+      "alts": ["/25", "/26", "/27", "/28", "/29"],
+      "certa": 3,
+      "comentario": "240 em binário é 11110000, ou seja, 4 bits em 1 no último octeto; somados aos 24 dos três primeiros octetos, dão /28. As máscaras de /25, /26, /27 e /29 terminam em 128, 192, 224 e 248."
+    },
+    {
+      "ref": "WF-RED-010",
+      "materia": "Redes de computadores",
+      "assunto": "IPv6",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Acerca do protocolo IPv6, assinale a afirmativa correta.",
+      "alts": [
+        "Os endereços IPv6 têm 64 bits.",
+        "O IPv6 faz uso intenso de broadcast para descoberta de vizinhos.",
+        "Na forma abreviada, a notação :: pode aparecer uma única vez, substituindo um ou mais grupos consecutivos de zeros.",
+        "O cabeçalho básico do IPv6 possui campo de checksum, recalculado a cada salto.",
+        "A resolução de endereços de enlace no IPv6 é feita pelo ARP, como no IPv4."
+      ],
+      "certa": 2,
+      "comentario": "O :: só pode aparecer uma vez, senão não se saberia quantos zeros cada ocorrência representa. O endereço IPv6 tem 128 bits, não existe broadcast (usa-se multicast), o cabeçalho não tem checksum e a resolução de endereços é feita pelo NDP (sobre ICMPv6), não pelo ARP."
+    },
+    {
+      "ref": "WF-RED-011",
+      "materia": "Redes de computadores",
+      "assunto": "IPv6 – abreviação",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Assinale a forma abreviada correta do endereço IPv6 2001:0db8:0000:0000:0000:ff00:0042:8329.",
+      "alts": [
+        "2001:db8:0:ff00::42:8329",
+        "2001:db8::ff:42:8329",
+        "2001:db8::ff00::42:8329",
+        "21:db8::ff00:42:8329",
+        "2001:db8::ff00:42:8329"
+      ],
+      "certa": 4,
+      "comentario": "Removem-se os zeros à esquerda de cada grupo (0db8 → db8, 0042 → 42) e os três grupos de zeros consecutivos viram ::. Não se podem cortar zeros à direita (ff00 não vira ff), nem zeros internos de 2001, nem usar :: duas vezes; a alternativa A desloca o grupo ff00 de posição."
+    },
+    {
+      "ref": "WF-RED-012",
+      "materia": "Redes de computadores",
+      "assunto": "DNS",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "No DNS, o tipo de registro que associa um nome de host a um endereço IPv4 é o:",
+      "alts": ["MX", "CNAME", "AAAA", "A", "PTR"],
+      "certa": 3,
+      "comentario": "O registro A mapeia nome para endereço IPv4. O AAAA faz o mesmo para IPv6, o MX indica servidores de e-mail do domínio, o CNAME cria um apelido para outro nome e o PTR é usado na resolução reversa (IP para nome)."
+    },
+    {
+      "ref": "WF-RED-013",
+      "materia": "Redes de computadores",
+      "assunto": "DHCP",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Quando um cliente obtém configuração de rede por DHCP pela primeira vez, a sequência típica de mensagens trocadas é:",
+      "alts": [
+        "Request, Offer, Discover, Acknowledge.",
+        "Discover, Offer, Request, Acknowledge.",
+        "Offer, Discover, Acknowledge, Request.",
+        "Discover, Request, Offer, Acknowledge.",
+        "Request, Acknowledge, Discover, Offer."
+      ],
+      "certa": 1,
+      "comentario": "O processo é conhecido como DORA: o cliente procura servidores (Discover), o servidor oferece um endereço (Offer), o cliente solicita a oferta escolhida (Request) e o servidor confirma (Acknowledge). As demais ordens não correspondem ao funcionamento do protocolo."
+    },
+    {
+      "ref": "WF-RED-014",
+      "materia": "Redes de computadores",
+      "assunto": "VLAN",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Para que um único enlace entre dois switches transporte o tráfego de várias VLANs, identificando em cada quadro a VLAN a que ele pertence, deve-se configurar esse enlace como:",
+      "alts": [
+        "porta tronco, com marcação de quadros segundo o padrão IEEE 802.1Q.",
+        "porta de acesso, com marcação segundo o padrão IEEE 802.3.",
+        "porta com Spanning Tree Protocol (IEEE 802.1D), que adiciona a identificação da VLAN.",
+        "agregação de links (LACP), que reserva um cabo físico para cada VLAN.",
+        "enlace sem fio no padrão IEEE 802.11."
+      ],
+      "certa": 0,
+      "comentario": "O enlace tronco transporta várias VLANs inserindo no quadro uma tag 802.1Q com o identificador da VLAN. A porta de acesso pertence a uma única VLAN; o STP evita laços, mas não marca VLANs; o LACP agrega enlaces para banda e redundância; o 802.11 é Wi-Fi."
+    },
+    {
+      "ref": "WF-RED-015",
+      "materia": "Redes de computadores",
+      "assunto": "Protocolos de roteamento",
+      "dificuldade": "media",
+      "estilo": "Cesgranrio",
+      "enunciado": "A respeito de protocolos de roteamento, assinale a afirmativa correta.",
+      "alts": [
+        "O RIP é um protocolo de estado de enlace que usa o algoritmo de Dijkstra.",
+        "O OSPF usa a contagem de saltos como métrica, limitada a 15 saltos.",
+        "O BGP é um protocolo de roteamento interior, usado dentro de um mesmo sistema autônomo apenas.",
+        "O OSPF é um protocolo de estado de enlace que calcula as melhores rotas com o algoritmo SPF (Dijkstra).",
+        "Rotas estáticas se ajustam automaticamente quando um enlace cai."
+      ],
+      "certa": 3,
+      "comentario": "O OSPF é de estado de enlace e usa o algoritmo SPF de Dijkstra. O RIP é de vetor de distância, com métrica de saltos limitada a 15; o BGP é o protocolo exterior usado entre sistemas autônomos; rotas estáticas não se adaptam sozinhas a falhas."
+    },
+    {
+      "ref": "WF-RED-016",
+      "materia": "Redes de computadores",
+      "assunto": "Wi-Fi (IEEE 802.11)",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "O padrão de rede sem fio que opera exclusivamente na faixa de 2,4 GHz e atinge taxa nominal máxima de 54 Mbps é o IEEE:",
+      "alts": ["802.11a", "802.11b", "802.11ac", "802.11n", "802.11g"],
+      "certa": 4,
+      "comentario": "O 802.11g opera em 2,4 GHz com até 54 Mbps. O 802.11a também chega a 54 Mbps, mas em 5 GHz; o 802.11b fica em 2,4 GHz com até 11 Mbps; o 802.11n opera em 2,4 e 5 GHz; o 802.11ac opera em 5 GHz."
+    },
+    {
+      "ref": "WF-RED-017",
+      "materia": "Redes de computadores",
+      "assunto": "Switch x hub",
+      "dificuldade": "facil",
+      "estilo": "FGV",
+      "enunciado": "Diferentemente de um hub, um switch de camada 2:",
+      "alts": [
+        "encaminha cada quadro apenas para a porta associada ao endereço MAC de destino, e cada porta forma um domínio de colisão separado.",
+        "repete o sinal recebido em todas as portas, sem analisar o quadro.",
+        "opera exclusivamente na camada física do modelo OSI.",
+        "separa domínios de broadcast por padrão, mesmo sem VLANs configuradas.",
+        "roteia pacotes entre redes IP distintas usando tabela de rotas."
+      ],
+      "certa": 0,
+      "comentario": "O switch aprende os MACs em sua tabela e encaminha cada quadro só para a porta de destino, o que isola os domínios de colisão. Repetir o sinal em todas as portas, na camada física, é o comportamento do hub; sem VLANs, o switch mantém um único domínio de broadcast; rotear entre redes IP é papel do roteador."
+    },
+    {
+      "ref": "WF-RED-018",
+      "materia": "Redes de computadores",
+      "assunto": "Endereços IPv4 privados",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Entre os endereços a seguir, o único que pertence às faixas de endereçamento privado IPv4 definidas na RFC 1918 é:",
+      "alts": ["172.32.1.1", "10.255.0.1", "192.169.1.1", "11.0.0.1", "169.254.1.1"],
+      "certa": 1,
+      "comentario": "As faixas privadas são 10.0.0.0/8, 172.16.0.0/12 (172.16.0.0 a 172.31.255.255) e 192.168.0.0/16; logo 10.255.0.1 é privado. O 172.32.1.1 fica fora do /12, 192.169 e 11.x são públicos, e 169.254.0.0/16 é link-local (APIPA), não faixa da RFC 1918."
+    },
+    {
+      "ref": "WF-RED-019",
+      "materia": "Redes de computadores",
+      "assunto": "Handshake TCP",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "No estabelecimento de uma conexão TCP, após o cliente enviar um segmento com a flag SYN, o servidor que aceita a conexão responde com um segmento contendo as flags:",
+      "alts": ["FIN", "SYN e ACK", "somente ACK", "RST", "PSH"],
+      "certa": 1,
+      "comentario": "No handshake de três vias o servidor responde com SYN+ACK, e o cliente conclui com ACK. O FIN encerra conexões, o RST a recusa ou aborta, e o PSH pede entrega imediata dos dados à aplicação."
+    },
+    {
+      "ref": "WF-RED-020",
+      "materia": "Redes de computadores",
+      "assunto": "Modelo TCP/IP",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "No modelo TCP/IP de quatro camadas, os protocolos HTTP, IP e Ethernet situam-se, respectivamente, nas camadas de:",
+      "alts": [
+        "transporte, internet e física.",
+        "aplicação, transporte e internet.",
+        "aplicação, internet e acesso à rede.",
+        "sessão, rede e enlace.",
+        "aplicação, internet e transporte."
+      ],
+      "certa": 2,
+      "comentario": "HTTP é protocolo de aplicação, IP é da camada internet e Ethernet pertence à camada de acesso à rede (enlace e física). O modelo TCP/IP de quatro camadas não tem camada de sessão, e o IP não está na camada de transporte."
+    },
+    {
+      "ref": "WF-RED-021",
+      "materia": "Redes de computadores",
+      "assunto": "DHCP",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, acerca de serviços de rede.\n\nO DHCP utiliza o UDP como protocolo de transporte, e o servidor DHCP escuta, por padrão, na porta 67.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "O DHCP roda sobre UDP: o servidor usa a porta 67 e o cliente, a 68. O UDP é adequado porque o cliente ainda não tem endereço configurado e as mensagens iniciais são enviadas em broadcast."
+    },
+    {
+      "ref": "WF-RED-022",
+      "materia": "Redes de computadores",
+      "assunto": "Sub-redes IPv4",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Considerando a rede 192.168.0.0/23, julgue o item seguinte.\n\nO endereço 192.168.0.255 pode ser atribuído a um host dessa rede.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "O /23 abrange de 192.168.0.0 a 192.168.1.255: o endereço de rede é 192.168.0.0 e o de broadcast é 192.168.1.255. Portanto 192.168.0.255 é um endereço intermediário, válido para host, apesar de terminar em 255."
+    },
+    {
+      "ref": "WF-BD-001",
+      "materia": "Banco de dados",
+      "assunto": "Chave estrangeira",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo ao modelo relacional.\n\nUma coluna definida como chave estrangeira pode conter valores repetidos e, se a definição da coluna permitir, também valores nulos.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "A chave estrangeira só exige que cada valor não nulo exista na chave referenciada; ela não impõe unicidade, pois vários registros podem apontar para o mesmo pai. Valores nulos são aceitos quando a coluna não for NOT NULL, indicando ausência de vínculo."
+    },
+    {
+      "ref": "WF-BD-002",
+      "materia": "Banco de dados",
+      "assunto": "Normalização – 2FN",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, acerca de normalização.\n\nSe todas as chaves candidatas de uma relação que está na primeira forma normal forem formadas por um único atributo, essa relação também estará na segunda forma normal.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "A 2FN proíbe dependência parcial, isto é, atributo não primo dependendo de apenas parte de uma chave candidata. Se toda chave candidata tem um único atributo, não existe parte própria de chave, logo não há dependência parcial e a relação já está na 2FN."
+    },
+    {
+      "ref": "WF-BD-003",
+      "materia": "Banco de dados",
+      "assunto": "Transações e ACID",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, a respeito das propriedades ACID.\n\nA propriedade de isolamento garante que, uma vez confirmada (commit), a transação terá seus efeitos preservados mesmo que ocorra falha posterior no sistema.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Manter os efeitos de uma transação confirmada mesmo após falhas é a durabilidade. O isolamento trata de transações concorrentes, fazendo com que uma não enxergue estados intermediários da outra."
+    },
+    {
+      "ref": "WF-BD-004",
+      "materia": "Banco de dados",
+      "assunto": "SQL – DDL e DML",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo à linguagem SQL.\n\nO comando DELETE, usado para remover linhas de uma tabela, faz parte da DDL (Data Definition Language).",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "DELETE manipula dados, sendo comando de DML, assim como INSERT, UPDATE e SELECT. A DDL reúne comandos que definem estruturas, como CREATE, ALTER e DROP."
+    },
+    {
+      "ref": "WF-BD-005",
+      "materia": "Banco de dados",
+      "assunto": "SQL – WHERE x HAVING",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo à linguagem SQL.\n\nEm uma consulta com GROUP BY, a cláusula WHERE filtra as linhas antes do agrupamento, ao passo que a cláusula HAVING filtra os grupos já formados e pode conter funções de agregação.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Na ordem lógica de execução, WHERE atua sobre as linhas individuais antes do GROUP BY, e HAVING atua sobre os grupos depois dele. Por isso condições como COUNT(*) > 2 vão no HAVING, e não no WHERE."
+    },
+    {
+      "ref": "WF-BD-006",
+      "materia": "Banco de dados",
+      "assunto": "Índices",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, acerca de índices em bancos de dados relacionais.\n\nA criação de um índice sobre uma coluna sempre melhora o desempenho tanto das consultas quanto das operações de inserção e atualização nessa tabela.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Índices podem acelerar consultas, mas cada INSERT, UPDATE ou DELETE que afete a coluna também precisa atualizar o índice, o que gera custo adicional e ocupa espaço. Por isso indexar tudo indiscriminadamente costuma prejudicar a escrita."
+    },
+    {
+      "ref": "WF-BD-007",
+      "materia": "Banco de dados",
+      "assunto": "SQL – INNER JOIN",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Considere as tabelas a seguir.\n\nFUNCIONARIO (id, nome, depto_id, salario):\n(1, Ana, 10, 5000); (2, Bruno, 10, 3000); (3, Carla, 20, 4000); (4, Davi, NULL, 2500); (5, Eva, 30, 6000)\n\nDEPARTAMENTO (id, nome):\n(10, TI); (20, RH); (30, Financeiro); (40, Jurídico)\n\nO resultado da consulta\nSELECT COUNT(*) FROM FUNCIONARIO F INNER JOIN DEPARTAMENTO D ON F.depto_id = D.id;\né:",
+      "alts": ["3", "4", "5", "6", "20"],
+      "certa": 1,
+      "comentario": "O INNER JOIN mantém apenas os pares com correspondência: Ana, Bruno, Carla e Eva, totalizando 4. Davi fica de fora porque NULL não é igual a nenhum valor, e o Jurídico não aparece por não ter funcionários; 20 seria o produto cartesiano (5 × 4)."
+    },
+    {
+      "ref": "WF-BD-008",
+      "materia": "Banco de dados",
+      "assunto": "SQL – LEFT JOIN e COUNT",
+      "dificuldade": "dificil",
+      "estilo": "FCC",
+      "enunciado": "Considere as tabelas a seguir.\n\nFUNCIONARIO (id, nome, depto_id, salario):\n(1, Ana, 10, 5000); (2, Bruno, 10, 3000); (3, Carla, 20, 4000); (4, Davi, NULL, 2500); (5, Eva, 30, 6000)\n\nDEPARTAMENTO (id, nome):\n(10, TI); (20, RH); (30, Financeiro); (40, Jurídico)\n\nAo executar\nSELECT D.nome, COUNT(F.id) FROM DEPARTAMENTO D LEFT JOIN FUNCIONARIO F ON F.depto_id = D.id GROUP BY D.nome;\nobtêm-se:",
+      "alts": [
+        "3 linhas, sem linha para Jurídico.",
+        "4 linhas, com Jurídico associado ao valor 1.",
+        "4 linhas, com Jurídico associado ao valor 0.",
+        "5 linhas, incluindo uma para Davi, e Jurídico associado ao valor 0.",
+        "4 linhas, com Jurídico associado ao valor NULL."
+      ],
+      "certa": 2,
+      "comentario": "O LEFT JOIN preserva todos os departamentos, gerando 4 grupos (TI 2, RH 1, Financeiro 1, Jurídico). Para o Jurídico, F.id vem NULL, e COUNT(coluna) ignora nulos, resultando em 0, e não em 1 (como daria COUNT(*)) nem em NULL. Davi não aparece, pois a tabela preservada é DEPARTAMENTO."
+    },
+    {
+      "ref": "WF-BD-009",
+      "materia": "Banco de dados",
+      "assunto": "SQL – GROUP BY e HAVING",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Considere a tabela FUNCIONARIO (id, nome, depto_id, salario) com as linhas:\n(1, Ana, 10, 5000); (2, Bruno, 10, 3000); (3, Carla, 20, 4000); (4, Davi, NULL, 2500); (5, Eva, 30, 6000)\n\nQuantas linhas retorna a consulta abaixo?\nSELECT depto_id, AVG(salario) FROM FUNCIONARIO GROUP BY depto_id HAVING AVG(salario) > 4000;",
+      "alts": ["3", "2", "4", "0", "1"],
+      "certa": 4,
+      "comentario": "Os grupos são 10 (média 4000), 20 (4000), 30 (6000) e o grupo de NULL (2500). Como a condição é estritamente maior que 4000, só o grupo 30 passa, retornando 1 linha; os grupos 10 e 20 têm média igual a 4000 e são descartados."
+    },
+    {
+      "ref": "WF-BD-010",
+      "materia": "Banco de dados",
+      "assunto": "SQL – subconsulta",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Considere a tabela FUNCIONARIO (id, nome, depto_id, salario) com as linhas:\n(1, Ana, 10, 5000); (2, Bruno, 10, 3000); (3, Carla, 20, 4000); (4, Davi, NULL, 2500); (5, Eva, 30, 6000)\n\nA consulta\nSELECT nome FROM FUNCIONARIO WHERE salario > (SELECT AVG(salario) FROM FUNCIONARIO);\nretorna:",
+      "alts": ["Ana e Eva.", "somente Eva.", "Ana, Carla e Eva.", "Bruno e Davi.", "Ana, Bruno e Eva."],
+      "certa": 0,
+      "comentario": "A média é (5000 + 3000 + 4000 + 2500 + 6000) / 5 = 4100. Apenas Ana (5000) e Eva (6000) ganham mais que 4100; Carla, com 4000, fica abaixo da média."
+    },
+    {
+      "ref": "WF-BD-011",
+      "materia": "Banco de dados",
+      "assunto": "SQL – COUNT e NULL",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Considere a tabela FUNCIONARIO (id, nome, depto_id, salario) com as linhas:\n(1, Ana, 10, 5000); (2, Bruno, 10, 3000); (3, Carla, 20, 4000); (4, Davi, NULL, 2500); (5, Eva, 30, 6000)\n\nO resultado de\nSELECT COUNT(*), COUNT(depto_id), COUNT(DISTINCT depto_id) FROM FUNCIONARIO;\né, respectivamente:",
+      "alts": ["5, 5 e 4.", "5, 4 e 4.", "4, 4 e 3.", "5, 4 e 3.", "5, 5 e 3."],
+      "certa": 3,
+      "comentario": "COUNT(*) conta todas as 5 linhas. COUNT(depto_id) ignora o NULL de Davi, resultando em 4, e COUNT(DISTINCT depto_id) conta os valores distintos não nulos 10, 20 e 30, resultando em 3."
+    },
+    {
+      "ref": "WF-BD-012",
+      "materia": "Banco de dados",
+      "assunto": "Normalização – 1FN",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Uma tabela CLIENTE possui a coluna telefones, na qual são gravados vários números de telefone separados por vírgula em um mesmo campo. Esse projeto viola diretamente a:",
+      "alts": [
+        "terceira forma normal.",
+        "forma normal de Boyce-Codd.",
+        "primeira forma normal.",
+        "segunda forma normal.",
+        "integridade referencial."
+      ],
+      "certa": 2,
+      "comentario": "A 1FN exige atributos atômicos, sem valores multivalorados ou grupos repetitivos no mesmo campo. A 2FN, a 3FN e a FNBC tratam de dependências funcionais e pressupõem a 1FN; integridade referencial diz respeito a chaves estrangeiras."
+    },
+    {
+      "ref": "WF-BD-013",
+      "materia": "Banco de dados",
+      "assunto": "Normalização – 3FN",
+      "dificuldade": "media",
+      "estilo": "Cesgranrio",
+      "enunciado": "Considere a relação PEDIDO (num_pedido, data, cod_cliente, nome_cliente), cuja chave primária é num_pedido, e na qual nome_cliente é determinado por cod_cliente. Sobre essa relação, é correto afirmar que ela:",
+      "alts": [
+        "está na terceira forma normal.",
+        "viola a primeira forma normal.",
+        "viola a segunda forma normal, por ter chave primária composta.",
+        "viola a terceira forma normal, por haver dependência transitiva de nome_cliente em relação à chave.",
+        "viola a forma normal de Boyce-Codd, mas atende à terceira forma normal."
+      ],
+      "certa": 3,
+      "comentario": "Há a cadeia num_pedido → cod_cliente → nome_cliente, uma dependência transitiva de atributo não chave, o que viola a 3FN. A chave é simples, então não há dependência parcial (a 2FN é atendida), os atributos são atômicos, e quem viola a 3FN também viola a FNBC."
+    },
+    {
+      "ref": "WF-BD-014",
+      "materia": "Banco de dados",
+      "assunto": "Normalização – FNBC",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Uma relação está na forma normal de Boyce-Codd (FNBC) quando:",
+      "alts": [
+        "não possui atributos multivalorados.",
+        "todo atributo não chave depende da chave primária inteira, e não de parte dela.",
+        "não há dependências transitivas entre atributos não chave e a chave primária.",
+        "possui chave primária formada por um único atributo.",
+        "para toda dependência funcional não trivial X → Y, X é uma superchave."
+      ],
+      "certa": 4,
+      "comentario": "A FNBC exige que todo determinante de dependência funcional não trivial seja superchave, regra mais rígida que a da 3FN. A alternativa A descreve a 1FN, a B a 2FN e a C a 3FN; ter chave simples não garante a FNBC."
+    },
+    {
+      "ref": "WF-BD-015",
+      "materia": "Banco de dados",
+      "assunto": "Chaves",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "No modelo relacional, o atributo ou conjunto mínimo de atributos que identifica de forma única cada tupla de uma relação, podendo ser escolhido como chave primária, é denominado:",
+      "alts": ["chave estrangeira.", "chave candidata.", "superchave não mínima.", "atributo derivado.", "atributo multivalorado."],
+      "certa": 1,
+      "comentario": "A chave candidata é uma superchave mínima, e entre as candidatas escolhe-se a chave primária. A superchave também identifica as tuplas, mas pode conter atributos sobrando; a chave estrangeira referencia outra relação; atributos derivados e multivalorados são conceitos de modelagem."
+    },
+    {
+      "ref": "WF-BD-016",
+      "materia": "Banco de dados",
+      "assunto": "Índices",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Sobre índices em sistemas gerenciadores de bancos de dados relacionais, assinale a afirmativa correta.",
+      "alts": [
+        "Um índice em árvore B+ atende bem tanto buscas por igualdade quanto buscas por intervalo (como BETWEEN, < e >).",
+        "Um índice hash é a estrutura mais indicada para consultas por intervalo de valores.",
+        "Índices tornam as inserções mais rápidas, pois os dados já ficam ordenados.",
+        "Cada tabela pode ter no máximo um índice.",
+        "O modelo relacional obriga a criação de índice em toda coluna de chave estrangeira."
+      ],
+      "certa": 0,
+      "comentario": "A árvore B+ mantém as chaves ordenadas com folhas encadeadas, o que serve para igualdade e para varreduras por faixa. O índice hash só favorece igualdade; índices encarecem as escritas; tabelas podem ter vários índices; e indexar chaves estrangeiras é boa prática, não exigência do modelo relacional."
+    },
+    {
+      "ref": "WF-BD-017",
+      "materia": "Banco de dados",
+      "assunto": "Transações e ACID",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Em uma transferência bancária, o débito na conta de origem foi gravado, mas o sistema caiu antes do crédito na conta de destino. A propriedade das transações que garante que o débito será desfeito, pois a operação deve ocorrer por inteiro ou não ocorrer, é a:",
+      "alts": ["consistência.", "isolamento.", "durabilidade.", "disponibilidade.", "atomicidade."],
+      "certa": 4,
+      "comentario": "A atomicidade trata a transação como unidade indivisível: ou todas as operações são efetivadas, ou nenhuma. O isolamento trata da concorrência, a durabilidade da persistência após o commit, e a consistência das regras de integridade; disponibilidade nem faz parte do ACID."
+    },
+    {
+      "ref": "WF-BD-018",
+      "materia": "Banco de dados",
+      "assunto": "Níveis de isolamento",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Entre os níveis de isolamento definidos pelo padrão SQL, o menos restritivo que já impede a leitura suja (dirty read), isto é, a leitura de dados ainda não confirmados por outra transação, é:",
+      "alts": [
+        "SERIALIZABLE.",
+        "REPEATABLE READ.",
+        "READ UNCOMMITTED.",
+        "READ COMMITTED.",
+        "nenhum, pois o padrão SQL não trata da leitura suja."
+      ],
+      "certa": 3,
+      "comentario": "READ COMMITTED só permite ler dados já confirmados, evitando a leitura suja, mas ainda admite leitura não repetível e fantasmas. READ UNCOMMITTED permite leitura suja; REPEATABLE READ e SERIALIZABLE também a impedem, mas são mais restritivos."
+    },
+    {
+      "ref": "WF-BD-019",
+      "materia": "Banco de dados",
+      "assunto": "NoSQL",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Assinale a alternativa que associa corretamente o sistema ao modelo de dados NoSQL que ele adota.",
+      "alts": [
+        "MongoDB – banco de grafos.",
+        "Redis – banco colunar.",
+        "Neo4j – banco de grafos.",
+        "Cassandra – banco de grafos.",
+        "Neo4j – banco de documentos."
+      ],
+      "certa": 2,
+      "comentario": "O Neo4j armazena dados como nós e arestas, sendo um banco de grafos. O MongoDB é orientado a documentos, o Redis é essencialmente chave-valor e o Cassandra é de famílias de colunas."
+    },
+    {
+      "ref": "WF-BD-020",
+      "materia": "Banco de dados",
+      "assunto": "Mapeamento ER-relacional",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "No mapeamento de um modelo entidade-relacionamento para o modelo relacional, um relacionamento muitos-para-muitos (N:N) entre ALUNO e DISCIPLINA é normalmente implementado por meio de:",
+      "alts": [
+        "uma chave estrangeira na tabela ALUNO apontando para DISCIPLINA.",
+        "uma tabela associativa cuja chave contém as chaves primárias de ALUNO e DISCIPLINA, ambas como chaves estrangeiras.",
+        "fusão das tabelas ALUNO e DISCIPLINA em uma só.",
+        "um atributo multivalorado em DISCIPLINA com a lista de alunos.",
+        "nenhuma estrutura, pois o modelo relacional não representa relacionamentos N:N."
+      ],
+      "certa": 1,
+      "comentario": "O N:N vira uma tabela associativa (por exemplo, MATRICULA) com as duas chaves estrangeiras, que juntas costumam formar a chave primária. Uma só chave estrangeira representa apenas 1:N, atributo multivalorado viola a 1FN e fundir as tabelas gera redundância."
+    },
+    {
+      "ref": "WF-BD-021",
+      "materia": "Banco de dados",
+      "assunto": "Modelagem ER",
+      "dificuldade": "media",
+      "estilo": "Cesgranrio",
+      "enunciado": "No modelo entidade-relacionamento, a entidade que não possui atributos suficientes para formar uma chave própria e que só pode ser identificada em conjunto com a chave de outra entidade, da qual depende existencialmente, é chamada de entidade:",
+      "alts": ["especializada.", "agregada.", "associativa.", "forte.", "fraca."],
+      "certa": 4,
+      "comentario": "A entidade fraca é identificada pela chave da entidade proprietária somada à sua chave parcial, como DEPENDENTE em relação a FUNCIONARIO. A entidade forte tem chave própria, a associativa nasce de um relacionamento e a especialização é recurso de generalização/herança."
+    },
+    {
+      "ref": "WF-BD-022",
+      "materia": "Banco de dados",
+      "assunto": "SQL – DISTINCT",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Considere a tabela FUNCIONARIO (id, nome, depto_id, salario) com as linhas:\n(1, Ana, 10, 5000); (2, Bruno, 10, 3000); (3, Carla, 20, 4000); (4, Davi, NULL, 2500); (5, Eva, 30, 6000)\n\nQuantas linhas retorna a consulta abaixo?\nSELECT DISTINCT depto_id FROM FUNCIONARIO WHERE salario >= 3000;",
+      "alts": ["3", "4", "5", "2", "1"],
+      "certa": 0,
+      "comentario": "O filtro mantém Ana, Bruno, Carla e Eva (Bruno entra porque a condição é maior ou igual a 3000; Davi sai). Os depto_id dessas linhas são 10, 10, 20 e 30, e o DISTINCT elimina a repetição, restando 3 linhas."
+    },
+    {
+      "ref": "WF-SEG-001",
+      "materia": "Segurança da informação",
+      "assunto": "Princípios (CIA)",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo aos princípios da segurança da informação.\n\nA disponibilidade é o princípio que assegura que a informação não foi alterada de forma não autorizada.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Proteger contra alteração não autorizada é a integridade. A disponibilidade garante que a informação e os sistemas estejam acessíveis aos usuários autorizados quando necessário."
+    },
+    {
+      "ref": "WF-SEG-002",
+      "materia": "Segurança da informação",
+      "assunto": "Criptografia assimétrica",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, acerca de criptografia.\n\nEm um sistema de criptografia assimétrica, para garantir que somente Bob consiga ler uma mensagem destinada a ele, o remetente deve cifrá-la com a chave pública de Bob.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "O que é cifrado com a chave pública só é decifrado com a chave privada correspondente, que apenas Bob possui; isso garante a confidencialidade. Cifrar com a chave privada do remetente serviria para autenticidade (assinatura), não para sigilo."
+    },
+    {
+      "ref": "WF-SEG-003",
+      "materia": "Segurança da informação",
+      "assunto": "Funções hash",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo a funções de resumo (hash).\n\nFunções de hash criptográficas, como a SHA-256, são reversíveis, desde que se conheça a chave utilizada no cálculo do resumo.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Funções de hash são de mão única e não usam chave: não há como obter a entrada a partir do resumo, a não ser por tentativa. Elas servem para verificar integridade, não para cifrar e decifrar dados."
+    },
+    {
+      "ref": "WF-SEG-004",
+      "materia": "Segurança da informação",
+      "assunto": "Backup diferencial",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, acerca de cópias de segurança.\n\nNo backup diferencial, são copiados os arquivos alterados desde o último backup completo; assim, a restauração exige apenas o último backup completo e o último backup diferencial.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Como cada diferencial acumula todas as mudanças desde o último completo, o mais recente já contém tudo o que é preciso além do completo. No incremental, por outro lado, é necessário aplicar todos os incrementais desde o último backup."
+    },
+    {
+      "ref": "WF-SEG-005",
+      "materia": "Segurança da informação",
+      "assunto": "LGPD – dado sensível",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, com base na Lei n.º 13.709/2018 (LGPD).\n\nInformações sobre a saúde, a convicção religiosa ou a opinião política de uma pessoa natural identificada são classificadas como dados pessoais sensíveis.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "A LGPD inclui entre os dados sensíveis os referentes a saúde, convicção religiosa e opinião política, além de origem racial ou étnica, vida sexual, dados genéticos e biométricos, entre outros, quando vinculados a uma pessoa natural. Esses dados têm hipóteses de tratamento mais restritas."
+    },
+    {
+      "ref": "WF-SEG-006",
+      "materia": "Segurança da informação",
+      "assunto": "LGPD – agentes de tratamento",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, com base na Lei n.º 13.709/2018 (LGPD).\n\nO operador é a pessoa natural ou jurídica a quem competem as decisões referentes ao tratamento de dados pessoais.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Quem toma as decisões sobre o tratamento é o controlador. O operador realiza o tratamento em nome do controlador, seguindo as instruções dele."
+    },
+    {
+      "ref": "WF-SEG-007",
+      "materia": "Segurança da informação",
+      "assunto": "IDS x IPS",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, acerca de mecanismos de defesa de redes.\n\nEnquanto um IDS atua de forma passiva, detectando e alertando sobre atividades suspeitas, um IPS pode bloquear ativamente o tráfego considerado malicioso.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "O IDS monitora e gera alertas, normalmente sem interferir no fluxo. O IPS fica posicionado no caminho do tráfego (inline) e pode descartar pacotes ou encerrar conexões ao identificar um ataque."
+    },
+    {
+      "ref": "WF-SEG-008",
+      "materia": "Segurança da informação",
+      "assunto": "Criptografia simétrica",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Assinale a alternativa que apresenta um algoritmo de criptografia simétrica.",
+      "alts": ["RSA", "Diffie-Hellman", "AES", "ECC (curvas elípticas)", "DSA"],
+      "certa": 2,
+      "comentario": "O AES usa a mesma chave para cifrar e decifrar, sendo simétrico. RSA e ECC são assimétricos, Diffie-Hellman é um método assimétrico de acordo de chaves e DSA é um algoritmo de assinatura digital, também assimétrico."
+    },
+    {
+      "ref": "WF-SEG-009",
+      "materia": "Segurança da informação",
+      "assunto": "Assinatura digital",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Um documento foi assinado digitalmente pelo remetente e enviado sem nenhuma outra proteção. Isoladamente, a assinatura digital NÃO garante a:",
+      "alts": ["confidencialidade.", "integridade.", "autenticidade.", "irretratabilidade (não repúdio).", "identificação do signatário."],
+      "certa": 0,
+      "comentario": "A assinatura é gerada com a chave privada do signatário sobre o hash do documento, o que comprova autoria, integridade e não repúdio. Como o conteúdo não é cifrado para o destinatário, qualquer um pode lê-lo; o sigilo exigiria cifração adicional."
+    },
+    {
+      "ref": "WF-SEG-010",
+      "materia": "Segurança da informação",
+      "assunto": "Certificado digital",
+      "dificuldade": "media",
+      "estilo": "Cesgranrio",
+      "enunciado": "Sobre o certificado digital no padrão X.509, assinale a afirmativa correta.",
+      "alts": [
+        "Contém a chave privada do titular, para que terceiros possam verificar suas assinaturas.",
+        "É cifrado com a chave pública da autoridade certificadora, para que só ela o leia.",
+        "Dispensa prazo de validade, sendo válido até ser fisicamente destruído.",
+        "Vincula uma chave pública à identidade do titular e é assinado digitalmente pela autoridade certificadora emissora.",
+        "Substitui a criptografia assimétrica por uma chave simétrica compartilhada com a autoridade certificadora."
+      ],
+      "certa": 3,
+      "comentario": "O certificado associa a chave pública à identidade do titular, e a assinatura da AC permite confiar nessa associação. A chave privada nunca vai no certificado, o documento é público, possui validade definida e pode ser revogado, e se apoia justamente na criptografia assimétrica."
+    },
+    {
+      "ref": "WF-SEG-011",
+      "materia": "Segurança da informação",
+      "assunto": "SQL injection",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Um sistema monta a consulta de login concatenando diretamente o texto digitado pelo usuário na instrução SQL. Ao informar no campo de senha o valor ' OR '1'='1, um atacante consegue entrar sem conhecer a senha. A medida mais eficaz para corrigir essa vulnerabilidade é:",
+      "alts": [
+        "passar a usar HTTPS no formulário de login.",
+        "usar consultas parametrizadas (prepared statements), separando o comando SQL dos dados informados.",
+        "instalar antivírus no servidor de banco de dados.",
+        "aumentar o tamanho mínimo exigido para as senhas.",
+        "trocar o banco de dados relacional por planilhas."
+      ],
+      "certa": 1,
+      "comentario": "Trata-se de SQL injection, e consultas parametrizadas fazem o banco tratar a entrada sempre como dado, nunca como parte do comando. HTTPS protege o transporte, antivírus não atua na lógica da consulta e senhas maiores não impedem a injeção."
+    },
+    {
+      "ref": "WF-SEG-012",
+      "materia": "Segurança da informação",
+      "assunto": "XSS",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Em um fórum on-line, um usuário publica um comentário contendo um trecho <script> que fica gravado no servidor e é executado no navegador de todas as pessoas que abrem a página. Esse ataque é denominado:",
+      "alts": [
+        "cross-site scripting (XSS) armazenado.",
+        "cross-site request forgery (CSRF).",
+        "SQL injection.",
+        "phishing.",
+        "negação de serviço distribuída (DDoS)."
+      ],
+      "certa": 0,
+      "comentario": "Script malicioso persistido no servidor e executado no navegador de outros usuários caracteriza o XSS armazenado; a defesa principal é codificar (escapar) a saída. O CSRF induz o navegador da vítima a enviar requisições não desejadas, o SQL injection ataca o banco e o DDoS busca derrubar o serviço."
+    },
+    {
+      "ref": "WF-SEG-013",
+      "materia": "Segurança da informação",
+      "assunto": "Ransomware",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Uma empresa teve seus arquivos cifrados por um ransomware, que exige pagamento para liberar a chave. A medida preventiva que mais diretamente permite recuperar os dados sem pagar o resgate é:",
+      "alts": [
+        "manter os arquivos apenas em pastas compartilhadas da rede.",
+        "desativar o firewall para não bloquear atualizações.",
+        "conceder privilégios de administrador a todos os usuários.",
+        "usar senhas curtas para facilitar o acesso emergencial.",
+        "manter backups periódicos, testados e guardados de forma isolada (offline) da rede."
+      ],
+      "certa": 4,
+      "comentario": "Com cópias isoladas e testadas, os dados podem ser restaurados sem negociar com o atacante; manter cópias offline impede que o ransomware cifre também os backups. As demais opções aumentam a superfície de ataque ou facilitam a propagação."
+    },
+    {
+      "ref": "WF-SEG-014",
+      "materia": "Segurança da informação",
+      "assunto": "DoS e DDoS",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "O ataque que procura esgotar os recursos de um serviço, tornando-o indisponível, a partir de grande número de máquinas comprometidas e coordenadas (botnet), é chamado de:",
+      "alts": ["negação de serviço distribuída (DDoS).", "phishing.", "ARP spoofing.", "keylogger.", "força bruta."],
+      "certa": 0,
+      "comentario": "O DDoS é a negação de serviço lançada simultaneamente de várias origens, normalmente uma botnet, e afeta a disponibilidade. Phishing engana o usuário, ARP spoofing falsifica associações IP-MAC, keylogger captura teclas e força bruta testa senhas sucessivamente."
+    },
+    {
+      "ref": "WF-SEG-015",
+      "materia": "Segurança da informação",
+      "assunto": "Phishing",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Um atacante pesquisa o perfil profissional de uma funcionária e lhe envia um e-mail personalizado, citando seu chefe e um projeto real, para induzi-la a abrir um anexo malicioso. Essa variante de phishing direcionada a um alvo específico é conhecida como:",
+      "alts": ["vishing.", "smishing.", "pharming.", "spear phishing.", "baiting."],
+      "certa": 3,
+      "comentario": "O spear phishing é o phishing personalizado para uma pessoa ou organização específica. Vishing usa ligações de voz, smishing usa SMS, pharming redireciona o usuário a sites falsos manipulando a resolução de nomes, e baiting usa uma isca, como um pendrive deixado à vista."
+    },
+    {
+      "ref": "WF-SEG-016",
+      "materia": "Segurança da informação",
+      "assunto": "Firewall",
+      "dificuldade": "media",
+      "estilo": "Cesgranrio",
+      "enunciado": "A respeito de firewalls, assinale a afirmativa correta.",
+      "alts": [
+        "O filtro de pacotes sem estado (stateless) analisa o conteúdo completo das aplicações, como o corpo das mensagens HTTP.",
+        "Um firewall de perímetro impede todos os ataques originados dentro da própria rede interna.",
+        "Um firewall do tipo proxy de aplicação atua exclusivamente na camada de enlace.",
+        "Um firewall elimina a necessidade de antivírus e de atualizações de software.",
+        "O firewall com inspeção de estado (stateful) mantém uma tabela das conexões ativas e permite o tráfego de retorno de conexões legitimamente estabelecidas."
+      ],
+      "certa": 4,
+      "comentario": "O firewall stateful acompanha o estado das conexões e libera respostas que pertencem a sessões já iniciadas. O filtro stateless olha só cabeçalhos pacote a pacote, o firewall de perímetro não vê tráfego interno que não passa por ele, o proxy atua na camada de aplicação e o firewall não substitui outras defesas."
+    },
+    {
+      "ref": "WF-SEG-017",
+      "materia": "Segurança da informação",
+      "assunto": "Backup incremental",
+      "dificuldade": "dificil",
+      "estilo": "FCC",
+      "enunciado": "Uma organização faz backup completo aos domingos e backups incrementais ao final de cada dia, de segunda a sexta-feira. Na sexta-feira pela manhã, antes do backup do dia, ocorreu uma falha que exigiu restaurar todos os dados. A restauração mais atualizada possível exige:",
+      "alts": [
+        "o backup completo de domingo e apenas o incremental de quinta-feira.",
+        "o backup completo de domingo e os incrementais de segunda, terça, quarta e quinta-feira, aplicados nessa ordem.",
+        "apenas o incremental de quinta-feira.",
+        "o backup completo de domingo e apenas o incremental de segunda-feira.",
+        "os incrementais de segunda a quinta-feira, dispensando o backup completo."
+      ],
+      "certa": 1,
+      "comentario": "Cada incremental guarda só o que mudou desde o backup anterior, de qualquer tipo; por isso é preciso o completo mais todos os incrementais posteriores, em ordem. Usar só o de quinta funcionaria se fossem diferenciais, e sem o completo faltariam os dados que não mudaram na semana."
+    },
+    {
+      "ref": "WF-SEG-018",
+      "materia": "Segurança da informação",
+      "assunto": "Funções hash",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Ao calcular o resumo SHA-256 de um arquivo de 2 KB e, depois, de um arquivo de 2 GB, obtêm-se resumos de tamanho:",
+      "alts": [
+        "128 bits em ambos os casos.",
+        "variável, conforme a chave escolhida.",
+        "256 bits em ambos os casos.",
+        "proporcional ao tamanho de cada arquivo.",
+        "512 bits em ambos os casos."
+      ],
+      "certa": 2,
+      "comentario": "Uma função de hash gera saída de tamanho fixo, independentemente da entrada; no SHA-256 são 256 bits. O hash não usa chave nem cresce com o arquivo, e 128 e 512 bits são tamanhos de outras funções, como MD5 e SHA-512."
+    },
+    {
+      "ref": "WF-SEG-019",
+      "materia": "Segurança da informação",
+      "assunto": "ISO 27001 e 27002",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Acerca das normas ABNT NBR ISO/IEC 27001 e 27002, assinale a afirmativa correta.",
+      "alts": [
+        "A 27002 especifica os requisitos para certificação do sistema de gestão, enquanto a 27001 é apenas um guia de boas práticas.",
+        "Ambas tratam exclusivamente de segurança física de datacenters.",
+        "A 27001 estabelece requisitos para um sistema de gestão de segurança da informação (SGSI), passível de certificação, e a 27002 fornece orientações para a implementação de controles de segurança.",
+        "A 27001 substitui a necessidade de análise de riscos na organização.",
+        "Somente órgãos públicos podem adotar essas normas."
+      ],
+      "certa": 2,
+      "comentario": "A 27001 traz os requisitos do SGSI, contra os quais uma organização pode ser certificada, e a 27002 é o código de prática com diretrizes para os controles. A alternativa A inverte os papéis; as normas abrangem muito mais que segurança física, exigem gestão de riscos e servem a qualquer tipo de organização."
+    },
+    {
+      "ref": "WF-SEG-020",
+      "materia": "Segurança da informação",
+      "assunto": "LGPD – bases legais",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "De acordo com a Lei n.º 13.709/2018 (LGPD), assinale a afirmativa correta.",
+      "alts": [
+        "O consentimento do titular é a única base legal que autoriza o tratamento de dados pessoais.",
+        "O tratamento de dados pessoais pode ser realizado para o cumprimento de obrigação legal ou regulatória pelo controlador, independentemente de consentimento.",
+        "Dados anonimizados são sempre considerados dados pessoais, em qualquer hipótese.",
+        "Titular é a empresa que coleta e armazena os dados pessoais.",
+        "A lei se aplica apenas a dados armazenados em meio digital, excluindo registros em papel."
+      ],
+      "certa": 1,
+      "comentario": "A LGPD prevê várias bases legais além do consentimento, entre elas o cumprimento de obrigação legal ou regulatória pelo controlador. Dados anonimizados, em regra, não são dados pessoais; o titular é a pessoa natural a quem os dados se referem; e a lei abrange o tratamento inclusive, mas não apenas, nos meios digitais."
+    },
+    {
+      "ref": "WF-SEG-021",
+      "materia": "Segurança da informação",
+      "assunto": "LGPD – encarregado",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Segundo a LGPD, a pessoa indicada pelo controlador e pelo operador para atuar como canal de comunicação entre o controlador, os titulares dos dados e a Autoridade Nacional de Proteção de Dados (ANPD) é o:",
+      "alts": ["titular.", "operador.", "controlador.", "cessionário.", "encarregado."],
+      "certa": 4,
+      "comentario": "Esse papel é do encarregado, frequentemente chamado de DPO. O titular é a pessoa natural a quem os dados se referem, o controlador toma as decisões sobre o tratamento e o operador trata os dados em nome do controlador."
+    },
+    {
+      "ref": "WF-SEG-022",
+      "materia": "Segurança da informação",
+      "assunto": "Princípios (CIA)",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Considere três incidentes: (I) o site de uma prefeitura ficou fora do ar por horas; (II) um invasor alterou notas no sistema acadêmico de uma escola; (III) a lista de salários de uma empresa vazou na internet. Os princípios de segurança violados em I, II e III são, respectivamente:",
+      "alts": [
+        "integridade, confidencialidade e disponibilidade.",
+        "confidencialidade, disponibilidade e integridade.",
+        "disponibilidade, confidencialidade e integridade.",
+        "disponibilidade, integridade e confidencialidade.",
+        "integridade, disponibilidade e confidencialidade."
+      ],
+      "certa": 3,
+      "comentario": "Serviço inacessível fere a disponibilidade, alteração indevida de dados fere a integridade e exposição a quem não deveria ver fere a confidencialidade. As demais alternativas trocam a correspondência entre os incidentes e os princípios."
+    },
+    {
+      "ref": "WF-SO-001",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Processos x threads",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo a processos e threads.\n\nAs threads de um mesmo processo compartilham o espaço de endereçamento desse processo, mas cada thread possui sua própria pilha e seu próprio contador de programa.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Threads do mesmo processo dividem código, dados globais e recursos como arquivos abertos, o que torna a comunicação entre elas barata. Cada uma, porém, tem contexto de execução próprio: registradores, contador de programa e pilha."
+    },
+    {
+      "ref": "WF-SO-002",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Bases numéricas",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, acerca de sistemas de numeração.\n\nO número binário 10110110 corresponde ao decimal 182 e ao hexadecimal B5.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Em decimal, 128 + 32 + 16 + 4 + 2 = 182, o que está correto. Em hexadecimal, porém, separando em grupos de 4 bits, 1011 = B e 0110 = 6, resultando em B6, e não em B5."
+    },
+    {
+      "ref": "WF-SO-003",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Memória cache",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, a respeito da hierarquia de memória.\n\nA memória cache é uma memória não volátil, situada entre o processador e a memória principal, que mantém seus dados mesmo com o computador desligado.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "A cache fica de fato entre o processador e a memória principal, mas é volátil (em geral feita de SRAM) e perde seu conteúdo sem energia. Memórias não voláteis são, por exemplo, SSD, disco rígido e ROM."
+    },
+    {
+      "ref": "WF-SO-004",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Linux – permissões",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo ao sistema operacional Linux.\n\nApós o comando chmod 750 relatorio.sh, o dono do arquivo tem permissão de leitura, escrita e execução; o grupo, de leitura e execução; e os demais usuários não têm permissão alguma.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Na notação octal, r = 4, w = 2 e x = 1. Assim, 7 = rwx para o dono, 5 = r-x para o grupo e 0 = --- para os outros."
+    },
+    {
+      "ref": "WF-SO-005",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Escalonamento",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "O algoritmo de escalonamento preemptivo que atende os processos prontos em fila circular, concedendo a cada um uma fatia fixa de tempo de CPU (quantum), é o:",
+      "alts": ["FIFO (FCFS).", "SJF não preemptivo.", "Round Robin.", "por prioridade não preemptivo.", "em lote sem preempção."],
+      "certa": 2,
+      "comentario": "O Round Robin dá a cada processo um quantum e, esgotado o tempo, devolve-o ao fim da fila. FIFO, SJF não preemptivo e prioridade não preemptiva deixam o processo usar a CPU até terminar ou bloquear, sem fatia de tempo."
+    },
+    {
+      "ref": "WF-SO-006",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Deadlock",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Para que ocorra um deadlock, devem estar presentes simultaneamente quatro condições. Assinale a alternativa que NÃO é uma dessas condições.",
+      "alts": [
+        "Exclusão mútua.",
+        "Posse e espera.",
+        "Não preempção.",
+        "Espera circular.",
+        "Preempção de recursos pelo sistema operacional."
+      ],
+      "certa": 4,
+      "comentario": "As condições necessárias são exclusão mútua, posse e espera, não preempção e espera circular. A possibilidade de o sistema retirar recursos (preempção) é justamente o contrário de uma delas e serve como forma de prevenir o deadlock."
+    },
+    {
+      "ref": "WF-SO-007",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Paginação",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Em um sistema com endereços lógicos de 32 bits e paginação com páginas de 4 KB, o número máximo de páginas no espaço de endereçamento lógico de um processo é:",
+      "alts": ["2^12", "2^20", "2^22", "2^32", "2^10"],
+      "certa": 1,
+      "comentario": "Uma página de 4 KB = 2^12 bytes usa 12 bits de deslocamento. Sobram 32 − 12 = 20 bits para o número da página, ou seja, 2^20 páginas (cerca de 1 milhão); 2^12 é o tamanho da página em bytes, e 2^32 é o total de endereços."
+    },
+    {
+      "ref": "WF-SO-008",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Memória virtual",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Em um sistema com memória virtual paginada, a falta de página (page fault) ocorre quando:",
+      "alts": [
+        "um processo referencia uma página que não está carregada na memória principal, e o sistema operacional precisa buscá-la no armazenamento secundário.",
+        "a memória cache fica cheia e precisa ser esvaziada.",
+        "o processador executa uma instrução aritmética inválida, como divisão por zero.",
+        "o disco rígido não tem mais espaço livre para novos arquivos.",
+        "dois processos tentam acessar o mesmo arquivo ao mesmo tempo."
+      ],
+      "certa": 0,
+      "comentario": "A falta de página é uma interrupção gerada quando a página referenciada não está na RAM; o sistema a carrega do disco e retoma a instrução. As demais situações envolvem cache, exceções aritméticas, espaço em disco ou concorrência por arquivos, que são outros mecanismos."
+    },
+    {
+      "ref": "WF-SO-009",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Escalonamento SJF",
+      "dificuldade": "dificil",
+      "estilo": "FCC",
+      "enunciado": "Quatro processos chegam juntos no instante 0, com os seguintes tempos de CPU: P1 = 6, P2 = 8, P3 = 3 e P4 = 2. Usando o algoritmo SJF (Shortest Job First) não preemptivo, o tempo médio de espera dos processos é:",
+      "alts": ["4,5", "9,25", "5,0", "3,5", "6,0"],
+      "certa": 0,
+      "comentario": "A ordem de execução é P4 (2), P3 (3), P1 (6) e P2 (8), com esperas de 0, 2, 5 e 11, que somam 18; a média é 18 / 4 = 4,5. O valor 9,25 corresponde ao FCFS na ordem P1, P2, P3, P4 (esperas 0, 6, 14 e 17)."
+    },
+    {
+      "ref": "WF-SO-010",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Bases numéricas",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "O número hexadecimal 2F corresponde, no sistema decimal, a:",
+      "alts": ["45", "46", "52", "47", "31"],
+      "certa": 3,
+      "comentario": "2F = 2 × 16 + 15 = 32 + 15 = 47, já que F vale 15. O valor 31 seria 1F, e as demais opções resultam de erros no valor do dígito F ou do peso da posição."
+    },
+    {
+      "ref": "WF-SO-011",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Bases numéricas",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "A representação binária do número decimal 100 é:",
+      "alts": ["1100010", "1010100", "1100100", "1101000", "1001100"],
+      "certa": 2,
+      "comentario": "100 = 64 + 32 + 4, o que dá 1100100. As outras opções valem 98, 84, 104 e 76, respectivamente."
+    },
+    {
+      "ref": "WF-SO-012",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Comandos Linux",
+      "dificuldade": "facil",
+      "estilo": "FGV",
+      "enunciado": "No terminal do Linux, o comando que exibe o caminho completo do diretório de trabalho atual é:",
+      "alts": ["ls", "cd", "pwd", "cat", "mkdir"],
+      "certa": 2,
+      "comentario": "O pwd (print working directory) mostra o diretório atual. O ls lista o conteúdo de um diretório, o cd muda de diretório, o cat exibe o conteúdo de arquivos e o mkdir cria diretórios."
+    },
+    {
+      "ref": "WF-SO-013",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Sistemas de arquivos",
+      "dificuldade": "dificil",
+      "estilo": "FCC",
+      "enunciado": "Em sistemas de arquivos do tipo Unix, como o ext4, a respeito dos inodes, assinale a afirmativa correta.",
+      "alts": [
+        "O inode armazena o nome do arquivo, e por isso um arquivo só pode ter um nome.",
+        "O inode guarda apenas o conteúdo do arquivo, sem informações de permissões.",
+        "Cada diretório possui exatamente um inode compartilhado por todos os seus arquivos.",
+        "O inode guarda metadados do arquivo, como permissões, dono, tamanho e referências aos blocos de dados, mas não o nome, que fica na entrada de diretório.",
+        "Ao criar um link físico (hard link), o sistema duplica o inode e o conteúdo do arquivo."
+      ],
+      "certa": 3,
+      "comentario": "O inode reúne os metadados e os ponteiros para os blocos de dados, enquanto o nome fica nas entradas de diretório que apontam para ele. Por isso vários nomes (hard links) podem apontar para o mesmo inode sem duplicar conteúdo, e cada arquivo tem seu próprio inode."
+    },
+    {
+      "ref": "WF-SO-014",
+      "materia": "Sistemas operacionais e hardware",
+      "assunto": "Componentes da CPU",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Na unidade central de processamento, o componente responsável por executar as operações aritméticas e lógicas é a:",
+      "alts": ["unidade de controle.", "unidade lógica e aritmética (ULA).", "registrador contador de programa.", "barramento de endereços.", "memória cache."],
+      "certa": 1,
+      "comentario": "A ULA realiza somas, comparações e operações lógicas. A unidade de controle coordena a busca e a execução das instruções, o contador de programa guarda o endereço da próxima instrução, o barramento transporta endereços e a cache armazena dados temporariamente."
+    }
+  ]
+}

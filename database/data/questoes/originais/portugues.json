@@ -1,0 +1,704 @@
+{
+  "area": "Português",
+  "questoes": [
+    {
+      "ref": "WF-POR-001",
+      "materia": "Língua Portuguesa",
+      "assunto": "Crase",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Assinale a alternativa em que o acento indicativo de crase está empregado de acordo com a norma-padrão.",
+      "alts": [
+        "Os documentos foram entregues à cada servidor do setor.",
+        "A reunião começará às 14 horas, no auditório.",
+        "O diretor referiu-se à funcionários antigos da casa.",
+        "Fomos à pé até o ministério.",
+        "Ela começou à estudar para o concurso cedo."
+      ],
+      "certa": 1,
+      "comentario": "Em “às 14 horas” há crase na indicação de hora determinada (preposição a + artigo as). Não há crase antes de pronome indefinido como “cada” (A), antes de palavra masculina como “pé” (D), antes de verbo (E) nem diante de substantivo plural precedido apenas de “a” no singular (C)."
+    },
+    {
+      "ref": "WF-POR-002",
+      "materia": "Língua Portuguesa",
+      "assunto": "Crase",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Na frase “O candidato dirigiu-se à secretaria do órgão”, o acento grave é obrigatório, pois o verbo dirigir-se exige a preposição a e o substantivo “secretaria” é antecedido do artigo feminino a.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Quem se dirige, dirige-se a algum lugar; a preposição a funde-se com o artigo a de “a secretaria”, formando “à”. A justificativa apresentada está correta."
+    },
+    {
+      "ref": "WF-POR-003",
+      "materia": "Língua Portuguesa",
+      "assunto": "Crase",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Assinale a alternativa em que o emprego do acento indicativo de crase é facultativo.",
+      "alts": [
+        "O prêmio foi entregue à vencedora do certame.",
+        "Os candidatos chegaram às nove horas.",
+        "Fiz referência à sua sugestão durante a reunião.",
+        "A comissão assistiu à apresentação dos projetos.",
+        "Ele voltou à Bahia depois de muitos anos."
+      ],
+      "certa": 2,
+      "comentario": "Antes de pronome possessivo feminino no singular o artigo é opcional (“a sua sugestão” ou “sua sugestão”), por isso a crase é facultativa. Nas demais frases o artigo é exigido: “a vencedora”, horas determinadas, “assistir a” + “a apresentação” e “a Bahia” (volto da Bahia)."
+    },
+    {
+      "ref": "WF-POR-004",
+      "materia": "Língua Portuguesa",
+      "assunto": "Crase",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Em “O servidor ficou frente à frente com o auditor responsável”, o emprego do acento grave está de acordo com a norma-padrão.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Em expressões formadas por palavras repetidas (frente a frente, cara a cara, gota a gota) não há artigo, apenas a preposição; portanto não ocorre crase. O correto é “frente a frente”."
+    },
+    {
+      "ref": "WF-POR-005",
+      "materia": "Língua Portuguesa",
+      "assunto": "Concordância verbal",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Assinale a frase que está de acordo com a norma-padrão quanto à concordância verbal.",
+      "alts": [
+        "Fazem dois anos que o concurso foi realizado.",
+        "Houveram muitas reclamações no setor de atendimento.",
+        "Devem haver soluções para o problema da fila.",
+        "Existiam várias propostas sobre a mesa do diretor.",
+        "Aluga-se salas comerciais no centro da cidade."
+      ],
+      "certa": 3,
+      "comentario": "“Existir” é pessoal e concorda com o sujeito “várias propostas”. “Fazer” indicando tempo e “haver” no sentido de existir são impessoais e ficam no singular, inclusive o auxiliar (“Faz”, “Houve”, “Deve haver”); em “Alugam-se salas” o verbo concorda com o sujeito paciente."
+    },
+    {
+      "ref": "WF-POR-006",
+      "materia": "Língua Portuguesa",
+      "assunto": "Concordância verbal",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Na frase “Precisa-se de técnicos qualificados”, o verbo deveria estar no plural para concordar com “técnicos qualificados”.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "“Precisar” é aqui transitivo indireto (precisar de), e o “se” é índice de indeterminação do sujeito; nesse caso o verbo fica obrigatoriamente na 3ª pessoa do singular. “Técnicos qualificados” é objeto indireto, não sujeito."
+    },
+    {
+      "ref": "WF-POR-007",
+      "materia": "Língua Portuguesa",
+      "assunto": "Concordância nominal",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Está correta, quanto à concordância nominal, a frase:",
+      "alts": [
+        "É proibida entrada de pessoas estranhas ao serviço.",
+        "Seguem anexo os documentos solicitados.",
+        "Ela mesmo assinou o contrato de locação.",
+        "As servidoras ficaram meias preocupadas com o prazo.",
+        "Havia bastantes motivos para a demora na entrega."
+      ],
+      "certa": 4,
+      "comentario": "Antes de substantivo, “bastante” é determinante (equivale a “muitos”) e concorda com ele: “bastantes motivos”. Sem artigo, usa-se “É proibido entrada”; “anexo” concorda com o substantivo (“anexos”); “mesma” concorda com “ela”; e “meio”, advérbio antes de adjetivo, é invariável."
+    },
+    {
+      "ref": "WF-POR-008",
+      "materia": "Língua Portuguesa",
+      "assunto": "Concordância verbal",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Assinale a frase que respeita a norma-padrão da concordância verbal.",
+      "alts": [
+        "Mais de um candidato faltou à prova objetiva.",
+        "Fui eu que fez o levantamento dos dados.",
+        "Já são meio-dia e meia.",
+        "Os Estados Unidos é um país de grande extensão.",
+        "Bateu três horas no relógio da praça."
+      ],
+      "certa": 0,
+      "comentario": "Com a expressão “mais de um”, o verbo fica, em regra, no singular. Com “que”, o verbo concorda com o antecedente (“eu que fiz”); horas concordam com o numeral (“É meio-dia”, “Bateram três horas”); e “Os Estados Unidos”, com artigo plural, leva o verbo ao plural (“são”)."
+    },
+    {
+      "ref": "WF-POR-009",
+      "materia": "Língua Portuguesa",
+      "assunto": "Regência verbal",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Assinale a frase em que a regência verbal está de acordo com a norma-padrão.",
+      "alts": [
+        "Prefiro trabalhar do que ficar parado.",
+        "Os moradores aspiram a melhores condições de vida.",
+        "O servidor obedeceu o regulamento interno.",
+        "Esqueci do compromisso marcado com a chefia.",
+        "Ele namora com a vizinha há dois anos."
+      ],
+      "certa": 1,
+      "comentario": "No sentido de desejar, “aspirar” é transitivo indireto e exige a preposição a. Na norma-padrão: prefere-se uma coisa a outra; obedece-se ao regulamento; esquece-se algo (ou esquece-se de algo, com pronome: “esqueci-me do”); e namora-se alguém, sem preposição."
+    },
+    {
+      "ref": "WF-POR-010",
+      "materia": "Língua Portuguesa",
+      "assunto": "Regência verbal",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Na oração “O filme a que assisti ontem era longo”, a preposição a que antecede o pronome relativo é exigida pelo verbo assistir, empregado no sentido de ver.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "No sentido de ver ou presenciar, “assistir” é transitivo indireto (assistir a algo). Como o pronome “que” retoma “o filme”, complemento desse verbo, a preposição deve vir antes dele: “a que assisti”."
+    },
+    {
+      "ref": "WF-POR-011",
+      "materia": "Língua Portuguesa",
+      "assunto": "Regência e pronomes relativos",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Assinale a alternativa em que o pronome relativo está empregado de acordo com a norma-padrão.",
+      "alts": [
+        "Esse é o cargo que eu sempre aspirei.",
+        "A cidade onde vamos nas férias fica longe.",
+        "Este é o projeto de que lhe falei ontem.",
+        "O chefe cujo o nome esqueci já saiu.",
+        "A lei que nos referimos foi revogada."
+      ],
+      "certa": 2,
+      "comentario": "Quem fala, fala de algo; por isso “de que lhe falei” está correto. Faltou a preposição em “a que aspirei” e “a que nos referimos”; com verbo de movimento usa-se “aonde vamos”; e “cujo” não admite artigo depois de si (“cujo nome”)."
+    },
+    {
+      "ref": "WF-POR-012",
+      "materia": "Língua Portuguesa",
+      "assunto": "Colocação pronominal",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "A colocação do pronome átono está de acordo com a norma-padrão em:",
+      "alts": [
+        "Me disseram que a reunião foi adiada.",
+        "Não conhece-se a causa do problema.",
+        "Quem avisou-te do novo prazo?",
+        "Tudo se resolveu antes do prazo.",
+        "Darei-lhe uma resposta amanhã."
+      ],
+      "certa": 3,
+      "comentario": "O pronome indefinido “tudo” atrai o pronome átono, exigindo próclise. Não se inicia frase com pronome átono (A); palavra negativa (B) e pronome interrogativo (C) exigem próclise; e com futuro do presente sem fator de próclise usa-se a mesóclise “dar-lhe-ei” (E)."
+    },
+    {
+      "ref": "WF-POR-013",
+      "materia": "Língua Portuguesa",
+      "assunto": "Colocação pronominal",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Assinale a frase em que a colocação do pronome átono segue a norma-padrão.",
+      "alts": [
+        "Os documentos, entregaria-os pessoalmente se pudesse.",
+        "Ninguém informou-me sobre a mudança de sala.",
+        "Se tivesse tempo, faria-o ainda hoje.",
+        "Espero que convençam-se da proposta.",
+        "Far-se-á a revisão de todos os contratos."
+      ],
+      "certa": 4,
+      "comentario": "Com verbo no futuro do presente, no início da oração e sem palavra atrativa, a norma-padrão pede mesóclise: “Far-se-á”. No futuro do pretérito também cabe mesóclise (“entregá-los-ia”, “fá-lo-ia”); “ninguém” e a conjunção “que” exigem próclise (“Ninguém me informou”, “que se convençam”)."
+    },
+    {
+      "ref": "WF-POR-014",
+      "materia": "Língua Portuguesa",
+      "assunto": "Colocação pronominal",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Em “Nunca se viu tamanha dedicação naquele setor”, a próclise é justificada pela presença do advérbio de negação “nunca”.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Palavras de sentido negativo, como “não”, “nunca” e “jamais”, atraem o pronome átono para antes do verbo. Por isso a próclise “Nunca se viu” é a colocação exigida."
+    },
+    {
+      "ref": "WF-POR-015",
+      "materia": "Língua Portuguesa",
+      "assunto": "Pontuação (vírgula)",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Assinale a alternativa pontuada de acordo com a norma-padrão.",
+      "alts": [
+        "Brasília, capital do país, foi inaugurada em 1960.",
+        "Os servidores do setor, receberam o comunicado ontem.",
+        "O diretor entregou, os relatórios à equipe.",
+        "Quando a reunião terminou todos, saíram apressados.",
+        "Precisamos, de mais tempo para concluir o trabalho."
+      ],
+      "certa": 0,
+      "comentario": "O aposto explicativo “capital do país” deve vir isolado por vírgulas. Nas demais há vírgula separando sujeito e verbo (B), verbo e complemento (C e E) ou mal posicionada após a oração adverbial, que deveria terminar em “terminou,” (D)."
+    },
+    {
+      "ref": "WF-POR-016",
+      "materia": "Língua Portuguesa",
+      "assunto": "Pontuação (vírgula)",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Considere a frase: “Os candidatos que estudaram com antecedência foram aprovados.”\nSe o trecho “que estudaram com antecedência” fosse isolado por vírgulas,",
+      "alts": [
+        "a frase passaria a conter erro gramatical.",
+        "passaria a se entender que todos os candidatos estudaram com antecedência.",
+        "o sentido da frase permaneceria inalterado.",
+        "a oração passaria a ser classificada como substantiva.",
+        "o sujeito da forma verbal “foram aprovados” seria outro."
+      ],
+      "certa": 1,
+      "comentario": "Sem vírgulas, a oração adjetiva é restritiva: só os que estudaram com antecedência foram aprovados. Com vírgulas, torna-se explicativa e passa a atribuir a característica a todos os candidatos. A frase continuaria correta, a oração seguiria adjetiva e o sujeito continuaria sendo “os candidatos”."
+    },
+    {
+      "ref": "WF-POR-017",
+      "materia": "Língua Portuguesa",
+      "assunto": "Pontuação (vírgula)",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Assinale a alternativa em que a vírgula foi empregada em DESACORDO com a norma-padrão.",
+      "alts": [
+        "Ontem à noite, a equipe concluiu o relatório.",
+        "O prazo terminou, e os candidatos ainda aguardavam o resultado.",
+        "Os técnicos responsáveis pela obra, apresentaram o cronograma.",
+        "Maria, traga os processos até amanhã.",
+        "Estudou bastante; não conseguiu, porém, a aprovação."
+      ],
+      "certa": 2,
+      "comentario": "Em C a vírgula separa o sujeito “Os técnicos responsáveis pela obra” do verbo “apresentaram”, o que a norma não admite. As demais estão corretas: adjunto adverbial deslocado (A), orações com sujeitos diferentes ligadas por “e” (B), vocativo (D) e conjunção “porém” deslocada (E)."
+    },
+    {
+      "ref": "WF-POR-018",
+      "materia": "Língua Portuguesa",
+      "assunto": "Pontuação (vírgula)",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Em “O auditor, analisou todos os documentos apresentados”, a vírgula está corretamente empregada para destacar o sujeito da oração.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Não se separa por vírgula o sujeito do seu verbo. A frase correta é “O auditor analisou todos os documentos apresentados”."
+    },
+    {
+      "ref": "WF-POR-019",
+      "materia": "Língua Portuguesa",
+      "assunto": "Ortografia (Acordo Ortográfico de 1990)",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "De acordo com o Acordo Ortográfico de 1990, está corretamente grafada a palavra:",
+      "alts": [
+        "idéia",
+        "vôo",
+        "auto-escola",
+        "micro-ondas",
+        "heróico"
+      ],
+      "certa": 3,
+      "comentario": "Usa-se hífen quando o prefixo termina na mesma vogal com que começa a palavra seguinte: “micro-ondas”. Pelo Acordo, perderam o acento os ditongos abertos ei e oi de paroxítonas (“ideia”, “heroico”) e o hiato oo (“voo”); e “autoescola” passou a ser escrita junta."
+    },
+    {
+      "ref": "WF-POR-020",
+      "materia": "Língua Portuguesa",
+      "assunto": "Acentuação gráfica",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Todas as palavras estão acentuadas de acordo com as regras vigentes em:",
+      "alts": [
+        "jóia, herói, papéis",
+        "feiúra, saúde, baú",
+        "lêem, crêem, vêem",
+        "pára (verbo), pólo, pêlo",
+        "herói, chapéu, troféu"
+      ],
+      "certa": 4,
+      "comentario": "Os ditongos abertos éi, éu e ói continuam acentuados nas oxítonas, como herói, chapéu e troféu. Perderam o acento: “joia” (paroxítona com ditongo oi), “feiura” (u tônico depois de ditongo em paroxítona), “leem/creem/veem” e os diferenciais de “para”, “polo” e “pelo”."
+    },
+    {
+      "ref": "WF-POR-021",
+      "materia": "Língua Portuguesa",
+      "assunto": "Acentuação gráfica",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "As palavras “saída” e “baú” recebem acento gráfico pela mesma regra, que é a das",
+      "alts": [
+        "vogais i e u tônicas que formam hiato com a vogal anterior.",
+        "paroxítonas terminadas em ditongo.",
+        "oxítonas terminadas em vogal.",
+        "proparoxítonas.",
+        "palavras com acento diferencial."
+      ],
+      "certa": 0,
+      "comentario": "Em sa-í-da e ba-ú, o i e o u são tônicos e formam hiato com a vogal anterior, o que justifica o acento. “Baú” é oxítona, mas oxítonas terminadas em u não são acentuadas por essa regra; nenhuma das duas é proparoxítona nem tem acento diferencial."
+    },
+    {
+      "ref": "WF-POR-022",
+      "materia": "Língua Portuguesa",
+      "assunto": "Ortografia (Acordo Ortográfico de 1990)",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Com o Acordo Ortográfico de 1990, o trema foi abolido das palavras da língua portuguesa, razão pela qual se escrevem “frequente” e “linguiça”.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "O Acordo eliminou o trema das palavras portuguesas ou aportuguesadas, mantendo-o apenas em nomes próprios estrangeiros e seus derivados (como “Müller” e “mülleriano”). Assim, grafam-se “frequente” e “linguiça”."
+    },
+    {
+      "ref": "WF-POR-023",
+      "materia": "Língua Portuguesa",
+      "assunto": "Classes de palavras",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Na frase “O bom de morar aqui é o silêncio”, a palavra “bom” pertence à classe dos",
+      "alts": [
+        "adjetivos.",
+        "substantivos.",
+        "advérbios.",
+        "pronomes.",
+        "verbos."
+      ],
+      "certa": 1,
+      "comentario": "Antecedida do artigo “o”, a palavra “bom” foi substantivada e funciona como núcleo do sujeito. Esse processo é chamado de derivação imprópria: a palavra muda de classe sem mudar de forma."
+    },
+    {
+      "ref": "WF-POR-024",
+      "materia": "Língua Portuguesa",
+      "assunto": "Classes de palavras",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Na frase “Ela fala muito bem em público”, as palavras “muito” e “bem” são, respectivamente,",
+      "alts": [
+        "adjetivo e advérbio.",
+        "pronome indefinido e advérbio.",
+        "advérbio e advérbio.",
+        "advérbio e adjetivo.",
+        "advérbio e substantivo."
+      ],
+      "certa": 2,
+      "comentario": "“Bem” modifica o verbo “fala” (modo) e “muito” intensifica o advérbio “bem”; ambos são advérbios. “Muito” só seria pronome indefinido se acompanhasse um substantivo, como em “muito trabalho”."
+    },
+    {
+      "ref": "WF-POR-025",
+      "materia": "Língua Portuguesa",
+      "assunto": "Classes de palavras",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Considere as frases:\nI. Refiro-me a ela.\nII. Ela a viu ontem.\nIII. A sala estava vazia.\nA palavra “a” classifica-se, respectivamente, em I, II e III, como",
+      "alts": [
+        "artigo, preposição e pronome.",
+        "preposição, artigo e pronome.",
+        "pronome, preposição e artigo.",
+        "preposição, pronome e artigo.",
+        "preposição, preposição e artigo."
+      ],
+      "certa": 3,
+      "comentario": "Em I, “a” é preposição exigida por “referir-se” (não pode ser artigo antes do pronome pessoal “ela”); em II, é pronome oblíquo, objeto direto de “viu”; em III, é artigo definido que acompanha “sala”."
+    },
+    {
+      "ref": "WF-POR-026",
+      "materia": "Língua Portuguesa",
+      "assunto": "Classes de palavras",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Em “Os alunos estudaram bastante para o exame”, o vocábulo “bastante” é adjetivo e, por isso, deveria flexionar-se no plural para concordar com “alunos”.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Na frase, “bastante” modifica o verbo “estudaram” e é advérbio de intensidade, portanto invariável. Só variaria se acompanhasse um substantivo, como em “bastantes livros”."
+    },
+    {
+      "ref": "WF-POR-027",
+      "materia": "Língua Portuguesa",
+      "assunto": "Orações coordenadas",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "No período “Estudou com disciplina, logo foi aprovado”, a oração “logo foi aprovado” classifica-se como coordenada sindética",
+      "alts": [
+        "aditiva.",
+        "adversativa.",
+        "alternativa.",
+        "explicativa.",
+        "conclusiva."
+      ],
+      "certa": 4,
+      "comentario": "A conjunção “logo” introduz uma conclusão tirada da oração anterior, como “portanto” e “por isso”. Não há soma de ideias, oposição, alternância nem explicação."
+    },
+    {
+      "ref": "WF-POR-028",
+      "materia": "Língua Portuguesa",
+      "assunto": "Orações subordinadas",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "No período “É necessário que todos compareçam à audiência”, a oração “que todos compareçam à audiência” é subordinada substantiva",
+      "alts": [
+        "subjetiva.",
+        "objetiva direta.",
+        "predicativa.",
+        "completiva nominal.",
+        "apositiva."
+      ],
+      "certa": 0,
+      "comentario": "A oração funciona como sujeito de “é necessário”: “Isso é necessário”. Estruturas com verbo de ligação + adjetivo seguidas de oração com “que” costumam ter oração subordinada substantiva subjetiva."
+    },
+    {
+      "ref": "WF-POR-029",
+      "materia": "Língua Portuguesa",
+      "assunto": "Orações subordinadas",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "No período “Embora chovesse muito, a cerimônia foi mantida”, a oração “Embora chovesse muito” expressa ideia de",
+      "alts": [
+        "causa.",
+        "concessão.",
+        "condição.",
+        "consequência.",
+        "finalidade."
+      ],
+      "certa": 1,
+      "comentario": "“Embora” introduz oração subordinada adverbial concessiva: apresenta um fato contrário que não impede o que se afirma na oração principal. Equivale a “ainda que” ou “mesmo que”."
+    },
+    {
+      "ref": "WF-POR-030",
+      "materia": "Língua Portuguesa",
+      "assunto": "Orações subordinadas",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "No período “O servidor que chegou atrasado justificou a falta”, a oração “que chegou atrasado” classifica-se como subordinada adjetiva restritiva.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "A oração é introduzida pelo pronome relativo “que”, retoma “o servidor” e, sem vírgulas, restringe o sentido do termo: trata-se apenas do servidor que chegou atrasado."
+    },
+    {
+      "ref": "WF-POR-031",
+      "materia": "Língua Portuguesa",
+      "assunto": "Conjunções e relações de sentido",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Em “O projeto é caro; contudo, trará economia a longo prazo”, a conjunção “contudo” pode ser substituída, sem alteração de sentido, por",
+      "alts": [
+        "portanto.",
+        "porque.",
+        "no entanto.",
+        "logo.",
+        "pois."
+      ],
+      "certa": 2,
+      "comentario": "“Contudo” é conjunção adversativa, assim como “no entanto”, “porém” e “todavia”. “Portanto” e “logo” são conclusivas, e “porque” e “pois” (antes do verbo) indicam explicação ou causa."
+    },
+    {
+      "ref": "WF-POR-032",
+      "materia": "Língua Portuguesa",
+      "assunto": "Conjunções e relações de sentido",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Em “Como estava doente, não compareceu à audiência”, o conector “como” estabelece relação de",
+      "alts": [
+        "comparação.",
+        "conformidade.",
+        "concessão.",
+        "causa.",
+        "finalidade."
+      ],
+      "certa": 3,
+      "comentario": "A doença é o motivo de não ter comparecido; “como”, no início do período, equivale a “porque” ou “já que”, com valor causal. Seria comparativo em “corre como um atleta” e conformativo em “fez como foi pedido”."
+    },
+    {
+      "ref": "WF-POR-033",
+      "materia": "Língua Portuguesa",
+      "assunto": "Conjunções e relações de sentido",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Assinale a frase em que o conector destacado expressa ideia de PROPORÇÃO.",
+      "alts": [
+        "Saiu cedo, POIS tinha consulta médica.",
+        "CASO chova, a obra será adiada.",
+        "Fez tudo CONFORME o combinado.",
+        "Trabalhou TANTO QUE adoeceu.",
+        "À MEDIDA QUE o prazo se aproximava, a tensão aumentava."
+      ],
+      "certa": 4,
+      "comentario": "“À medida que” indica que um fato cresce ou diminui junto com outro, relação de proporção. Os demais indicam explicação (pois), condição (caso), conformidade (conforme) e consequência (tanto que)."
+    },
+    {
+      "ref": "WF-POR-034",
+      "materia": "Língua Portuguesa",
+      "assunto": "Figuras de linguagem",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Na frase “Nas férias, li Machado de Assis inteiro”, há a figura de linguagem denominada",
+      "alts": [
+        "metonímia.",
+        "metáfora.",
+        "hipérbole.",
+        "antítese.",
+        "eufemismo."
+      ],
+      "certa": 0,
+      "comentario": "Há metonímia porque se usa o nome do autor no lugar da sua obra. Não há comparação implícita (metáfora), exagero intencional (hipérbole), oposição de ideias (antítese) nem suavização (eufemismo)."
+    },
+    {
+      "ref": "WF-POR-035",
+      "materia": "Língua Portuguesa",
+      "assunto": "Figuras de linguagem",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Na frase “Já te disse mil vezes que não vou sair hoje”, emprega-se hipérbole, figura que consiste no exagero intencional de uma ideia.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "“Mil vezes” não indica uma contagem real, mas exagera a quantidade para dar ênfase à insistência. Esse exagero expressivo caracteriza a hipérbole."
+    },
+    {
+      "ref": "WF-POR-036",
+      "materia": "Língua Portuguesa",
+      "assunto": "Figuras de linguagem",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Na frase “O antigo diretor partiu desta para melhor no último inverno”, a expressão destacada constitui exemplo de",
+      "alts": [
+        "pleonasmo.",
+        "eufemismo.",
+        "ironia.",
+        "prosopopeia.",
+        "catacrese."
+      ],
+      "certa": 1,
+      "comentario": "“Partiu desta para melhor” suaviza a ideia de morrer, o que caracteriza o eufemismo. Não há repetição de ideia (pleonasmo), sentido contrário ao dito (ironia), personificação (prosopopeia) nem uso de termo por falta de outro (catacrese)."
+    },
+    {
+      "ref": "WF-POR-037",
+      "materia": "Língua Portuguesa",
+      "assunto": "Figuras de linguagem",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Na frase “O sol se espreguiçou devagar sobre a cidade ainda adormecida”, predomina a figura de linguagem chamada",
+      "alts": [
+        "metonímia.",
+        "antítese.",
+        "prosopopeia.",
+        "hipérbole.",
+        "pleonasmo."
+      ],
+      "certa": 2,
+      "comentario": "Atribuem-se ações e estados humanos (espreguiçar-se, estar adormecida) a seres inanimados, o que caracteriza a prosopopeia, ou personificação. As demais figuras não aparecem no trecho."
+    },
+    {
+      "ref": "WF-POR-038",
+      "materia": "Língua Portuguesa",
+      "assunto": "Interpretação de textos",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Leia o texto.\n“A cidade instalou sensores nas lixeiras públicas. Quando uma lixeira atinge 80% da capacidade, o sistema avisa a equipe de coleta. Com isso, os caminhões deixaram de percorrer rotas fixas e passaram a ir apenas aonde há necessidade. A prefeitura estima que o consumo de combustível caiu um quarto.”\nDe acordo com o texto, é correto afirmar que",
+      "alts": [
+        "as lixeiras passaram a ser esvaziadas somente quando ficam totalmente cheias.",
+        "a equipe de coleta foi reduzida em um quarto.",
+        "os sensores medem o consumo de combustível dos caminhões.",
+        "a mudança substituiu rotas fixas por deslocamentos conforme a demanda.",
+        "a queda no consumo de combustível foi comprovada por auditoria independente."
+      ],
+      "certa": 3,
+      "comentario": "O texto diz que os caminhões “deixaram de percorrer rotas fixas” e passaram a ir “apenas aonde há necessidade”. O aviso ocorre a 80% da capacidade (A); o quarto se refere ao combustível, não à equipe (B); os sensores ficam nas lixeiras (C); e a redução é uma estimativa da prefeitura (E)."
+    },
+    {
+      "ref": "WF-POR-039",
+      "materia": "Língua Portuguesa",
+      "assunto": "Interpretação de textos",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Leia o texto.\n“Muitos acreditam que ler rápido é sinal de inteligência. Estudos sobre leitura, no entanto, indicam que velocidade e compreensão costumam caminhar em direções opostas: quando uma sobe demais, a outra cai. Ler bem, portanto, é menos uma corrida do que uma conversa com o texto.”\nA ideia central do texto é a de que",
+      "alts": [
+        "pessoas inteligentes leem mais devagar.",
+        "a leitura rápida deve ser abandonada em qualquer situação.",
+        "os estudos confirmam a crença de que ler rápido indica inteligência.",
+        "a compreensão aumenta sempre que a velocidade diminui.",
+        "a qualidade da leitura depende mais da atenção ao texto do que da rapidez."
+      ],
+      "certa": 4,
+      "comentario": "A conclusão (“portanto”) contrapõe corrida e conversa, valorizando a atenção ao texto em vez da velocidade. A não é afirmada, B e D extrapolam com “qualquer situação” e “sempre”, e C contradiz o texto, que usa “no entanto” para se opor à crença inicial."
+    },
+    {
+      "ref": "WF-POR-040",
+      "materia": "Língua Portuguesa",
+      "assunto": "Interpretação de textos",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Leia o texto.\n“O trabalho remoto reduziu o tempo de deslocamento de muitos trabalhadores. Para parte deles, porém, a casa virou também escritório, e a fronteira entre descanso e trabalho ficou difícil de traçar.”\nInfere-se do texto que o trabalho remoto trouxe apenas benefícios aos trabalhadores.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "O texto aponta um benefício (menos deslocamento), mas a conjunção “porém” introduz um problema: a dificuldade de separar descanso e trabalho. Logo, não se pode dizer que houve apenas benefícios."
+    },
+    {
+      "ref": "WF-POR-041",
+      "materia": "Língua Portuguesa",
+      "assunto": "Reescrita de frases",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Assinale a reescrita que mantém o sentido original e a correção gramatical da frase “Apesar de ter estudado pouco, o candidato foi aprovado.”",
+      "alts": [
+        "Embora tivesse estudado pouco, o candidato foi aprovado.",
+        "Porque estudou pouco, o candidato foi aprovado.",
+        "Se tivesse estudado pouco, o candidato seria aprovado.",
+        "O candidato estudou pouco, portanto foi aprovado.",
+        "Embora estudou pouco, o candidato foi aprovado."
+      ],
+      "certa": 0,
+      "comentario": "“Apesar de” e “embora” expressam concessão, e “embora” exige o verbo no subjuntivo (“tivesse estudado”). B e D transformam a relação em causa e conclusão, C em condição hipotética, e E usa “embora” com indicativo, contrariando a norma-padrão."
+    },
+    {
+      "ref": "WF-POR-042",
+      "materia": "Língua Portuguesa",
+      "assunto": "Reescrita de frases (vozes verbais)",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Assinale a alternativa que transpõe corretamente para a voz passiva analítica a frase “A comissão analisará os recursos.”",
+      "alts": [
+        "Os recursos analisarão a comissão.",
+        "Os recursos serão analisados pela comissão.",
+        "Os recursos foram analisados pela comissão.",
+        "Analisa-se os recursos pela comissão.",
+        "A comissão terá analisado os recursos."
+      ],
+      "certa": 1,
+      "comentario": "Na passiva analítica, o objeto vira sujeito e o verbo “ser” assume o tempo do verbo original (futuro do presente: “serão”), seguido do particípio. C muda o tempo para o passado, E continua na voz ativa e muda o tempo, A inverte os papéis e D não é passiva analítica (e ainda erra a concordância)."
+    },
+    {
+      "ref": "WF-POR-043",
+      "materia": "Língua Portuguesa",
+      "assunto": "Redação oficial (pronomes de tratamento)",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Segundo o Manual de Redação da Presidência da República, os pronomes de tratamento, embora se refiram à pessoa com quem se fala, levam a concordância verbal e pronominal para a",
+      "alts": [
+        "primeira pessoa do plural.",
+        "segunda pessoa do singular.",
+        "terceira pessoa.",
+        "segunda pessoa do plural.",
+        "primeira pessoa do singular."
+      ],
+      "certa": 2,
+      "comentario": "Os pronomes de tratamento concordam com a terceira pessoa: “Vossa Senhoria nomeará seu substituto”, e não “nomeareis vosso”. A concordância com a segunda pessoa é erro frequente."
+    },
+    {
+      "ref": "WF-POR-044",
+      "materia": "Língua Portuguesa",
+      "assunto": "Redação oficial (padrão ofício)",
+      "dificuldade": "media",
+      "estilo": "Cesgranrio",
+      "enunciado": "De acordo com o Manual de Redação da Presidência da República, o fecho adequado para uma comunicação oficial dirigida a autoridade de hierarquia superior à do signatário é:",
+      "alts": [
+        "Cordialmente,",
+        "Atenciosamente,",
+        "Sem mais para o momento, subscrevo-me,",
+        "Respeitosamente,",
+        "Saudações cordiais,"
+      ],
+      "certa": 3,
+      "comentario": "O Manual prevê apenas dois fechos: “Respeitosamente”, para autoridades de hierarquia superior, e “Atenciosamente”, para autoridades de mesma hierarquia ou inferior. As outras fórmulas não são adotadas nas comunicações oficiais."
+    },
+    {
+      "ref": "WF-POR-045",
+      "materia": "Língua Portuguesa",
+      "assunto": "Redação oficial (pronomes de tratamento)",
+      "dificuldade": "dificil",
+      "estilo": "FCC",
+      "enunciado": "Segundo o Manual de Redação da Presidência da República, o vocativo “Excelentíssimo Senhor”, seguido do cargo respectivo, é reservado às comunicações dirigidas aos",
+      "alts": [
+        "ministros de Estado.",
+        "senadores da República.",
+        "prefeitos municipais.",
+        "reitores de universidade.",
+        "Chefes de Poder."
+      ],
+      "certa": 4,
+      "comentario": "O Manual reserva “Excelentíssimo Senhor” aos Chefes de Poder (por exemplo, “Excelentíssimo Senhor Presidente da República”). As demais autoridades tratadas por Vossa Excelência recebem o vocativo “Senhor” seguido do cargo, como “Senhor Ministro” ou “Senhor Senador”."
+    }
+  ]
+}
