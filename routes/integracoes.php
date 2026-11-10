@@ -12,6 +12,9 @@ Route::prefix('/integracoes/discord')->name('integracoes.discord')->group(functi
     Route::get('/', [IntegracaoController::class, 'show'])->middleware('throttle:60,1')->name('');
     Route::post('/', [IntegracaoController::class, 'salvar'])->middleware('throttle:20,1')->name('.salvar');
     Route::post('/testar', [IntegracaoController::class, 'testar'])->middleware('throttle:6,1')->name('.testar');
+    // conectar com um clique: o Discord pergunta o servidor e o canal e devolve o webhook pronto
+    Route::get('/conectar', [IntegracaoController::class, 'conectar'])->middleware('throttle:10,1')->name('.conectar');
+    Route::get('/retorno', [IntegracaoController::class, 'retorno'])->middleware('throttle:10,1')->name('.retorno');
     // mensagem do bloco Discord do quadro (public/js/blocos-integracoes.js)
     Route::post('/enviar', [IntegracaoController::class, 'enviar'])->middleware('throttle:10,1,dc-enviar')->name('.enviar');
     Route::get('/canais', [IntegracaoController::class, 'canais'])->middleware('throttle:20,1')->name('.canais');

@@ -25,6 +25,59 @@ class Discord
         return (bool) preg_match(self::WEBHOOK_REGEX, trim($url));
     }
 
+    /*
+     * Conexão de um clique (OAuth2 do Discord com o escopo webhook.incoming): o próprio Discord mostra "escolha o
+     * servidor e o canal" e devolve o webhook pronto, sem a pessoa criar nem copiar nada. Precisa do app do dono do
+     * site (DISCORD_CLIENT_ID/SECRET, discord.com/developers › OAuth2, Redirect: /integracoes/discord/retorno).
+     * Sem isso, continua valendo colar o webhook.
+     */
+    public static function oauthConfigurado(): bool
+    {
+        return (string) config('services.discord.client_id') !== '' && (string) config('services.discord.client_secret') !== '';
+    }
+
+    public static function retorno(): string
+    {
+        return (string) (config('services.discord.redirect') ?: route('integracoes.discord.retorno'));
+    }
+
+    public static function urlAutorizacao(string $estado): string
+    {
+        return 'https://discord.com/oauth2/authorize?' . http_build_query([
+            'client_id'     => config('services.discord.client_id'),
+            'response_type' => 'code',
+            'scope'         => 'webhook.incoming',
+            'redirect_uri'  => self::retorno(),
+            'state'         => $estado,
+        ]);
+    }
+
+    /** Troca o código do retorno pelo webhook criado no canal escolhido: ['webhook_url', 'guild_id', 'canal_id']. */
+    public static function trocarCodigo(string $codigo): array
+    {
+        try {
+            $r = Http::asForm()->acceptJson()->timeout(20)->connectTimeout(5)
+                ->withBasicAuth((string) config('services.discord.client_id'), (string) config('services.discord.client_secret'))
+                ->post(self::API . '/oauth2/token', [
+                    'grant_type'   => 'authorization_code',
+                    'code'         => $codigo,
+                    'redirect_uri' => self::retorno(),
+                ]);
+        } catch (\Throwable) {
+            throw new \RuntimeException('Não deu para falar com o Discord agora. Tente conectar de novo.');
+        }
+        $url = (string) $r->json('webhook.url');
+        if (! $r->successful() || ! self::webhookValido($url)) {
+            throw new \RuntimeException('O Discord não liberou o webhook. Tente conectar de novo e escolha um canal.');
+        }
+
+        return [
+            'webhook_url' => $url,
+            'guild_id'    => ((string) $r->json('webhook.guild_id')) ?: null,
+            'canal_id'    => ((string) $r->json('webhook.channel_id')) ?: null,
+        ];
+    }
+
     /** Manda o aviso se a conta tem Discord ligado e esse tipo de aviso ativo. true se o Discord aceitou. */
     public static function avisar(int $userId, string $evento, string $titulo, string $texto = '', ?string $url = null, array $campos = []): bool
     {

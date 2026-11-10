@@ -14,7 +14,9 @@
 @endphp
 <script src="{{ asset('js/blocos-integracoes.js') }}?v={{ @filemtime(public_path('js/blocos-integracoes.js')) }}"
         data-discord="{{ $wfBi['discord'] }}" data-notion="{{ $wfBi['notion'] }}" data-negocios="{{ $wfBi['negocios'] }}"
-        data-tarefas="{{ $wfBi['tarefas'] }}" data-instalador="{{ $wfBi['instalador'] }}" data-textos="{{ $wfBi['textos'] }}"></script>
+        data-tarefas="{{ $wfBi['tarefas'] }}" data-instalador="{{ $wfBi['instalador'] }}" data-textos="{{ $wfBi['textos'] }}"
+        {{-- volta do "Conectar com o Discord" (IntegracaoController::retorno) para esta página --}}
+        data-dc-ok="{{ session('discord_ok') }}" data-dc-erro="{{ session('discord_erro') }}"></script>
 
 <style>
     .bi { height: 100%; display: flex; flex-direction: column; gap: .5rem; min-height: 0; font-size: .75rem; }

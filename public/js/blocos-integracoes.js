@@ -1,7 +1,7 @@
 /* Work Flower · blocos do quadro para integrações que antes só existiam em telas separadas: Discord, Notion e Textos rápidos.
    Estende o WFQuadro.metodos sem mexer no quadro.js, como o integracoes-cartoes.js (carregue depois do graficos.js:
-   usa wfNovoCartao e WFGraficos.pedir). Tokens e webhooks ficam só no servidor; a conexão continua em
-   Negócios › Integrações (Discord e Notion) e em Configurações › Atalhos (Textos rápidos), e o bloco só usa.
+   usa wfNovoCartao e WFGraficos.pedir). Tokens e webhooks ficam só no servidor. O Discord conecta no próprio bloco
+   (um clique pelo Discord ou colando o webhook); o Notion em Negócios › Integrações e os Textos rápidos em Configurações › Atalhos.
    - discord: b.dados = { }   status, mensagem/embed pelo webhook (IntegracaoController::enviar), canais pelo bot,
                               atalhos para mandar o resumo de um cartão da aba ou das tarefas da área
    - notion:  b.dados = { q }  busca as páginas compartilhadas, abre o conteúdo no bloco e importa como cartão
@@ -15,6 +15,9 @@
     const URL_DC = TAG.discord || '', URL_NOTION = TAG.notion || '', URL_NEGOCIOS = TAG.negocios || '';
     const URL_TAREFAS = TAG.tarefas || '', URL_INSTALADOR = TAG.instalador || '';
     const TEXTOS = TAG.textos === '1';
+    // volta do "Conectar com o Discord" (mostra uma vez, no primeiro bloco Discord que carregar)
+    let dcOk = TAG.dcOk || '', dcErro = TAG.dcErro || '';
+    const WEBHOOK_DC = /^https:\/\/((ptb|canary)\.)?(discord|discordapp)\.com\/api(\/v\d+)?\/webhooks\/\d{5,25}\/[\w-]{20,200}$/;
     const pedir = (...a) => window.WFGraficos.pedir(...a);
     const TIPOS = [
         URL_DC && { id: 'discord', nome: 'Discord' },
@@ -62,7 +65,7 @@
         /* ---------- estado de cada bloco (não vai para o banco) ---------- */
         biUI(b) {
             this.biEstado[b.id] ??= {
-                carregando: false, erro: '', d: null, ver: 'msg', ocupado: '', msg: { titulo: '', texto: '', link: '' }, nota: '', cartao: '',
+                carregando: false, erro: '', d: null, ver: 'msg', webhook: '', ocupado: '', msg: { titulo: '', texto: '', link: '' }, nota: '', cartao: '',
                 canais: null, canaisErro: '', itens: null, aberto: null, lendo: false, q: '', ed: { i: -1, atalho: '', nome: '', texto: '' }, editando: false, edErro: '', filtro: '',
             };
             return this.biEstado[b.id];
@@ -84,6 +87,10 @@
             if (!r.ok) ui.erro = erroDe(r);
             if (r.ok && ui.d.conectado && b.tipo === 'notion' && !ui.itens) this.biNtBuscar(b);
             if (r.ok && ui.d.conectado && b.tipo === 'discord' && ui.d.tem_bot && ui.ver === 'canais') this.biDcCanais(b);
+            if (b.tipo === 'discord' && (dcOk || dcErro)) {
+                if (dcErro) ui.erro = dcErro; else this.aviso(dcOk);
+                dcOk = ''; dcErro = '';
+            }
         },
         /** Vai para Negócios › Integrações (a aba abre sozinha pelo sessionStorage, como na volta do Notion). */
         biIrIntegracoes() {
@@ -99,6 +106,20 @@
         },
 
         /* ================================================================ Discord ================================================================ */
+        /** Um clique: o Discord pergunta o servidor e o canal e volta para esta página já conectado. */
+        biDcConectarUrl() { return URL_DC + '/conectar'; },
+        /** Colou o webhook inteiro no bloco: conecta na hora (o servidor confere e manda uma mensagem de teste). */
+        async biDcColar(b) {
+            const ui = this.biUI(b), url = String(ui.webhook || '').trim();
+            if (!WEBHOOK_DC.test(url) || ui.ocupado === 'conectar') return;
+            ui.ocupado = 'conectar'; ui.erro = '';
+            const r = await pedir(URL_DC, 'POST', b64({ webhook_url: url }));
+            ui.ocupado = '';
+            if (!r.ok) { ui.erro = erroDe(r); return; }
+            ui.webhook = '';
+            ui.d = r.json;
+            this.aviso(r.json.teste === false ? 'Discord conectado, mas a mensagem de teste falhou: ' + (r.json.ultimo_erro || 'confira o canal.') : 'Discord conectado! Mandamos uma mensagem de teste no canal.');
+        },
         biDcVer(b, ver) {
             const ui = this.biUI(b);
             ui.ver = ver;

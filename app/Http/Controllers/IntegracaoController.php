@@ -33,12 +33,60 @@ class IntegracaoController extends Controller
             'nomes'       => DiscordIntegracao::EVENTOS,
             'ultimo_erro' => $i?->ultimo_erro,
             'ultimo_envio' => $i?->ultimo_envio_em?->toIso8601String(),
+            // conectar com um clique pelo Discord (app do site configurado); sem isso, colar o webhook
+            'oauth'       => Discord::oauthConfigurado(),
         ];
     }
 
     public function show(Request $request): JsonResponse
     {
         return response()->json($this->resumo($this->minha($request)));
+    }
+
+    /** Leva ao Discord, que pede só "escolha o servidor e o canal". Volta para a página de onde a pessoa veio. */
+    public function conectar(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless(Discord::oauthConfigurado(), 404);
+        $estado = \Illuminate\Support\Str::random(40);
+        // só volta para uma página deste site (nunca para um endereço de fora)
+        $voltar = (string) url()->previous();
+        if (! str_starts_with($voltar, rtrim(url('/'), '/') . '/') || str_contains($voltar, '/integracoes/discord')) {
+            $voltar = route('areas.negocios');
+        }
+        $request->session()->put('discord_state', ['v' => $estado, 't' => now()->timestamp, 'voltar' => $voltar]);
+
+        return redirect()->away(Discord::urlAutorizacao($estado));
+    }
+
+    /** Retorno do Discord (?code=&state=, ou ?error=access_denied): guarda o webhook e manda a mensagem de boas-vindas. */
+    public function retorno(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $guardado = $request->session()->pull('discord_state');
+        $destino = is_array($guardado) && is_string($guardado['voltar'] ?? null) ? $guardado['voltar'] : route('areas.negocios');
+        $voltar = fn (string $msg, bool $ok = false) => redirect()->to($destino)->with($ok ? 'discord_ok' : 'discord_erro', $msg);
+        $estado = (string) $request->query('state');
+        if (! is_array($guardado) || $estado === '' || ! hash_equals((string) ($guardado['v'] ?? ''), $estado)
+            || now()->timestamp - (int) ($guardado['t'] ?? 0) > 1800) {
+            return $voltar('A autorização expirou ou não veio deste navegador. Tente conectar o Discord de novo.');
+        }
+        if ($request->filled('error') || ! $request->filled('code')) {
+            return $voltar('A conexão foi cancelada no Discord.');
+        }
+        try {
+            $w = Discord::trocarCodigo((string) $request->query('code'));
+        } catch (\RuntimeException $e) {
+            return $voltar($e->getMessage());
+        }
+
+        $i = $this->minha($request) ?? new DiscordIntegracao();
+        $i->user_id = $request->user()->id;
+        // canal novo: os nomes guardados pelo bot (se houver) eram do canal antigo
+        $i->fill($w + ['canal_nome' => null]);
+        $i->ultimo_erro = null;
+        $i->save();
+        $ok = Discord::enviar($i, '✅ Work Flower conectado', 'Os avisos de ' . $request->user()->name . ' vão chegar neste canal.', route('areas.negocios'));
+
+        return $voltar($ok ? 'Discord conectado! Mandamos uma mensagem de teste no canal escolhido.' : 'Discord conectado, mas a mensagem de teste falhou: ' . $i->ultimo_erro, $ok);
     }
 
     public function salvar(Request $request): JsonResponse
@@ -101,7 +149,13 @@ class IntegracaoController extends Controller
         }
         $i->save();
 
-        return response()->json(['ok' => true] + $this->resumo($i) + ($canais ? ['canais' => $canais['canais']] : []));
+        // webhook novo: manda logo a mensagem de teste (a pessoa já vê no canal que deu certo, sem outro clique)
+        $teste = null;
+        if ($url !== '') {
+            $teste = Discord::enviar($i, '✅ Work Flower conectado', 'Os avisos de ' . $request->user()->name . ' vão chegar neste canal.', route('areas.negocios'));
+        }
+
+        return response()->json(['ok' => true, 'teste' => $teste] + $this->resumo($i) + ($canais ? ['canais' => $canais['canais']] : []));
     }
 
     public function testar(Request $request): JsonResponse

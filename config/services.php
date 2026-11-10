@@ -64,6 +64,8 @@ return [
     // App da Meta (Instagram Graph API pelo Login do Facebook e assinatura do webhook do WhatsApp) e app do TikTok
     'meta'   => ['id' => env('META_APP_ID'), 'secret' => env('META_APP_SECRET'), 'versao' => env('META_GRAPH_VERSION', 'v21.0')],
     'tiktok' => ['key' => env('TIKTOK_CLIENT_KEY'), 'secret' => env('TIKTOK_CLIENT_SECRET')],
+    // App do Discord (conectar com um clique: o Discord devolve o webhook do canal escolhido). Vazio: colar o webhook.
+    'discord' => ['client_id' => env('DISCORD_CLIENT_ID'), 'client_secret' => env('DISCORD_CLIENT_SECRET'), 'redirect' => env('DISCORD_REDIRECT_URI')],
 
     'adsense' => [
         'client' => env('ADSENSE_CLIENT'),

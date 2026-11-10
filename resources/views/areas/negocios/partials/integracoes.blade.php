@@ -2,7 +2,7 @@
      servidor em CallController e IntegracaoController (routes/integracoes.php). Sempre sobre a conta de quem está
      logado: num workflow de outra pessoa, mostram as calls e o Discord da própria conta.
      Largura máxima de 1200px e grade que se ajusta sozinha (uma coluna no celular). --}}
-@if (session('notion_ok') || session('notion_erro'))<script>try { sessionStorage.setItem('negocios.aba', 'integracoes'); } catch (e) {}</script>@endif
+@if (session('notion_ok') || session('notion_erro') || session('discord_ok') || session('discord_erro'))<script>try { sessionStorage.setItem('negocios.aba', 'integracoes'); } catch (e) {}</script>@endif
 <script src="{{ asset('js/integracoes.js') }}?v={{ @filemtime(public_path('js/integracoes.js')) }}"></script>
 <style>
     .wf-int { max-width: 1200px; margin-inline: auto; }
@@ -115,7 +115,7 @@
 
 {{-- ================= INTEGRAÇÕES ================= --}}
 <section x-show="aba === 'integracoes'" x-cloak class="wf-int">
-<div x-data="wfDiscord(@js(url('/integracoes/discord')))" x-effect="if (aba === 'integracoes') abrir()" class="space-y-4">
+<div x-data="wfDiscord(@js(url('/integracoes/discord')), @js(session('discord_ok')), @js(session('discord_erro')))" x-effect="if (aba === 'integracoes') abrir()" class="space-y-4">
     <div>
         <h2 class="titulo text-xl">🔌 Integrações</h2>
         <p class="text-sm texto-2">Ligue o Work Flower a outros aplicativos. Avisos no Discord, páginas do Notion e cofres do Obsidian virando cartões, e mensagens prontas de WhatsApp.</p>
@@ -128,13 +128,18 @@
                 <span class="text-xs wf-int-1linha flex-1 text-right" :title="estado()" :style="d.conectado ? 'color:#4ade80' : ''" x-text="estado()"></span>
             </div>
             <p class="text-sm texto-2">Avisos de tarefas, lembretes, pedidos da loja e calls chegam num canal do seu servidor do Discord.</p>
-            <ol class="text-xs texto-2 space-y-1" x-show="!d.conectado">
-                <li>No Discord, abra o canal que vai receber os avisos › ⚙️ Editar canal.</li>
-                <li>Integrações › Webhooks › Novo webhook.</li>
-                <li>Clique em <b>Copiar URL do webhook</b> e cole abaixo.</li>
-            </ol>
-            <label class="text-sm space-y-1 block"><span class="texto-2 text-xs" x-text="d.conectado ? 'Trocar o webhook (opcional)' : 'URL do webhook'"></span>
-                <input class="campo" type="password" autocomplete="off" x-model="webhook" :placeholder="d.conectado ? 'Guardado. Cole outro para trocar' : 'https://discord.com/api/webhooks/…'"></label>
+            {{-- um clique: o Discord pergunta o servidor e o canal e devolve o webhook (app do site em DISCORD_CLIENT_ID) --}}
+            <div class="space-y-1" x-show="d.oauth && !d.conectado">
+                <a class="btn inline-flex" :href="base + '/conectar'">Conectar com o Discord</a>
+                <p class="text-xs texto-2">O Discord só pergunta em qual servidor e canal os avisos devem chegar. Escolha e pronto.</p>
+            </div>
+            <details class="text-sm" :open="!d.oauth && !d.conectado">
+                <summary class="cursor-pointer texto-2 text-xs" x-text="d.conectado ? 'Trocar o canal (colar outro webhook)' : (d.oauth ? 'Ou cole o webhook de um canal' : 'Colar o webhook de um canal')"></summary>
+                <div class="space-y-2 mt-2">
+                    <p class="text-xs texto-2">No Discord: ⚙️ do canal › <b>Integrações</b> › <b>Webhooks</b> › <b>Novo webhook</b> › <b>Copiar URL do webhook</b>. Cole abaixo: conecta sozinho e manda uma mensagem de teste.</p>
+                    <input class="campo" type="password" autocomplete="off" x-model="webhook" @input.debounce.700ms="if (pareceWebhook()) salvar()" :placeholder="d.conectado ? 'Cole outro webhook para trocar' : 'https://discord.com/api/webhooks/…'" aria-label="URL do webhook do Discord">
+                </div>
+            </details>
             <details class="text-sm" :open="d.tem_bot">
                 <summary class="cursor-pointer texto-2 text-xs">Bot (opcional): para escolher canais de voz nas Calls</summary>
                 <div class="space-y-2 mt-2">
@@ -152,7 +157,7 @@
             <p class="text-sm" style="color:#4ade80" x-show="ok" x-text="ok" role="status"></p>
             <p class="text-xs wf-int-quebra" style="color:#f87171" x-show="d.ultimo_erro" x-text="'Último envio falhou: ' + d.ultimo_erro"></p>
             <div class="flex flex-wrap gap-2">
-                <button type="button" class="btn" @click="salvar()" :disabled="enviando" x-text="enviando ? 'Conferindo…' : (d.conectado ? 'Salvar' : 'Conectar')"></button>
+                <button type="button" class="btn" x-show="webhook.trim() || bot.trim()" @click="salvar()" :disabled="enviando" x-text="enviando ? 'Conferindo…' : (d.conectado ? 'Salvar' : 'Conectar')"></button>
                 <button type="button" class="btn-sec" x-show="d.conectado" @click="testar()" :disabled="enviando">Mandar mensagem de teste</button>
                 <button type="button" class="btn-sec" x-show="d.conectado" @click="desconectar()">Desconectar</button>
             </div>

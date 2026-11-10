@@ -1,6 +1,6 @@
 {{-- Blocos do quadro (todas as áreas): Discord, Notion e Textos rápidos. Lógica em public/js/blocos-integracoes.js
      (métodos bi*); estilo e script em partials/blocos-integracoes-script. Incluído dentro do x-for dos blocos.
-     A conexão do Discord e do Notion fica em Negócios › Integrações; aqui só se usa. --}}
+     O Discord conecta aqui mesmo (um clique ou colando o webhook); o Notion, em Negócios › Integrações. --}}
 
 {{-- ============================== Discord ============================== --}}
 <template x-if="b.tipo === 'discord'">
@@ -12,8 +12,13 @@
             <div class="bi-conectar">
                 <span class="bi-logo" style="--c:#5865f2" aria-hidden="true">💬</span>
                 <p class="font-semibold text-sm">Conecte o Discord</p>
-                <p class="texto-2">Cole o webhook de um canal do seu servidor em Negócios › Integrações. Depois é só escrever aqui e a mensagem chega no canal. O endereço do webhook fica guardado só no servidor.</p>
-                <button type="button" class="btn !py-1" @click="biIrIntegracoes()">Conectar em Negócios › Integrações</button>
+                {{-- um clique (o Discord pergunta o servidor e o canal) ou colar o webhook aqui mesmo: conecta e manda um teste --}}
+                <a class="btn !py-1" x-show="biUI(b).d?.oauth" :href="biDcConectarUrl()">Conectar com o Discord</a>
+                <p class="texto-2" x-show="biUI(b).d?.oauth">Você só escolhe o servidor e o canal no Discord.</p>
+                <p class="texto-2" x-text="biUI(b).d?.oauth ? 'Ou cole o webhook de um canal:' : 'No Discord: ⚙️ do canal › Integrações › Webhooks › Novo webhook › Copiar URL do webhook. Cole aqui:'"></p>
+                <input class="campo w-full" type="password" autocomplete="off" x-model="biUI(b).webhook" @input.debounce.700ms="biDcColar(b)"
+                       :disabled="biUI(b).ocupado === 'conectar'" placeholder="https://discord.com/api/webhooks/…" aria-label="URL do webhook do Discord">
+                <p class="texto-2" x-show="biUI(b).ocupado === 'conectar'">Conectando…</p>
             </div>
         </template>
 

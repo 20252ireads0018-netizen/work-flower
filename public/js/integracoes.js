@@ -104,10 +104,14 @@
     };
 
     /* ================= Discord ================= */
-    window.wfDiscord = function (url) {
+    // mesmo formato de App\Support\Discord::WEBHOOK_REGEX: colou um webhook inteiro, já conecta
+    const WEBHOOK_DC = /^https:\/\/((ptb|canary)\.)?(discord|discordapp)\.com\/api(\/v\d+)?\/webhooks\/\d{5,25}\/[\w-]{20,200}$/;
+    window.wfDiscordWebhook = (t) => WEBHOOK_DC.test(String(t || '').trim());
+    window.wfDiscord = function (url, msgOk, msgErro) {
         return {
-            d: { conectado: false, tem_bot: false, eventos: {}, nomes: {} }, canais: [],
-            webhook: '', bot: '', erro: '', ok: '', enviando: false, _aberto: false,
+            d: { conectado: false, tem_bot: false, eventos: {}, nomes: {} }, canais: [], base: url,
+            webhook: '', bot: '', erro: msgErro || '', ok: msgOk || '', enviando: false, _aberto: false,
+            pareceWebhook() { return !this.enviando && WEBHOOK_DC.test(this.webhook.trim()); },
             abrir() { if (!this._aberto) { this._aberto = true; this.carregar(); } },
             estado() {
                 if (!this.d.conectado) return 'Não conectado';
@@ -128,7 +132,8 @@
                     if (j.canais) this.canais = j.canais;
                     else if (!j.tem_bot) this.canais = [];
                     this.webhook = ''; this.bot = '';
-                    this.ok = 'Salvo.';
+                    this.ok = j.teste === true ? 'Discord conectado! Mandamos uma mensagem de teste no canal.'
+                        : j.teste === false ? 'Conectado, mas a mensagem de teste falhou: ' + (j.ultimo_erro || 'confira o canal.') : 'Salvo.';
                 } catch (e) { this.erro = e.message; } finally { this.enviando = false; }
             },
             tirarBot() { this.salvar({ tirar_bot: true }); },

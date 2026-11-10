@@ -68,7 +68,16 @@ class DiscordECallsTest extends TestCase
     private function enviadas(): array
     {
         return collect(Http::recorded())->filter(fn ($p) => $p[0]->method() === 'POST' && str_contains($p[0]->url(), '/api/webhooks/'))
-            ->map(fn ($p) => $p[0]->data()['embeds'][0])->values()->all();
+            ->map(fn ($p) => $p[0]->data()['embeds'][0])
+            // a mensagem de boas-vindas (sai ao conectar) fica de fora: conferida em boasVindas()
+            ->reject(fn ($e) => $e['title'] === '✅ Work Flower conectado')->values()->all();
+    }
+
+    /** Quantas mensagens "Work Flower conectado" (teste ao conectar ou botão Testar) saíram. */
+    private function boasVindas(): int
+    {
+        return collect(Http::recorded())->filter(fn ($p) => $p[0]->method() === 'POST' && str_contains($p[0]->url(), '/api/webhooks/')
+            && ($p[0]->data()['embeds'][0]['title'] ?? '') === '✅ Work Flower conectado')->count();
     }
 
     public function test_conecta_pelo_webhook_guarda_criptografado_e_nao_devolve_o_endereco(): void
@@ -89,7 +98,7 @@ class DiscordECallsTest extends TestCase
         $this->assertStringNotContainsString('webhooks', json_encode($j));
 
         $this->actingAs($u)->postJson('/integracoes/discord/testar')->assertOk()->assertJson(['ok' => true]);
-        $this->assertSame('✅ Work Flower conectado', $this->enviadas()[0]['title']);
+        $this->assertSame(2, $this->boasVindas()); // ao conectar e no botão Testar
     }
 
     public function test_webhook_apagado_no_discord_e_recusado(): void
@@ -268,5 +277,62 @@ class DiscordECallsTest extends TestCase
 
         $this->actingAs($u)->postJson('/calls', ['b64' => '%%%não é base64'])->assertStatus(422);
         $this->actingAs($u)->postJson('/integracoes/discord', ['b64' => base64_encode(json_encode(['webhook_url' => self::WEBHOOK]))])->assertOk()->assertJson(['conectado' => true]);
+    }
+
+    public function test_colar_o_webhook_ja_manda_a_mensagem_de_teste(): void
+    {
+        $u = $this->conta();
+        $this->actingAs($u)->postJson('/integracoes/discord', ['webhook_url' => self::WEBHOOK])->assertOk()->assertJson(['conectado' => true, 'teste' => true]);
+        $this->assertSame(1, $this->boasVindas());
+        // mudar só os avisos não manda outro teste
+        $this->actingAs($u)->postJson('/integracoes/discord', ['eventos' => ['call' => false]])->assertOk()->assertJson(['teste' => null]);
+        $this->assertSame(1, $this->boasVindas());
+    }
+
+    public function test_conectar_com_um_clique_pelo_discord_volta_para_a_pagina_e_manda_o_teste(): void
+    {
+        $u = $this->conta();
+        // sem o app do Discord no .env: só colar o webhook
+        $this->actingAs($u)->getJson('/integracoes/discord')->assertJson(['oauth' => false]);
+        $this->actingAs($u)->get('/integracoes/discord/conectar')->assertNotFound();
+
+        config(['services.discord.client_id' => '1234567890', 'services.discord.client_secret' => 'segredo-de-teste']);
+        Http::fake(['discord.com/api/v10/oauth2/token' => Http::response([
+            'access_token' => 'x', 'token_type' => 'Bearer', 'scope' => 'webhook.incoming',
+            'webhook' => ['id' => '123456789012345678', 'url' => self::WEBHOOK, 'guild_id' => '999', 'channel_id' => '555', 'name' => 'Work Flower'],
+        ])]);
+        $this->actingAs($u)->getJson('/integracoes/discord')->assertJson(['oauth' => true]);
+
+        $quadro = url('/areas/corpo');
+        $r = $this->actingAs($u)->from($quadro)->get('/integracoes/discord/conectar')->assertRedirect();
+        $alvo = $r->headers->get('Location');
+        $this->assertStringStartsWith('https://discord.com/oauth2/authorize?', $alvo);
+        parse_str(parse_url($alvo, PHP_URL_QUERY), $q);
+        $this->assertSame('webhook.incoming', $q['scope']);
+        $this->assertSame(url('/integracoes/discord/retorno'), $q['redirect_uri']);
+
+        // estado errado não conecta
+        $this->actingAs($u)->get('/integracoes/discord/retorno?code=abc&state=outro')->assertRedirect()->assertSessionHas('discord_erro');
+        $this->assertNull(DiscordIntegracao::where('user_id', $u->id)->first());
+
+        $this->actingAs($u)->from($quadro)->get('/integracoes/discord/conectar');
+        $estado = session('discord_state')['v'];
+        $this->actingAs($u)->get('/integracoes/discord/retorno?code=abc&state=' . $estado)
+            ->assertRedirect($quadro)->assertSessionHas('discord_ok');
+        $i = DiscordIntegracao::where('user_id', $u->id)->firstOrFail();
+        $this->assertSame([self::WEBHOOK, '999', '555'], [$i->webhook_url, $i->guild_id, $i->canal_id]);
+        $this->assertSame(1, $this->boasVindas());
+
+        // cancelou no Discord
+        $this->actingAs($u)->from($quadro)->get('/integracoes/discord/conectar');
+        $this->actingAs($u)->get('/integracoes/discord/retorno?error=access_denied&state=' . session('discord_state')['v'])->assertSessionHas('discord_erro');
+    }
+
+    public function test_conectar_nunca_volta_para_outro_site(): void
+    {
+        config(['services.discord.client_id' => '1234567890', 'services.discord.client_secret' => 'segredo-de-teste']);
+        $u = $this->conta();
+        $this->actingAs($u)->from('https://site-de-fora.com/x')->get('/integracoes/discord/conectar');
+        $this->assertSame(route('areas.negocios'), session('discord_state')['voltar']);
     }
 }
