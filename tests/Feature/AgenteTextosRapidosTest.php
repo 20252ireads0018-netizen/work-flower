@@ -79,6 +79,18 @@ class AgenteTextosRapidosTest extends TestCase
         $this->assertStringContainsString("@('agente.ps1', 'expansor.cs', 'desinstalar.ps1')", $agente, 'mesma lista de PacoteAgente::ARQUIVOS_VERSAO');
     }
 
+    public function test_expansor_quebra_linha_com_shift_enter_para_nao_enviar_em_chats(): void
+    {
+        $cs = file_get_contents(base_path('agente/expansor.cs'));
+        $quebra = strpos($cs, "if (c == '\\n')");
+        $this->assertNotFalse($quebra);
+        $trecho = substr($cs, $quebra, 400);
+        $shift = strpos($trecho, 'wVk = VK_SHIFT }');
+        $enter = strpos($trecho, 'Tecla(l, VK_RETURN)');
+        $solta = strpos($trecho, 'wVk = VK_SHIFT, dwFlags = KEYEVENTF_KEYUP');
+        $this->assertTrue($shift !== false && $enter > $shift && $solta > $enter, 'Shift desce, Enter, Shift sobe');
+    }
+
     public function test_codigo_de_pareamento_vale_uma_vez(): void
     {
         $u = User::factory()->create();

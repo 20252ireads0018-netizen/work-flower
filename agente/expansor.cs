@@ -58,7 +58,7 @@ public static class WFExpansor
 
     private const int WH_KEYBOARD_LL = 13;
     private const uint LLKHF_INJECTED = 0x10, KEYEVENTF_KEYUP = 0x2, KEYEVENTF_UNICODE = 0x4;
-    private const ushort VK_BACK = 0x08, VK_RETURN = 0x0D, VK_TAB = 0x09, VK_LEFT = 0x25;
+    private const ushort VK_BACK = 0x08, VK_RETURN = 0x0D, VK_TAB = 0x09, VK_LEFT = 0x25, VK_SHIFT = 0x10;
 
     // ---------------------------------------------------------------- estado
     private static readonly HookProc proc = Callback;   // referência fixa: o coletor de lixo não pode levar o delegate
@@ -254,7 +254,16 @@ public static class WFExpansor
             for (int i = 0; i < apagar; i++) Tecla(l, VK_BACK);
             foreach (char c in texto)
             {
-                if (c == '\n') { Tecla(l, VK_RETURN); continue; }
+                // quebra de linha = Shift+Enter: em chats (WhatsApp, Discord, Teams...) Enter sozinho ENVIA a mensagem,
+                // e o texto saía picado em várias mensagens; Shift+Enter só quebra a linha (no Word e Bloco de Notas também)
+                if (c == '\r') continue;
+                if (c == '\n')
+                {
+                    l.Add(new INPUT { type = 1, u = new UNIAO { ki = new KEYBDINPUT { wVk = VK_SHIFT } } });
+                    Tecla(l, VK_RETURN);
+                    l.Add(new INPUT { type = 1, u = new UNIAO { ki = new KEYBDINPUT { wVk = VK_SHIFT, dwFlags = KEYEVENTF_KEYUP } } });
+                    continue;
+                }
                 if (c == '\t') { Tecla(l, VK_TAB); continue; }
                 l.Add(new INPUT { type = 1, u = new UNIAO { ki = new KEYBDINPUT { wScan = c, dwFlags = KEYEVENTF_UNICODE } } });
                 l.Add(new INPUT { type = 1, u = new UNIAO { ki = new KEYBDINPUT { wScan = c, dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP } } });
