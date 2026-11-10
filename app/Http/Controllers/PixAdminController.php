@@ -84,6 +84,10 @@ class PixAdminController extends Controller
             return back()->with('ok', 'Este pagamento já foi tratado.');
         }
 
+        if ($ate === true) {
+            return back()->with('ok', "Plano liberado para sempre para {$pix->user?->name}.");
+        }
+
         return back()->with('ok', "Plano liberado para {$pix->user?->name} até " . $ate->format('d/m/Y') . '.');
     }
 

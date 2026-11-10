@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('titulo', 'Pagar com Pix')
-@section('subtitulo', 'Plano ' . ($plano->name ?? \App\Support\Planos::nome($pix->plano_slug)) . ' · um mês de acesso.')
+@section('subtitulo', 'Plano ' . ($plano->name ?? \App\Support\Planos::nome($pix->plano_slug)) . ($pix->vitalicio ? ' vitalício · pague uma vez, receba para sempre.' : ' · um mês de acesso.'))
 
 @section('conteudo')
 @php
@@ -12,7 +12,7 @@
     @if ($pix->status === 'confirmado')
         <div class="card p-6 text-center space-y-2">
             <p class="titulo text-2xl">Pagamento confirmado</p>
-            <p class="texto-2 text-sm">Seu plano {{ \App\Support\Planos::nome($pix->plano_slug) }} está liberado até {{ $pix->liberado_ate?->format('d/m/Y') }}.</p>
+            <p class="texto-2 text-sm">Seu plano {{ \App\Support\Planos::nome($pix->plano_slug) }} {{ $pix->vitalicio ? "está liberado para sempre." : "está liberado até " . $pix->liberado_ate?->format("d/m/Y") . "." }}</p>
             <a href="{{ route('painel') }}" class="btn mt-2">Ir para o painel</a>
         </div>
     @elseif (in_array($pix->status, ['cancelado'], true) || ! $codigo)

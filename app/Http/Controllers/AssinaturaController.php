@@ -32,6 +32,11 @@ class AssinaturaController extends Controller
             return redirect($voltar)->with('erro', 'Plano indisponível para assinatura.');
         }
 
+        // Quem comprou o vitalício não paga mês (o Pix mensal não acrescentaria nada).
+        if (! empty($usuario->plano_vitalicio)) {
+            return redirect($voltar)->with('erro', 'Você tem o plano ' . Planos::nome($usuario->plano_slug) . ' vitalício: não precisa pagar mensalidade.');
+        }
+
         // Compara com o plano que o usuário REALMENTE paga (o teste de 30 dias não conta).
         // No mesmo plano, só deixa pagar de novo perto do fim do mês pago (renovação).
         $pago = Planos::slugPago($usuario);
@@ -53,20 +58,67 @@ class AssinaturaController extends Controller
         // Pedidos de outro plano ou valor ainda sem "Já paguei" ficam cancelados; os que a pessoa já disse que pagou
         // continuam esperando a conferência (abrir um link não pode apagar um pagamento feito).
         // Promoção relâmpago valendo agora: o Pix sai com o preço dela (Promocao, /admin/promocoes)
-        $preco  = Promocao::precoDe($plano->slug, (float) $plano->price);
+        $preco = Promocao::precoDe($plano->slug, (float) $plano->price);
+
+        return redirect()->route('pix.ver', $this->pedido($usuario, $plano->slug, $preco));
+    }
+
+    /**
+     * "Pague uma vez, receba para sempre": Pix da oferta vitalícia (Promocao com vitalicio) pelo preço promocional.
+     * Confirmado em /admin/pix, o plano fica liberado sem data de fim (Pix::liberar).
+     */
+    public function vitalicio(Request $request, Promocao $promocao): RedirectResponse
+    {
+        $voltar  = route('planos');
+        $usuario = $request->user();
+
+        if (! $promocao->vitalicio || ! $promocao->vigente()) {
+            return redirect($voltar)->with('erro', 'Esta oferta vitalícia não está mais valendo.');
+        }
+        $plano = DB::table('plans')->where('slug', $promocao->plano_slug)->where('active', 1)->first();
+        if (! $plano) {
+            return redirect($voltar)->with('erro', 'Plano indisponível para assinatura.');
+        }
+
+        $ordem = array_flip(Planos::slugs());
+        if (! empty($usuario->plano_vitalicio) && ($ordem[Planos::slugPago($usuario)] ?? 0) >= ($ordem[$plano->slug] ?? 0)) {
+            return redirect($voltar)->with('erro', 'Você já tem o plano ' . Planos::nome($usuario->plano_slug) . ' vitalício.');
+        }
+
+        if (! Pix::pronto()) {
+            return redirect($voltar)->with('erro', 'O pagamento por Pix ainda não está disponível. Tente de novo mais tarde.');
+        }
+
+        return redirect()->route('pix.ver', $this->pedido($usuario, $plano->slug, (float) $promocao->preco, $promocao->id));
+    }
+
+    /**
+     * Pix em aberto deste plano, deste valor e do mesmo tipo (mensal/vitalício): reaproveita (cada clique não cria
+     * um pedido novo). Pedidos diferentes ainda sem "Já paguei" ficam cancelados; os que a pessoa já disse que pagou
+     * continuam esperando a conferência (abrir um link não pode apagar um pagamento feito).
+     */
+    private function pedido($usuario, string $slug, float $preco, ?int $promocaoVitalicia = null): PixPagamento
+    {
+        $vitalicio = $promocaoVitalicia !== null;
         $aberto = PixPagamento::where('user_id', $usuario->id)->whereIn('status', PixPagamento::ABERTOS)->latest('id')->get();
-        $mesmo  = $aberto->first(fn ($p) => $p->plano_slug === $plano->slug && (float) $p->valor === $preco);
+        $mesmo  = $aberto->first(fn ($p) => $p->plano_slug === $slug && (float) $p->valor === $preco && (bool) $p->vitalicio === $vitalicio);
         $aberto->reject(fn ($p) => ($mesmo && $p->is($mesmo)) || $p->status !== 'aguardando')->each(fn ($p) => $p->forceFill(['status' => 'cancelado'])->save());
 
-        $pagamento = $mesmo ?? PixPagamento::create([
+        if ($mesmo) {
+            return $mesmo;
+        }
+        $campos = [
             'user_id'    => $usuario->id,
-            'plano_slug' => $plano->slug,
+            'plano_slug' => $slug,
             'valor'      => $preco,
             'txid'       => Pix::novoTxid(),
             'status'     => 'aguardando',
-        ]);
+        ];
+        if ($vitalicio) {
+            $campos += ['vitalicio' => true, 'promocao_id' => $promocaoVitalicia];
+        }
 
-        return redirect()->route('pix.ver', $pagamento);
+        return PixPagamento::create($campos);
     }
 
     /** Tela com o QR Code e o "copia e cola". Só a própria pessoa vê o pedido dela. */

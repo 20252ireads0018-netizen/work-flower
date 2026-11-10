@@ -26,7 +26,8 @@
     // "Plano atual" é o que a pessoa paga (o teste grátis não conta, senão ninguém em teste assinaria);
     // perto do fim do mês pago o botão vira "Renovar".
     $planoAtual = auth()->check() ? Planos::slugPago(auth()->user()) : null;
-    $renovavel  = auth()->check() && \App\Support\Pix::podeRenovar(auth()->user());
+    $vitalicioMeu = auth()->check() && ! empty(auth()->user()->plano_vitalicio); // comprou o "Pague uma vez, receba para sempre"
+    $renovavel  = auth()->check() && ! $vitalicioMeu && \App\Support\Pix::podeRenovar(auth()->user());
     $pixAberto  = null;
     if (auth()->check()) {
         try {
@@ -35,6 +36,7 @@
     }
     $emBreve   = ['pro', 'premium'];                 // Coming soon
     $promos    = \App\Models\Promocao::vigentes();   // promoções relâmpago valendo agora (/admin/promocoes)
+    $ofertaVit = $vitalicioMeu ? null : \App\Models\Promocao::vitalicioVigente(); // "Pague uma vez, receba para sempre"
     $destaque  = $planos->contains('slug', 'basico') ? 'basico' : null;
 
     // classes escritas por extenso para o Tailwind enxergar
@@ -101,6 +103,42 @@
         </a>
     @endif
 
+    @if ($ofertaVit)
+        {{-- "Pague uma vez, receba para sempre" (Promocao vitalícia, /admin/promocoes) --}}
+        <section class="wf-vit mb-8" aria-label="Oferta vitalícia">
+            <div class="min-w-0 flex-1">
+                <span class="wf-vit-selo">Oferta vitalícia</span>
+                <h2 class="titulo text-2xl sm:text-3xl mt-2">{{ $ofertaVit->titulo ?: 'Pague uma vez, receba para sempre' }}</h2>
+                <p class="text-sm mt-1" style="opacity:.88">
+                    {{ $ofertaVit->descricao ?: 'Plano ' . Planos::nome($ofertaVit->plano_slug) . ' para sempre: um Pix só, sem mensalidade.' }}
+                </p>
+                <p class="text-xs mt-2 font-semibold" style="color:#fde68a" data-promo-fim="{{ $ofertaVit->termina_em->toIso8601String() }}">
+                    Termina em <span data-promo-falta>{{ $ofertaVit->termina_em->diffForHumans(null, true) }}</span>
+                </p>
+            </div>
+            <div class="text-center shrink-0">
+                @if ($ofertaVit->precoCheio())
+                    <p class="text-sm" style="opacity:.7;text-decoration:line-through">R$ {{ number_format((float) $ofertaVit->preco_cheio, 2, ',', '.') }}</p>
+                @endif
+                <p class="titulo text-4xl">R$ {{ number_format((float) $ofertaVit->preco, 2, ',', '.') }}</p>
+                <p class="text-xs" style="opacity:.8">pagamento único · Plano {{ Planos::nome($ofertaVit->plano_slug) }}</p>
+                @auth
+                    <a href="{{ route('assinar.vitalicio', $ofertaVit) }}" class="wf-vit-btn mt-3">Quero para sempre</a>
+                @else
+                    <a href="{{ $urlAssinar }}" class="wf-vit-btn mt-3">Criar conta e garantir</a>
+                @endauth
+            </div>
+        </section>
+        <style>
+            .wf-vit { display: flex; flex-wrap: wrap; align-items: center; gap: 1.5rem; padding: 1.5rem 1.6rem; border-radius: 1.4rem; color: #fff;
+                background: linear-gradient(135deg, #2e1065 0%, #6d28d9 55%, #db2777 100%); box-shadow: 0 18px 40px rgba(109, 40, 217, .28); }
+            .wf-vit-selo { display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+                padding: .25rem .7rem; border-radius: 9999px; background: rgba(255,255,255,.18); }
+            .wf-vit-btn { display: inline-block; padding: .65rem 1.3rem; border-radius: 9999px; background: #fff; color: #4c1d95; font-weight: 700; }
+            .wf-vit-btn:hover { background: #f5f3ff; }
+        </style>
+    @endif
+
     @if ($planos->isEmpty())
         <div class="card p-8 text-center">
             <p class="titulo text-xl">Nenhum plano disponível no momento</p>
@@ -133,7 +171,7 @@
                               style="background: var(--borda, #d4d4d8); color: inherit;">Em breve</span>
                     @elseif ($ehAtual)
                         <span class="absolute -top-3 left-6 text-xs font-semibold px-3 py-1 rounded-full"
-                              style="background: var(--prim); color: var(--on-prim);">Seu plano</span>
+                              style="background: var(--prim); color: var(--on-prim);">Seu plano{{ $vitalicioMeu ? " · vitalício" : "" }}</span>
                     @elseif ($promo)
                         <span class="absolute -top-3 left-6 text-xs font-semibold px-3 py-1 rounded-full"
                               style="background: #dc2626; color: #fff;">{{ $promo->titulo ?: 'Promoção relâmpago' }}</span>
@@ -206,7 +244,7 @@
         </div>
 
         <p class="texto-2 text-xs mt-6 text-center">Valores em reais, por mês, pagos por Pix. Os planos Pró e Premium chegam em breve.</p>
-        @if ($promos->isNotEmpty())
+        @if ($promos->isNotEmpty() || $ofertaVit)
             <p class="texto-2 text-xs mt-1 text-center">O preço da promoção vale para o Pix gerado até o fim dela; a renovação depois volta ao preço normal.</p>
             <script>
                 // contagem regressiva das promoções; quando uma termina, a página recarrega com o preço normal

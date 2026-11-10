@@ -21,10 +21,11 @@ class PixPagamento extends Model
     /** Pedidos que ainda podem ser pagos ou confirmados. */
     public const ABERTOS = ['aguardando', 'informado'];
 
-    protected $fillable = ['user_id', 'plano_slug', 'valor', 'txid', 'status'];
+    protected $fillable = ['user_id', 'plano_slug', 'valor', 'txid', 'status', 'vitalicio', 'promocao_id'];
 
     protected $casts = [
         'valor'         => 'decimal:2',
+        'vitalicio'     => 'boolean',
         'informado_em'  => 'datetime',
         'confirmado_em' => 'datetime',
         'liberado_ate'  => 'datetime',

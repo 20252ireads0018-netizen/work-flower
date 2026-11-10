@@ -178,6 +178,7 @@
                     <span class="tag">{{ PixPagamento::STATUS[$p->status] ?? $p->status }}</span>
                     <b>R$ {{ number_format((float) $p->valor, 2, ',', '.') }}</b>
                     <span class="texto-2 text-sm">plano {{ \App\Support\Planos::nome($p->plano_slug) }}</span>
+                    @if ($p->vitalicio)<span class="tag" style="background:#7c3aed;color:#fff">Vitalício</span>@endif
                 </div>
                 <p class="text-sm">{{ $p->user?->name }} · {{ $p->user?->email }}</p>
                 <p class="text-xs texto-2">
@@ -186,6 +187,7 @@
                     @if ($p->pagador) · pago por <b>{{ $p->pagador }}</b> @endif
                     · id <span class="font-mono">{{ $p->txid }}</span>
                     @if ($p->liberado_ate) · liberado até {{ $p->liberado_ate->format('d/m/Y') }} @endif
+                    @if ($p->vitalicio && $p->status === "confirmado") · liberado para sempre @endif
                     @if ($p->observacao) · {{ $p->observacao }} @endif
                 </p>
             </div>
