@@ -1,6 +1,7 @@
 {{-- Conteúdo do cartão "Questões de concurso" (todas as áreas). Lógica em public/js/cartoes-extra.js (métodos qz*).
      Estudar: uma questão por vez, filtro por matéria e por "não feitas"/"erradas"/"último simulado", placar por matéria.
-     Banco: questões abertas (OAB/FGV e ENEM/INEP, tabela questoes_banco) filtradas por banca, matéria, assunto, ano e dificuldade;
+     Banco: questões abertas (ENEM/INEP 2009–2024, OAB/FGV e inéditas do Work Flower com comentário, tabela questoes_banco)
+     filtradas por área, banca, matéria, assunto, ano, dificuldade e "só com comentário";
      escolher e adicionar, ou montar um simulado sorteado. Editar: cadastrar à mão, colar várias ou importar o PDF da prova. --}}
 <div class="flex flex-col h-full gap-2 min-h-0 text-sm">
     <div class="flex flex-wrap items-center gap-1.5 text-xs">
@@ -56,7 +57,7 @@
                     <template x-if="qzAtual(b).id in (b.dados.resp || {})">
                         <div class="qz-res" :class="b.dados.resp[qzAtual(b).id] === qzAtual(b).certa ? 'ok' : 'erro'">
                             <b x-text="b.dados.resp[qzAtual(b).id] === qzAtual(b).certa ? 'Certa!' : 'Errou. A certa é ' + qzLetra(qzAtual(b).certa) + '.'"></b>
-                            <span x-show="qzAtual(b).expl" class="whitespace-pre-wrap" x-text="' ' + qzAtual(b).expl"></span>
+                            <span x-show="qzAtual(b).expl" class="block whitespace-pre-wrap mt-1"><b>Comentário:</b> <span x-text="qzAtual(b).expl"></span></span>
                             <button type="button" class="link-prim text-xs ml-1" @click="qzRefazer(b, qzAtual(b))">Refazer</button>
                         </div>
                     </template>
@@ -75,7 +76,9 @@
         <button type="button" class="mini-btn" title="Anterior" aria-label="Questão anterior" @click="qzIr(b, -1)">‹</button>
         <button type="button" class="mini-btn" title="Próxima" aria-label="Próxima questão" @click="qzIr(b, 1)">›</button>
         <button type="button" class="btn-sec !py-0.5" @click="qzSortear(b)">Sortear</button>
-        <button type="button" class="btn-sec !py-0.5 ml-auto" @click="qzZerar(b)">Zerar respostas</button>
+        {{-- só na Mente (o estudo.js traz os flashcards): as que errei viram cartas de revisão espaçada --}}
+        <button type="button" class="btn-sec !py-0.5 ml-auto" x-show="$data.fcDeQuestoes && qzErradas(b).length" @click="fcDeQuestoes(b)" :title="qzErradas(b).length + ' questões erradas'">Erradas → flashcards</button>
+        <button type="button" class="btn-sec !py-0.5" :class="!($data.fcDeQuestoes && qzErradas(b).length) && 'ml-auto'" @click="qzZerar(b)">Zerar respostas</button>
     </div>
 
     {{-- banco de questões abertas --}}
@@ -86,13 +89,21 @@
                 <b class="text-sm">Banco de questões</b>
                 <span class="texto-2" x-show="qzUI(b).filtros" x-text="qzUI(b).filtros && (qzUI(b).filtros.total.toLocaleString('pt-BR') + ' questões de provas públicas')"></span>
             </div>
-            <p class="texto-2">Escolha os filtros, abra uma questão para ver as alternativas e marque as que quer estudar. Ou monte um simulado sorteado.</p>
+            <p class="texto-2">Escolha a área e os filtros, abra uma questão para ver as alternativas e marque as que quer estudar. Ou monte um simulado sorteado.</p>
+            <template x-if="qzUI(b).filtros && qzUI(b).filtros.areas">
+                <div class="flex flex-wrap gap-1" role="group" aria-label="Área">
+                    <button type="button" class="qz-chip" :class="!qzUI(b).bf.area && 'qz-on'" @click="qzBancoArea(b, '')">Todas</button>
+                    <template x-for="x in qzUI(b).filtros.areas" :key="x.nome">
+                        <button type="button" class="qz-chip" :class="qzUI(b).bf.area === x.nome && 'qz-on'" @click="qzBancoArea(b, x.nome)" x-text="x.nome + ' · ' + x.n.toLocaleString('pt-BR')"></button>
+                    </template>
+                </div>
+            </template>
             <template x-if="qzUI(b).filtros">
                 <div class="cx-grade">
                     <label class="flex flex-col gap-0.5">Banca
                         <select class="campo !py-0.5 !text-xs" x-model="qzUI(b).bf.banca" @change="qzBancoMudou(b, 'banca')">
                             <option value="">Todas</option>
-                            <template x-for="x in qzUI(b).filtros.bancas" :key="x.nome"><option :value="x.nome" x-text="x.nome + ' (' + x.n + ')'"></option></template>
+                            <template x-for="x in qzBancoBancas(b)" :key="x.nome"><option :value="x.nome" x-text="x.nome + ' (' + x.n + ')'" :selected="x.nome === qzUI(b).bf.banca"></option></template>
                         </select>
                     </label>
                     <label class="flex flex-col gap-0.5">Matéria
@@ -113,7 +124,7 @@
                             <template x-for="a in qzUI(b).filtros.anos" :key="a"><option :value="a" x-text="a"></option></template>
                         </select>
                     </label>
-                    <label class="flex flex-col gap-0.5">Dificuldade (estimada)
+                    <label class="flex flex-col gap-0.5" title="Nas provas públicas a dificuldade é estimada pelo tamanho do texto; nas inéditas foi definida por quem escreveu">Dificuldade
                         <select class="campo !py-0.5 !text-xs" x-model="qzUI(b).bf.dificuldade" @change="qzBancoMudou(b, 'dificuldade')">
                             <option value="">Todas</option>
                             <template x-for="d in qzUI(b).filtros.dificuldades" :key="d.id"><option :value="d.id" x-text="d.nome"></option></template>
@@ -121,6 +132,9 @@
                     </label>
                     <label class="flex flex-col gap-0.5">Palavra no enunciado
                         <input class="campo !py-0.5 text-xs" x-model="qzUI(b).bf.busca" maxlength="80" placeholder="Ex.: usucapião" @keydown.enter.prevent="qzBancoBuscar(b, 1)" @change="qzBancoBuscar(b, 1)">
+                    </label>
+                    <label class="flex items-center gap-1 self-end" :title="(qzUI(b).filtros.comentadas || 0).toLocaleString('pt-BR') + ' questões com comentário do gabarito'">
+                        <input type="checkbox" x-model="qzUI(b).bf.comentadas" @change="qzBancoMudou(b, 'comentadas')"> Só com comentário
                     </label>
                 </div>
             </template>
@@ -150,7 +164,7 @@
                             <div class="flex gap-2 items-start">
                                 <input type="checkbox" class="mt-0.5" :checked="!!qzUI(b).sel[q.id] || qzBancoJa(b, q)" :disabled="qzBancoJa(b, q)" @change="qzBancoMarcar(b, q)" :aria-label="'Escolher a questão ' + q.ref">
                                 <button type="button" class="text-left flex-1 min-w-0" @click="qzUI(b).abertos[q.id] = !qzUI(b).abertos[q.id]" :aria-expanded="!!qzUI(b).abertos[q.id]">
-                                    <span class="block text-[11px] texto-2" x-text="q.banca + ' · ' + q.prova + ' · ' + q.materia + (q.assunto !== 'Geral' ? ' · ' + q.assunto : '') + ' · ' + qzDif(q.dificuldade)"></span>
+                                    <span class="block text-[11px] texto-2" x-text="q.banca + ' · ' + q.prova + ' · ' + q.materia + (q.assunto !== 'Geral' ? ' · ' + q.assunto : '') + ' · ' + qzDif(q.dificuldade) + (q.comentario ? ' · com comentário' : '')"></span>
                                     <span class="block whitespace-pre-wrap" :class="!qzUI(b).abertos[q.id] && 'qz-2linhas'" x-text="q.enunciado"></span>
                                 </button>
                                 <span class="qz-chip shrink-0" x-show="qzBancoJa(b, q)">no cartão</span>
@@ -170,7 +184,7 @@
                 <button type="button" class="link-prim" @click="qzUI(b).sel = {}">Desmarcar</button>
                 <button type="button" class="btn !py-0.5 ml-auto" @click="qzBancoAdicionar(b)">Adicionar ao cartão</button>
             </div>
-            <p class="texto-2 text-[11px]">Fontes abertas: provas da OAB (FGV e Cespe, conjunto legal-nlp/oab-exams, licença MIT) e do ENEM 2022–2024 (INEP, conjunto maritaca-ai/enem, licença Apache-2.0). Assunto e dificuldade são calculados automaticamente.</p>
+            <p class="texto-2 text-[11px]">Fontes: provas públicas do ENEM 2009–2017 (INEP, conjunto ENEM Challenge) e 2022–2024 (INEP, conjunto maritaca-ai/enem, Apache-2.0), da OAB (FGV e Cespe, conjunto legal-nlp/oab-exams, MIT) e questões inéditas escritas para o Work Flower, com gabarito comentado (tecnologia, direito, administração, português, raciocínio lógico e saúde). Nas provas públicas, assunto e dificuldade são calculados automaticamente.</p>
         </div>
     </template>
 

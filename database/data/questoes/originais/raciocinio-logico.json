@@ -1,0 +1,698 @@
+{
+  "area": "Raciocínio lógico e matemática",
+  "questoes": [
+    {
+      "ref": "WF-RL-001",
+      "materia": "Raciocínio lógico",
+      "assunto": "Negação de proposições quantificadas",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "A negação da proposição “Todo servidor do setor é pontual” é:",
+      "alts": [
+        "Nenhum servidor do setor é pontual.",
+        "Algum servidor do setor não é pontual.",
+        "Todo servidor do setor não é pontual.",
+        "Algum servidor do setor é pontual.",
+        "Nenhum servidor do setor é impontual."
+      ],
+      "certa": 1,
+      "comentario": "Para negar “todo A é B” basta um contraexemplo: “algum A não é B”. “Nenhum servidor é pontual” e “Todo servidor não é pontual” são afirmações mais fortes que a negação; D e E são compatíveis com a frase original."
+    },
+    {
+      "ref": "WF-RL-002",
+      "materia": "Raciocínio lógico",
+      "assunto": "Negação de proposições quantificadas",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "A negação da proposição “Nenhum candidato foi aprovado” é “Algum candidato foi aprovado”.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "“Nenhum A é B” é falsa exatamente quando existe pelo menos um A que é B. Logo, sua negação é “Algum A é B”: “Algum candidato foi aprovado”."
+    },
+    {
+      "ref": "WF-RL-003",
+      "materia": "Raciocínio lógico",
+      "assunto": "Negação da condicional",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "A negação da proposição “Se chove, então a rua fica molhada” é:",
+      "alts": [
+        "Se não chove, então a rua não fica molhada.",
+        "Não chove e a rua fica molhada.",
+        "Se a rua não fica molhada, então não chove.",
+        "Chove e a rua não fica molhada.",
+        "Não chove ou a rua fica molhada."
+      ],
+      "certa": 3,
+      "comentario": "A condicional P → Q só é falsa quando P é verdadeira e Q é falsa; por isso ¬(P → Q) ≡ P ∧ ¬Q: “Chove e a rua não fica molhada”. C e E são equivalentes à proposição original (não à negação), e A e B não a negam."
+    },
+    {
+      "ref": "WF-RL-004",
+      "materia": "Raciocínio lógico",
+      "assunto": "Equivalências lógicas (contrapositiva)",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Uma proposição logicamente equivalente a “Se Ana estuda, então Ana é aprovada” é:",
+      "alts": [
+        "Se Ana é aprovada, então Ana estuda.",
+        "Se Ana não estuda, então Ana não é aprovada.",
+        "Ana estuda e não é aprovada.",
+        "Ana estuda ou é aprovada.",
+        "Se Ana não é aprovada, então Ana não estuda."
+      ],
+      "certa": 4,
+      "comentario": "A contrapositiva ¬Q → ¬P é equivalente a P → Q. A é a recíproca e B é a inversa, que não são equivalentes; C é a negação; e D (P ∨ Q) difere de P → Q, que equivale a ¬P ∨ Q."
+    },
+    {
+      "ref": "WF-RL-005",
+      "materia": "Raciocínio lógico",
+      "assunto": "Equivalências lógicas",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "A proposição “Se Pedro é médico, então Pedro trabalha no hospital” é logicamente equivalente a “Pedro não é médico ou Pedro trabalha no hospital”.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Vale a equivalência P → Q ≡ ¬P ∨ Q: ambas só são falsas quando P é verdadeira e Q é falsa. Por isso o item está certo."
+    },
+    {
+      "ref": "WF-RL-006",
+      "materia": "Raciocínio lógico",
+      "assunto": "Negação de proposições (De Morgan)",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "A negação da proposição “João é advogado e Maria é engenheira” é:",
+      "alts": [
+        "João não é advogado ou Maria não é engenheira.",
+        "João não é advogado e Maria não é engenheira.",
+        "João é advogado ou Maria é engenheira.",
+        "Se João é advogado, então Maria é engenheira.",
+        "João não é advogado e Maria é engenheira."
+      ],
+      "certa": 0,
+      "comentario": "Pela lei de De Morgan, ¬(P ∧ Q) ≡ ¬P ∨ ¬Q: basta que uma das partes falhe. A alternativa B exige que as duas falhem, o que é mais forte que a negação; as demais não negam a conjunção."
+    },
+    {
+      "ref": "WF-RL-007",
+      "materia": "Raciocínio lógico",
+      "assunto": "Negação de proposições (De Morgan)",
+      "dificuldade": "media",
+      "estilo": "Cesgranrio",
+      "enunciado": "A negação da proposição “Paulo viaja ou Rita fica em casa” é:",
+      "alts": [
+        "Paulo não viaja ou Rita não fica em casa.",
+        "Paulo viaja e Rita fica em casa.",
+        "Paulo não viaja e Rita não fica em casa.",
+        "Se Paulo não viaja, então Rita fica em casa.",
+        "Paulo viaja e Rita não fica em casa."
+      ],
+      "certa": 2,
+      "comentario": "Pela lei de De Morgan, ¬(P ∨ Q) ≡ ¬P ∧ ¬Q: a disjunção só é falsa quando as duas partes são falsas. A alternativa D é, na verdade, equivalente à proposição original (¬P → Q ≡ P ∨ Q)."
+    },
+    {
+      "ref": "WF-RL-008",
+      "materia": "Raciocínio lógico",
+      "assunto": "Tabela-verdade",
+      "dificuldade": "facil",
+      "estilo": "FGV",
+      "enunciado": "Uma proposição composta é formada por quatro proposições simples distintas. O número de linhas de sua tabela-verdade é",
+      "alts": [
+        "4.",
+        "8.",
+        "12.",
+        "16.",
+        "32."
+      ],
+      "certa": 3,
+      "comentario": "Cada proposição simples tem 2 valores possíveis, então o número de linhas é 2^n. Com n = 4, são 2^4 = 16 linhas."
+    },
+    {
+      "ref": "WF-RL-009",
+      "materia": "Raciocínio lógico",
+      "assunto": "Tabela-verdade (tautologia)",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Sendo P e Q proposições simples, a proposição (P → Q) ∨ (Q → P) é uma tautologia.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Para a disjunção ser falsa, P → Q teria de ser falsa (P = V e Q = F), mas nesse caso Q → P é verdadeira. Como as duas condicionais nunca são falsas ao mesmo tempo, a proposição é sempre verdadeira: tautologia."
+    },
+    {
+      "ref": "WF-RL-010",
+      "materia": "Raciocínio lógico",
+      "assunto": "Proposições e conectivos (condicional)",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Sabe-se que a proposição “Se o relatório está pronto, então a reunião acontece” é FALSA. Com base nisso, é correto concluir que",
+      "alts": [
+        "o relatório não está pronto e a reunião acontece.",
+        "o relatório está pronto e a reunião não acontece.",
+        "o relatório não está pronto e a reunião não acontece.",
+        "o relatório está pronto e a reunião acontece.",
+        "não é possível determinar os valores lógicos das partes."
+      ],
+      "certa": 1,
+      "comentario": "A condicional só é falsa em um único caso: antecedente verdadeiro e consequente falso. Logo, o relatório está pronto e a reunião não acontece; nos outros três casos a condicional seria verdadeira."
+    },
+    {
+      "ref": "WF-RL-011",
+      "materia": "Raciocínio lógico",
+      "assunto": "Tabela-verdade",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Considere que p é verdadeira, q é falsa e r é verdadeira. Os valores lógicos de (p ∧ q) → r e de (p ∨ q) ↔ ¬r são, respectivamente,",
+      "alts": [
+        "V e V.",
+        "V e F.",
+        "F e V.",
+        "F e F.",
+        "impossíveis de determinar."
+      ],
+      "certa": 1,
+      "comentario": "p ∧ q = V ∧ F = F, e F → V é verdadeira. Já p ∨ q = V e ¬r = F; a bicondicional V ↔ F é falsa. Resultado: V e F."
+    },
+    {
+      "ref": "WF-RL-012",
+      "materia": "Raciocínio lógico",
+      "assunto": "Equivalências lógicas (bicondicional)",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Sendo P e Q proposições simples, a proposição P ↔ Q é logicamente equivalente a (P ∧ Q) ∨ (¬P ∧ Q).",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "(P ∧ Q) ∨ (¬P ∧ Q) simplifica para Q. Com P = F e Q = F, a bicondicional é verdadeira, mas a expressão é falsa; logo não são equivalentes. O correto seria (P ∧ Q) ∨ (¬P ∧ ¬Q)."
+    },
+    {
+      "ref": "WF-RL-013",
+      "materia": "Raciocínio lógico",
+      "assunto": "Argumentos válidos (modus tollens)",
+      "dificuldade": "facil",
+      "estilo": "FGV",
+      "enunciado": "Considere as premissas:\nI. Se Lúcia estuda, então Lúcia é aprovada.\nII. Lúcia não foi aprovada.\nA partir delas, conclui-se validamente que",
+      "alts": [
+        "Lúcia não estudou.",
+        "Lúcia estudou.",
+        "Lúcia estudou, mas não o suficiente.",
+        "Lúcia será aprovada na próxima tentativa.",
+        "nada se pode concluir sobre Lúcia ter estudado."
+      ],
+      "certa": 0,
+      "comentario": "Se o consequente da condicional é falso e a condicional é verdadeira, o antecedente tem de ser falso (modus tollens). Assim, Lúcia não estudou; as outras alternativas contradizem as premissas ou trazem informação que elas não dão."
+    },
+    {
+      "ref": "WF-RL-014",
+      "materia": "Raciocínio lógico",
+      "assunto": "Argumentos válidos (falácias)",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Considere o argumento: “Se o servidor é aprovado no estágio probatório, então ele é efetivado. O servidor foi efetivado. Logo, ele foi aprovado no estágio probatório.” Esse argumento é válido.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "O argumento afirma o consequente (P → Q; Q; logo P), que é uma falácia: com P falsa e Q verdadeira, as premissas são verdadeiras e a conclusão é falsa. Portanto o argumento é inválido."
+    },
+    {
+      "ref": "WF-RL-015",
+      "materia": "Raciocínio lógico",
+      "assunto": "Argumentos válidos",
+      "dificuldade": "dificil",
+      "estilo": "FCC",
+      "enunciado": "Considere verdadeiras as premissas:\nI. Carla vai ao cinema ou Bruno vai ao teatro.\nII. Se Bruno vai ao teatro, então Diego fica em casa.\nIII. Diego não fica em casa.\nÉ correto concluir que",
+      "alts": [
+        "Carla não vai ao cinema e Bruno vai ao teatro.",
+        "Carla não vai ao cinema.",
+        "Carla e Bruno ficam em casa.",
+        "Bruno vai ao teatro e Diego sai de casa.",
+        "Carla vai ao cinema e Bruno não vai ao teatro."
+      ],
+      "certa": 4,
+      "comentario": "De III e II, por modus tollens, Bruno não vai ao teatro. Então, em I, a parte “Bruno vai ao teatro” é falsa e, para a disjunção ser verdadeira, Carla vai ao cinema (silogismo disjuntivo)."
+    },
+    {
+      "ref": "WF-RL-016",
+      "materia": "Raciocínio lógico",
+      "assunto": "Diagramas lógicos",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Considere verdadeiras as afirmações: “Todos os auditores são contadores” e “Alguns contadores são advogados”. Com base apenas nelas, é necessariamente verdadeiro que",
+      "alts": [
+        "alguns auditores são advogados.",
+        "todos os contadores são auditores.",
+        "nenhum auditor é advogado.",
+        "quem não é contador não é auditor.",
+        "alguns advogados são auditores."
+      ],
+      "certa": 3,
+      "comentario": "Se o conjunto dos auditores está dentro do dos contadores, quem está fora dos contadores está fora dos auditores (contrapositiva de “todo A é C”). Os advogados podem ou não incluir auditores, de modo que A, C e E não são garantidas, e B inverte a inclusão."
+    },
+    {
+      "ref": "WF-RL-017",
+      "materia": "Raciocínio lógico",
+      "assunto": "Diagramas lógicos",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "O argumento “Todo fiscal é servidor público. Nenhum servidor público é empresário. Logo, nenhum fiscal é empresário.” é válido.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "O conjunto dos fiscais está contido no dos servidores, que não tem interseção com o dos empresários. Logo, os fiscais também não têm interseção com os empresários, e a conclusão decorre necessariamente das premissas."
+    },
+    {
+      "ref": "WF-RL-018",
+      "materia": "Raciocínio lógico",
+      "assunto": "Diagramas lógicos (conjuntos)",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Em uma turma de 40 alunos, 25 estudam Direito Constitucional, 18 estudam Direito Administrativo e 7 não estudam nenhuma dessas disciplinas. O número de alunos que estudam as duas disciplinas é",
+      "alts": [
+        "7.",
+        "8.",
+        "10.",
+        "11.",
+        "15."
+      ],
+      "certa": 2,
+      "comentario": "Estudam pelo menos uma disciplina 40 − 7 = 33 alunos. Pela fórmula da união, 25 + 18 − x = 33, logo x = 43 − 33 = 10."
+    },
+    {
+      "ref": "WF-RL-019",
+      "materia": "Raciocínio lógico",
+      "assunto": "Sequências numéricas",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Observe a sequência: 2, 5, 11, 23, 47, … Mantido o padrão, o próximo termo é",
+      "alts": [
+        "93.",
+        "94.",
+        "95.",
+        "96.",
+        "97."
+      ],
+      "certa": 2,
+      "comentario": "Cada termo é o dobro do anterior mais 1: 2·2+1 = 5, 5·2+1 = 11, 11·2+1 = 23, 23·2+1 = 47. O próximo é 47·2+1 = 95."
+    },
+    {
+      "ref": "WF-RL-020",
+      "materia": "Raciocínio lógico",
+      "assunto": "Sequências numéricas",
+      "dificuldade": "media",
+      "estilo": "Cesgranrio",
+      "enunciado": "Na sequência 3, 7, 12, 18, 25, …, a diferença entre termos consecutivos aumenta 1 unidade a cada passo. O 8º termo dessa sequência é",
+      "alts": [
+        "45.",
+        "48.",
+        "52.",
+        "50.",
+        "55."
+      ],
+      "certa": 2,
+      "comentario": "As diferenças são 4, 5, 6, 7 e seguem 8, 9, 10. Assim: 25 + 8 = 33 (6º), 33 + 9 = 42 (7º) e 42 + 10 = 52 (8º)."
+    },
+    {
+      "ref": "WF-RL-021",
+      "materia": "Raciocínio lógico",
+      "assunto": "Sequências (padrões cíclicos)",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "As letras da palavra FLOWER são escritas repetidamente, na mesma ordem: F, L, O, W, E, R, F, L, O, W, E, R, … A 2026ª letra escrita é",
+      "alts": [
+        "F.",
+        "L.",
+        "O.",
+        "E.",
+        "W."
+      ],
+      "certa": 4,
+      "comentario": "O ciclo tem 6 letras. Como 2026 = 6 × 337 + 4, a 2026ª letra ocupa a 4ª posição do ciclo, que é W."
+    },
+    {
+      "ref": "WF-RL-022",
+      "materia": "Raciocínio lógico",
+      "assunto": "Problemas de verdade e mentira",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Ana, Beto e Caio são os únicos suspeitos de ter deixado aberta a porta do arquivo, e apenas um deles o fez. Questionados, disseram:\nAna: “Foi o Caio.”\nBeto: “Foi a Ana.”\nCaio: “Não fui eu.”\nSabendo que exatamente um dos três mentiu, quem deixou a porta aberta foi",
+      "alts": [
+        "Ana.",
+        "Beto.",
+        "Caio.",
+        "Ana ou Beto, não sendo possível decidir.",
+        "nenhum dos três."
+      ],
+      "certa": 0,
+      "comentario": "Se foi Ana, só Ana mente (Beto e Caio dizem a verdade): um mentiroso, como exigido. Se foi Beto, mentem Ana e Beto; se foi Caio, mentem Beto e Caio; nesses casos haveria dois mentirosos. Logo, foi Ana."
+    },
+    {
+      "ref": "WF-RL-023",
+      "materia": "Raciocínio lógico",
+      "assunto": "Problemas de verdade e mentira",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Em uma ilha, os cavaleiros sempre dizem a verdade e os patifes sempre mentem; cada habitante é cavaleiro ou patife. O habitante X afirma: “Eu e Y somos patifes.” Nessa situação, conclui-se que X é patife e Y é cavaleiro.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Se X fosse cavaleiro, a frase seria verdadeira e ele seria patife, contradição; logo X é patife e a frase é falsa. Como X de fato é patife, a frase só é falsa se Y não for patife, ou seja, Y é cavaleiro."
+    },
+    {
+      "ref": "WF-RL-024",
+      "materia": "Raciocínio lógico",
+      "assunto": "Proposições",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Assinale a alternativa que apresenta uma proposição lógica.",
+      "alts": [
+        "Que horas são?",
+        "Brasília é a capital do Brasil.",
+        "Feche a porta ao sair.",
+        "x + 3 = 10",
+        "Que dia bonito!"
+      ],
+      "certa": 1,
+      "comentario": "Proposição é uma sentença declarativa que pode ser classificada como verdadeira ou falsa, como “Brasília é a capital do Brasil”. Perguntas, ordens e exclamações não são proposições, e “x + 3 = 10” é sentença aberta, cujo valor depende de x."
+    },
+    {
+      "ref": "WF-RL-025",
+      "materia": "Raciocínio lógico",
+      "assunto": "Proposições",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "A frase “Estude para a prova de amanhã.” é uma proposição lógica.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "A frase é imperativa (uma ordem ou conselho) e não pode ser julgada verdadeira ou falsa. Por isso não é proposição."
+    },
+    {
+      "ref": "WF-MAT-001",
+      "materia": "Matemática",
+      "assunto": "Porcentagem",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Um produto que custava R$ 250,00 teve aumento de 12%. O novo preço desse produto é",
+      "alts": [
+        "R$ 262,00.",
+        "R$ 270,00.",
+        "R$ 275,00.",
+        "R$ 280,00.",
+        "R$ 285,00."
+      ],
+      "certa": 3,
+      "comentario": "12% de 250 = 0,12 × 250 = 30. Novo preço: 250 + 30 = R$ 280,00 (ou 250 × 1,12 = 280)."
+    },
+    {
+      "ref": "WF-MAT-002",
+      "materia": "Matemática",
+      "assunto": "Porcentagem (aumentos e descontos sucessivos)",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "O preço de um equipamento sofreu aumento de 20% e, em seguida, desconto de 20% sobre o novo valor. Em relação ao preço inicial, o preço final apresenta",
+      "alts": [
+        "nenhuma variação.",
+        "redução de 2%.",
+        "redução de 4%.",
+        "aumento de 4%.",
+        "redução de 20%."
+      ],
+      "certa": 2,
+      "comentario": "Os fatores se multiplicam: 1,20 × 0,80 = 0,96, ou seja, o preço final é 96% do inicial, uma redução de 4%. O desconto incide sobre um valor maior, por isso não “anula” o aumento."
+    },
+    {
+      "ref": "WF-MAT-003",
+      "materia": "Matemática",
+      "assunto": "Porcentagem",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Se o preço de um bem caiu de R$ 80,00 para R$ 60,00, então a redução percentual foi de 25%.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "A redução foi de 20 reais sobre o valor inicial de 80: 20 ÷ 80 = 0,25 = 25%. (Se o cálculo fosse feito sobre 60, daria cerca de 33%, mas a base correta é o valor inicial.)"
+    },
+    {
+      "ref": "WF-MAT-004",
+      "materia": "Matemática",
+      "assunto": "Regra de três simples",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Seis impressoras iguais imprimem um lote de documentos em 10 horas. Com o mesmo ritmo, quatro dessas impressoras imprimiriam o mesmo lote em",
+      "alts": [
+        "15 horas.",
+        "6 horas e 40 minutos.",
+        "12 horas.",
+        "14 horas.",
+        "16 horas."
+      ],
+      "certa": 0,
+      "comentario": "Menos impressoras levam mais tempo: grandezas inversamente proporcionais. 6 × 10 = 4 × t, logo t = 60 ÷ 4 = 15 horas; 6 h 40 min resultaria de tratar a relação como direta."
+    },
+    {
+      "ref": "WF-MAT-005",
+      "materia": "Matemática",
+      "assunto": "Regra de três composta",
+      "dificuldade": "dificil",
+      "estilo": "FCC",
+      "enunciado": "Cinco técnicos, trabalhando 8 horas por dia, analisam 400 processos em 6 dias. Mantido o mesmo ritmo individual, quatro técnicos, trabalhando 6 horas por dia, analisariam 480 processos em",
+      "alts": [
+        "9 dias.",
+        "10 dias.",
+        "11 dias.",
+        "14 dias.",
+        "12 dias."
+      ],
+      "certa": 4,
+      "comentario": "Na primeira situação gastam-se 5 × 8 × 6 = 240 horas de trabalho para 400 processos, ou 0,6 hora por processo. Para 480 processos são 480 × 0,6 = 288 horas; com 4 × 6 = 24 horas por dia, são 288 ÷ 24 = 12 dias."
+    },
+    {
+      "ref": "WF-MAT-006",
+      "materia": "Matemática",
+      "assunto": "Razão e proporção (divisão proporcional)",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Três sócios investiram R$ 20.000,00, R$ 30.000,00 e R$ 40.000,00 em um negócio. O lucro de R$ 36.000,00 será dividido em partes diretamente proporcionais aos valores investidos. O sócio que investiu R$ 30.000,00 receberá",
+      "alts": [
+        "R$ 10.000,00.",
+        "R$ 12.000,00.",
+        "R$ 13.500,00.",
+        "R$ 15.000,00.",
+        "R$ 16.000,00."
+      ],
+      "certa": 1,
+      "comentario": "O total investido é 90.000, e o lucro por real investido é 36.000 ÷ 90.000 = 0,4. O segundo sócio recebe 30.000 × 0,4 = R$ 12.000,00 (os outros recebem 8.000 e 16.000, somando 36.000)."
+    },
+    {
+      "ref": "WF-MAT-007",
+      "materia": "Matemática",
+      "assunto": "MDC",
+      "dificuldade": "media",
+      "estilo": "Cesgranrio",
+      "enunciado": "Duas peças de tecido, uma com 84 m e outra com 120 m, serão cortadas em pedaços de mesmo comprimento, o maior possível, sem sobras. O número total de pedaços obtidos será",
+      "alts": [
+        "17.",
+        "12.",
+        "14.",
+        "19.",
+        "24."
+      ],
+      "certa": 0,
+      "comentario": "O maior comprimento que divide as duas medidas é o MDC(84, 120) = 12 m (84 = 2²·3·7 e 120 = 2³·3·5). São 84 ÷ 12 = 7 pedaços mais 120 ÷ 12 = 10 pedaços, total 17; 12 é o tamanho do pedaço, não a quantidade."
+    },
+    {
+      "ref": "WF-MAT-008",
+      "materia": "Matemática",
+      "assunto": "Análise combinatória (permutações)",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Quantos anagramas da palavra PROVA começam por vogal?",
+      "alts": [
+        "24",
+        "48",
+        "60",
+        "96",
+        "120"
+      ],
+      "certa": 1,
+      "comentario": "A palavra tem 5 letras distintas, com 2 vogais (O e A). Escolhe-se a vogal inicial de 2 modos e permutam-se as 4 letras restantes: 2 × 4! = 2 × 24 = 48. O total de anagramas, 120, não aplica a restrição."
+    },
+    {
+      "ref": "WF-MAT-009",
+      "materia": "Matemática",
+      "assunto": "Análise combinatória (combinações)",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "De um grupo de 5 homens e 4 mulheres, deseja-se formar uma comissão de 3 pessoas com pelo menos uma mulher. O número de comissões possíveis é",
+      "alts": [
+        "60.",
+        "64.",
+        "70.",
+        "74.",
+        "84."
+      ],
+      "certa": 3,
+      "comentario": "Total de comissões: C(9,3) = 84. Comissões só de homens: C(5,3) = 10. Com pelo menos uma mulher: 84 − 10 = 74."
+    },
+    {
+      "ref": "WF-MAT-010",
+      "materia": "Matemática",
+      "assunto": "Probabilidade",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Dois dados comuns e honestos, de seis faces numeradas de 1 a 6, são lançados. A probabilidade de a soma dos resultados ser 8 é",
+      "alts": [
+        "1/6.",
+        "1/9.",
+        "5/36.",
+        "7/36.",
+        "1/12."
+      ],
+      "certa": 2,
+      "comentario": "São 36 resultados igualmente prováveis. Somam 8: (2,6), (3,5), (4,4), (5,3) e (6,2), ou seja, 5 casos. Probabilidade: 5/36."
+    },
+    {
+      "ref": "WF-MAT-011",
+      "materia": "Matemática",
+      "assunto": "Probabilidade",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Uma urna contém 3 bolas vermelhas e 2 azuis. Retirando-se ao acaso duas bolas, uma após a outra e sem reposição, a probabilidade de ambas serem vermelhas é igual a 3/10.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "P = (3/5) × (2/4) = 6/20 = 3/10. Por combinações: C(3,2)/C(5,2) = 3/10, o mesmo resultado."
+    },
+    {
+      "ref": "WF-MAT-012",
+      "materia": "Matemática",
+      "assunto": "MMC",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Três linhas de ônibus partem juntas de um terminal às 6 h. A primeira parte a cada 12 minutos, a segunda a cada 15 minutos e a terceira a cada 20 minutos. As três voltarão a partir juntas, pela primeira vez, às",
+      "alts": [
+        "6 h 30 min.",
+        "6 h 45 min.",
+        "7 h 20 min.",
+        "8 h.",
+        "7 h."
+      ],
+      "certa": 4,
+      "comentario": "O próximo encontro ocorre após o MMC(12, 15, 20) minutos. Como 12 = 2²·3, 15 = 3·5 e 20 = 2²·5, o MMC é 2²·3·5 = 60 minutos; logo, às 7 h."
+    },
+    {
+      "ref": "WF-MF-001",
+      "materia": "Matemática financeira",
+      "assunto": "Juros simples",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Um capital de R$ 5.000,00 foi aplicado a juros simples, à taxa de 2% ao mês, durante 8 meses. O montante ao final do período é",
+      "alts": [
+        "R$ 5.400,00.",
+        "R$ 5.600,00.",
+        "R$ 5.800,00.",
+        "R$ 6.000,00.",
+        "R$ 6.200,00."
+      ],
+      "certa": 2,
+      "comentario": "J = C · i · t = 5.000 × 0,02 × 8 = 800. M = 5.000 + 800 = R$ 5.800,00."
+    },
+    {
+      "ref": "WF-MF-002",
+      "materia": "Matemática financeira",
+      "assunto": "Juros compostos",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Um capital de R$ 10.000,00 é aplicado a juros compostos de 10% ao ano. Ao final de 2 anos, o montante será",
+      "alts": [
+        "R$ 12.000,00.",
+        "R$ 12.100,00.",
+        "R$ 12.200,00.",
+        "R$ 12.210,00.",
+        "R$ 13.310,00."
+      ],
+      "certa": 1,
+      "comentario": "M = 10.000 × 1,1² = 10.000 × 1,21 = R$ 12.100,00. R$ 12.000,00 seria o montante a juros simples, e R$ 13.310,00 corresponde a 3 anos."
+    },
+    {
+      "ref": "WF-MF-003",
+      "materia": "Matemática financeira",
+      "assunto": "Juros compostos",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Um capital de R$ 8.000,00 foi aplicado a juros compostos de 5% ao mês, durante 3 meses. Considerando 1,05³ = 1,157625, os juros obtidos ao final do período foram de",
+      "alts": [
+        "R$ 1.200,00.",
+        "R$ 1.240,00.",
+        "R$ 1.250,00.",
+        "R$ 1.261,00.",
+        "R$ 1.300,00."
+      ],
+      "certa": 3,
+      "comentario": "M = 8.000 × 1,157625 = 9.261,00, então J = 9.261 − 8.000 = R$ 1.261,00. R$ 1.200,00 seria o juro simples (8.000 × 0,05 × 3)."
+    },
+    {
+      "ref": "WF-MF-004",
+      "materia": "Matemática financeira",
+      "assunto": "Juros simples",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Aplicando-se R$ 2.000,00 a juros simples de 3% ao mês, o montante ao final de 6 meses será de R$ 2.300,00.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "J = 2.000 × 0,03 × 6 = 360, logo M = R$ 2.360,00. O valor de R$ 2.300,00 corresponderia a 5 meses."
+    },
+    {
+      "ref": "WF-MF-005",
+      "materia": "Matemática financeira",
+      "assunto": "Desconto simples comercial",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Um título de valor nominal R$ 10.000,00 foi descontado 3 meses antes do vencimento, com desconto simples comercial (por fora) à taxa de 2% ao mês. O valor recebido pelo portador foi",
+      "alts": [
+        "R$ 9.400,00.",
+        "R$ 9.412,00.",
+        "R$ 9.433,96.",
+        "R$ 9.600,00.",
+        "R$ 9.800,00."
+      ],
+      "certa": 0,
+      "comentario": "No desconto comercial, D = N · i · t = 10.000 × 0,02 × 3 = 600, e o valor atual é 10.000 − 600 = R$ 9.400,00. R$ 9.433,96 seria o desconto racional (10.000 ÷ 1,06)."
+    },
+    {
+      "ref": "WF-MF-006",
+      "materia": "Matemática financeira",
+      "assunto": "Taxas equivalentes",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "No regime de juros compostos, a taxa anual equivalente à taxa de 10% ao semestre é",
+      "alts": [
+        "20%.",
+        "20,5%.",
+        "21,5%.",
+        "22%.",
+        "21%."
+      ],
+      "certa": 4,
+      "comentario": "Um ano tem 2 semestres: (1 + 0,10)² = 1,21, ou seja, 21% ao ano. 20% seria a taxa proporcional, usada em juros simples."
+    },
+    {
+      "ref": "WF-MF-007",
+      "materia": "Matemática financeira",
+      "assunto": "Taxas equivalentes",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "No regime de juros compostos, a taxa de 2% ao mês é equivalente à taxa de 24% ao ano.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "24% ao ano é apenas a taxa proporcional (2% × 12), válida para juros simples. Em juros compostos, a equivalente é 1,02¹² − 1 ≈ 26,82% ao ano, maior que 24%."
+    },
+    {
+      "ref": "WF-MF-008",
+      "materia": "Matemática financeira",
+      "assunto": "Juros simples",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Um capital aplicado a juros simples, à taxa de 4% ao mês, dobrará de valor em",
+      "alts": [
+        "20 meses.",
+        "24 meses.",
+        "30 meses.",
+        "25 meses.",
+        "50 meses."
+      ],
+      "certa": 3,
+      "comentario": "Para dobrar, os juros devem ser iguais ao capital: C × 0,04 × t = C, logo t = 1 ÷ 0,04 = 25 meses."
+    }
+  ]
+}

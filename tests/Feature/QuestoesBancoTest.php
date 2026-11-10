@@ -84,6 +84,74 @@ class QuestoesBancoTest extends TestCase
         $this->actingAs($u)->getJson('/cartoes/questoes/simulado?n=500')->assertStatus(422);
     }
 
+    public function test_areas_ineditas_com_comentario_e_enem_antigo(): void
+    {
+        $u = User::factory()->create();
+        $r = $this->actingAs($u)->getJson('/cartoes/questoes/filtros')->assertOk();
+
+        $areas = collect($r->json('areas'))->pluck('n', 'nome');
+        foreach (['ENEM', 'Direito', 'Tecnologia', 'Administração', 'Português', 'Raciocínio lógico e matemática', 'Saúde'] as $a) {
+            $this->assertGreaterThan(30, $areas[$a] ?? 0, "área com poucas questões: $a");
+        }
+        $this->assertGreaterThan(1000, $areas['ENEM']); // 2009–2017 + 2022–2024
+        $this->assertContains(2012, $r->json('anos'));
+        $this->assertGreaterThan(300, $r->json('comentadas'));
+        $this->assertContains(QuestoesBanco::BANCA_INEDITAS, collect($r->json('bancas'))->pluck('nome'));
+
+        // filtro por área + só comentadas: inéditas, com gabarito comentado e dificuldade definida (não estimada)
+        $t = $this->actingAs($u)->getJson('/cartoes/questoes?area=Tecnologia&comentadas=1&materia=Redes%20de%20computadores')->assertOk();
+        $this->assertGreaterThan(10, $t->json('total'));
+        foreach ($t->json('itens') as $q) {
+            $this->assertSame('Tecnologia', $q['area']);
+            $this->assertSame('wf', $q['fonte']);
+            $this->assertNotEmpty($q['comentario']);
+            $this->assertStringStartsWith('Questão inédita', $q['prova']);
+            $this->assertLessThan(count(array_filter($q['alts'])), $q['certa'] + 0.5);
+        }
+        // certo/errado do estilo Cebraspe: duas alternativas
+        $ce = DB::table('questoes_banco')->where('fonte', 'wf')->where('alts', 'like', '["Certo","Errado"%')->count();
+        $this->assertGreaterThan(50, $ce);
+
+        // ENEM antigo entra com a matéria pela posição no caderno (2009: Natureza primeiro)
+        $this->assertSame('Ciências da Natureza', DB::table('questoes_banco')->where('ref', 'ENEM_2009_1')->value('materia'));
+        $this->assertSame('ENEM', DB::table('questoes_banco')->where('ref', 'ENEM_2009_1')->value('area'));
+        $this->assertSame('Direito', DB::table('questoes_banco')->where('fonte', 'oab')->value('area'));
+    }
+
+    public function test_reimporta_quando_os_arquivos_mudam(): void
+    {
+        $u = User::factory()->create();
+        $total = $this->actingAs($u)->getJson('/cartoes/questoes/filtros')->json('total');
+        DB::table('questoes_banco')->where('fonte', 'wf')->delete();
+        // mesma versão: não reimporta
+        $this->assertLessThan($total, $this->actingAs($u)->getJson('/cartoes/questoes/filtros')->json('total'));
+        // versão diferente (arquivo novo ou mudado): reimporta tudo
+        \Illuminate\Support\Facades\Cache::put('questoes-banco-versao', 'antiga');
+        \Illuminate\Support\Facades\Cache::forget('questoes-banco-filtros');
+        $this->assertSame($total, $this->actingAs($u)->getJson('/cartoes/questoes/filtros')->json('total'));
+    }
+
+    public function test_arquivos_de_questoes_ineditas_estao_completos(): void
+    {
+        $refs = [];
+        foreach (glob(database_path('data/questoes/originais/*.json')) as $arq) {
+            $d = json_decode(file_get_contents($arq), true);
+            $this->assertIsArray($d, basename($arq) . ' não é JSON válido');
+            $this->assertNotEmpty($d['area']);
+            foreach ($d['questoes'] as $q) {
+                foreach (['ref', 'materia', 'assunto', 'enunciado', 'comentario'] as $c) {
+                    $this->assertNotEmpty($q[$c] ?? '', "{$q['ref']}: falta $c");
+                }
+                $this->assertArrayNotHasKey($q['ref'], $refs, "ref repetida: {$q['ref']}");
+                $refs[$q['ref']] = true;
+                $this->assertContains($q['dificuldade'], ['facil', 'media', 'dificil']);
+                $this->assertTrue(count($q['alts']) === 5 || $q['alts'] === ['Certo', 'Errado'], "{$q['ref']}: alternativas");
+                $this->assertTrue($q['certa'] >= 0 && $q['certa'] < count($q['alts']), "{$q['ref']}: gabarito fora");
+            }
+        }
+        $this->assertGreaterThanOrEqual(390, count($refs));
+    }
+
     public function test_tarefas_da_area_e_criacao_em_lote(): void
     {
         $u = User::factory()->create();

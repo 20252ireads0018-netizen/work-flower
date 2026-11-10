@@ -1,0 +1,541 @@
+{
+  "area": "Administração",
+  "questoes": [
+    {
+      "ref": "WF-ADM-001",
+      "materia": "Administração geral",
+      "assunto": "Teorias da administração",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Acerca das abordagens clássicas da administração, julgue o item a seguir.\n\nA Administração Científica, de Taylor, enfatiza as tarefas e a racionalização do trabalho no nível operacional, enquanto a Teoria Clássica, de Fayol, enfatiza a estrutura organizacional.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. Taylor partiu do chão de fábrica, buscando o método mais eficiente de executar cada tarefa. Fayol partiu da direção, preocupado com a estrutura e com as funções administrativas da organização como um todo."
+    },
+    {
+      "ref": "WF-ADM-002",
+      "materia": "Administração geral",
+      "assunto": "Funções administrativas (PODC)",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "No processo administrativo (planejar, organizar, dirigir e controlar), a função de direção corresponde a",
+      "alts": [
+        "definir objetivos e escolher os meios para alcançá-los.",
+        "estruturar as atividades e alocar os recursos entre as unidades.",
+        "orientar, liderar, comunicar e motivar as pessoas para a execução do que foi planejado.",
+        "comparar o desempenho obtido com os padrões estabelecidos e corrigir desvios.",
+        "elaborar o organograma e a descrição dos cargos."
+      ],
+      "certa": 2,
+      "comentario": "Dirigir é a função ligada às pessoas: liderança, comunicação e motivação. Definir objetivos é planejar, estruturar atividades, recursos e cargos é organizar, e comparar resultados com padrões é controlar."
+    },
+    {
+      "ref": "WF-ADM-003",
+      "materia": "Administração geral",
+      "assunto": "Teoria burocrática",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Entre as opções a seguir, aquela que corresponde a uma disfunção da burocracia, e não a uma de suas características, é",
+      "alts": [
+        "a impessoalidade nas relações.",
+        "a hierarquia da autoridade.",
+        "o caráter legal das normas e regulamentos.",
+        "a resistência a mudanças.",
+        "a seleção baseada no mérito e na competência técnica."
+      ],
+      "certa": 3,
+      "comentario": "A resistência a mudanças é uma das disfunções apontadas por Merton, ao lado do excesso de formalismo e da internalização das regras. Impessoalidade, hierarquia, caráter legal das normas e meritocracia são características do modelo ideal descrito por Weber."
+    },
+    {
+      "ref": "WF-ADM-004",
+      "materia": "Administração geral",
+      "assunto": "Teoria das relações humanas",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo à Teoria das Relações Humanas.\n\nA experiência de Hawthorne levou à conclusão de que o nível de produção é determinado principalmente pelas condições físicas do ambiente de trabalho, como a iluminação.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Errado. A experiência de Hawthorne mostrou justamente o contrário: a produção dependia mais de fatores sociais e psicológicos, como a integração ao grupo, as normas informais e a atenção recebida, do que das condições físicas. Daí a ideia do homem social."
+    },
+    {
+      "ref": "WF-ADM-005",
+      "materia": "Administração geral",
+      "assunto": "Teoria da contingência",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Sobre a Teoria da Contingência, assinale a afirmativa correta.",
+      "alts": [
+        "Não existe uma forma única e ideal de organizar; a estrutura e o comportamento organizacional dependem de variáveis como o ambiente e a tecnologia.",
+        "Defende a existência de uma única melhor maneira de executar cada tarefa, válida para qualquer organização.",
+        "Sustenta que estruturas mecanísticas são as mais adequadas a ambientes instáveis e que exigem inovação.",
+        "Considera irrelevante o ambiente externo para o desenho da organização.",
+        "Foi formulada por Max Weber como complemento ao modelo burocrático."
+      ],
+      "certa": 0,
+      "comentario": "A abordagem contingencial afirma que tudo é relativo: a melhor estrutura depende do ambiente e da tecnologia. A ideia de uma única melhor maneira é de Taylor; estudos contingenciais, como os de Burns e Stalker, associam estruturas orgânicas, e não mecanísticas, a ambientes instáveis; e a teoria não é de Weber."
+    },
+    {
+      "ref": "WF-ADM-006",
+      "materia": "Administração geral",
+      "assunto": "Planejamento estratégico (SWOT)",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Uma cooperativa de alimentos faz sua análise SWOT e registra o seguinte fato: o governo aprovou uma lei que amplia as compras públicas de produtos da agricultura familiar. Na matriz, esse fato deve ser classificado como",
+      "alts": [
+        "ameaça.",
+        "oportunidade.",
+        "força.",
+        "fraqueza.",
+        "força, por ser favorável à cooperativa."
+      ],
+      "certa": 1,
+      "comentario": "A lei é um fator do ambiente externo, fora do controle da cooperativa, e favorável a ela; portanto é uma oportunidade. Forças e fraquezas são fatores internos, e ameaças são fatores externos desfavoráveis."
+    },
+    {
+      "ref": "WF-ADM-007",
+      "materia": "Administração geral",
+      "assunto": "Planejamento estratégico (missão e visão)",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "No que se refere ao planejamento estratégico, julgue o item a seguir.\n\nA visão descreve a razão de ser da organização no presente, enquanto a missão expressa o estado futuro que a organização deseja alcançar.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Errado. Os conceitos estão invertidos: a missão é a razão de ser, o propósito atual da organização, e a visão é a situação futura desejada, aonde ela quer chegar."
+    },
+    {
+      "ref": "WF-ADM-008",
+      "materia": "Administração geral",
+      "assunto": "Balanced Scorecard",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "No Balanced Scorecard proposto por Kaplan e Norton, NÃO corresponde a uma das quatro perspectivas originais a perspectiva",
+      "alts": ["financeira.", "dos clientes.", "dos processos internos.", "do aprendizado e crescimento.", "dos concorrentes."],
+      "certa": 4,
+      "comentario": "O BSC original organiza objetivos e indicadores em quatro perspectivas: financeira, clientes, processos internos e aprendizado e crescimento. Concorrentes não constituem uma perspectiva do modelo."
+    },
+    {
+      "ref": "WF-ADM-009",
+      "materia": "Administração geral",
+      "assunto": "Estruturas organizacionais",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Em uma empresa de engenharia, cada profissional pertence a um departamento técnico e, ao mesmo tempo, é alocado a projetos, respondendo tanto ao gerente funcional quanto ao gerente do projeto. Essa estrutura é denominada",
+      "alts": ["linear.", "divisional por produto.", "linha-staff.", "matricial.", "em rede."],
+      "certa": 3,
+      "comentario": "A estrutura matricial combina a departamentalização funcional com a de projetos, o que gera dupla subordinação. A linear segue o princípio da unidade de comando, a linha-staff acrescenta assessoria sem autoridade de linha e a divisional agrupa por produto ou mercado."
+    },
+    {
+      "ref": "WF-ADM-010",
+      "materia": "Administração geral",
+      "assunto": "Motivação (Maslow)",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo à hierarquia das necessidades de Maslow.\n\nNa pirâmide de Maslow, as necessidades de estima situam-se acima das necessidades sociais e abaixo da necessidade de autorrealização.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. A ordem, da base para o topo, é: fisiológicas, segurança, sociais, estima e autorrealização."
+    },
+    {
+      "ref": "WF-ADM-011",
+      "materia": "Administração geral",
+      "assunto": "Motivação (Herzberg)",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Segundo a teoria dos dois fatores de Herzberg, é exemplo de fator motivacional (intrínseco)",
+      "alts": [
+        "a realização e o crescimento profissional proporcionados pelo trabalho.",
+        "o salário.",
+        "as condições físicas do ambiente de trabalho.",
+        "as políticas e diretrizes da empresa.",
+        "a segurança no emprego."
+      ],
+      "certa": 0,
+      "comentario": "Os fatores motivacionais estão ligados ao conteúdo do cargo: realização, reconhecimento, responsabilidade, o trabalho em si e o crescimento. Salário, condições físicas, políticas da empresa e segurança são fatores higiênicos, ligados ao contexto do trabalho."
+    },
+    {
+      "ref": "WF-ADM-012",
+      "materia": "Administração geral",
+      "assunto": "Motivação (Herzberg)",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Com base na teoria dos dois fatores, julgue o item a seguir.\n\nPara Herzberg, a melhoria dos fatores higiênicos, como o aumento salarial, é suficiente para gerar motivação duradoura, pois eleva o nível de satisfação no trabalho.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Errado. Para Herzberg, os fatores higiênicos apenas evitam a insatisfação; quando atendidos, levam a um estado de nenhuma insatisfação, mas não produzem motivação duradoura. A satisfação e a motivação dependem dos fatores motivacionais."
+    },
+    {
+      "ref": "WF-ADM-013",
+      "materia": "Administração geral",
+      "assunto": "Liderança",
+      "dificuldade": "dificil",
+      "estilo": "FCC",
+      "enunciado": "De acordo com o modelo de liderança situacional de Hersey e Blanchard, diante de uma equipe com alta maturidade, isto é, capaz e disposta a assumir responsabilidades, o estilo mais adequado é",
+      "alts": ["determinar.", "persuadir.", "delegar.", "compartilhar.", "autocrático, com supervisão cerrada."],
+      "certa": 2,
+      "comentario": "No modelo situacional, o estilo acompanha a maturidade dos liderados: determinar para a menor maturidade, depois persuadir, compartilhar e, para a maior maturidade, delegar. Com equipe capaz e disposta, o líder reduz tanto o comportamento de tarefa quanto o de relacionamento."
+    },
+    {
+      "ref": "WF-ADM-014",
+      "materia": "Administração geral",
+      "assunto": "Qualidade (PDCA)",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "No ciclo PDCA, a etapa em que se adotam ações corretivas sobre as causas dos desvios encontrados e se padronizam as práticas que deram bons resultados é a do",
+      "alts": ["P (Plan - planejar).", "D (Do - executar).", "C (Check - verificar).", "A (Act - agir).", "R (Review - revisar)."],
+      "certa": 3,
+      "comentario": "Na etapa Act age-se corretivamente sobre os desvios e padroniza-se o que funcionou, reiniciando o ciclo. Plan define metas e métodos, Do executa e Check compara os resultados com as metas; não há etapa Review no PDCA."
+    },
+    {
+      "ref": "WF-ADM-015",
+      "materia": "Administração geral",
+      "assunto": "Qualidade (5S)",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "No programa 5S, o termo japonês Seiton corresponde ao senso de",
+      "alts": ["utilização.", "ordenação.", "limpeza.", "saúde e padronização.", "autodisciplina."],
+      "certa": 1,
+      "comentario": "Os cinco sensos são Seiri (utilização ou descarte), Seiton (ordenação ou arrumação), Seiso (limpeza), Seiketsu (saúde e padronização) e Shitsuke (autodisciplina)."
+    },
+    {
+      "ref": "WF-ADM-016",
+      "materia": "Administração geral",
+      "assunto": "Gestão de processos",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Acerca da gestão por processos, julgue o item a seguir.\n\nNa gestão por processos, a organização é vista de forma horizontal, como um conjunto de atividades que atravessam diferentes áreas funcionais para entregar valor ao cliente.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. A visão por processos contrapõe-se à visão vertical por departamentos: um processo transforma entradas em saídas que agregam valor ao cliente e costuma atravessar várias áreas da organização."
+    },
+    {
+      "ref": "WF-ADP-001",
+      "materia": "Administração pública",
+      "assunto": "Modelos de administração pública",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Acerca dos modelos de administração pública, julgue o item a seguir.\n\nNo modelo patrimonialista, o aparelho do Estado funciona como extensão do poder do governante, havendo confusão entre o patrimônio público e o privado.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. A confusão entre o público e o privado é o traço central do patrimonialismo, que favorece o nepotismo e a corrupção. O modelo burocrático surgiu justamente para combater essas práticas."
+    },
+    {
+      "ref": "WF-ADP-002",
+      "materia": "Administração pública",
+      "assunto": "Modelos de administração pública",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "É característica típica do modelo gerencial de administração pública",
+      "alts": [
+        "o controle rígido e prévio dos procedimentos, com desconfiança em relação aos administradores.",
+        "a confusão entre os bens do governante e os bens do Estado.",
+        "a centralização das decisões na cúpula da administração.",
+        "o cumprimento das regras como um fim em si mesmo.",
+        "a orientação para resultados, com controle a posteriori e foco no cidadão."
+      ],
+      "certa": 4,
+      "comentario": "O modelo gerencial desloca o controle dos procedimentos para os resultados, apostando em descentralização e foco no cidadão. Controle prévio e rígido de procedimentos é marca do modelo burocrático, e a confusão entre bens públicos e privados é do patrimonialista."
+    },
+    {
+      "ref": "WF-ADP-003",
+      "materia": "Administração pública",
+      "assunto": "Reformas administrativas no Brasil",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Sobre a evolução da administração pública no Brasil, assinale a afirmativa correta.",
+      "alts": [
+        "O Plano Diretor da Reforma do Aparelho do Estado, de 1995, defendeu o retorno ao modelo patrimonialista.",
+        "O modelo burocrático foi implantado no Brasil apenas na década de 1990.",
+        "O Decreto-Lei 200/1967 é considerado uma primeira tentativa de reforma gerencial, ao promover a descentralização para a administração indireta.",
+        "A Emenda Constitucional 19/1998 suprimiu o princípio da eficiência do texto constitucional.",
+        "O DASP foi criado para implantar o modelo gerencial na administração federal."
+      ],
+      "certa": 2,
+      "comentario": "O Decreto-Lei 200/1967 descentralizou atividades para autarquias, fundações e empresas estatais e costuma ser apontado como primeiro ensaio gerencial. O modelo burocrático foi implantado na Era Vargas, com o DASP (1938); o Plano Diretor de 1995 propôs a administração gerencial; e a EC 19/1998 incluiu, e não suprimiu, a eficiência."
+    },
+    {
+      "ref": "WF-ADP-004",
+      "materia": "Administração pública",
+      "assunto": "Governança pública",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Com base no Decreto 9.203/2017, que trata da política de governança da administração pública federal, julgue o item a seguir.\n\nGovernança pública compreende o conjunto de mecanismos de liderança, estratégia e controle postos em prática para avaliar, direcionar e monitorar a gestão, com vistas à condução de políticas públicas e à prestação de serviços de interesse da sociedade.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. O item corresponde à definição do art. 2º, I, do Decreto 9.203/2017. Liderança, estratégia e controle são os três mecanismos de governança, e avaliar, direcionar e monitorar são as suas funções."
+    },
+    {
+      "ref": "WF-ADP-005",
+      "materia": "Administração pública",
+      "assunto": "Orçamento público (PPA, LDO, LOA)",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Segundo a Constituição Federal, o instrumento que compreende o orçamento fiscal, o orçamento de investimento das empresas estatais e o orçamento da seguridade social é a",
+      "alts": [
+        "lei do plano plurianual.",
+        "lei de diretrizes orçamentárias.",
+        "Lei de Responsabilidade Fiscal.",
+        "lei orçamentária anual.",
+        "lei do plano diretor."
+      ],
+      "certa": 3,
+      "comentario": "O art. 165, § 5º, da CF estabelece que a LOA compreende esses três orçamentos. O PPA fixa diretrizes, objetivos e metas de médio prazo, a LDO define metas e prioridades e orienta a elaboração da LOA, e a LRF é norma de finanças públicas, não peça orçamentária."
+    },
+    {
+      "ref": "WF-ADP-006",
+      "materia": "Administração pública",
+      "assunto": "Princípios orçamentários",
+      "dificuldade": "dificil",
+      "estilo": "FCC",
+      "enunciado": "A lei orçamentária anual não conterá dispositivo estranho à previsão da receita e à fixação da despesa, ressalvadas a autorização para abertura de créditos suplementares e a contratação de operações de crédito. Essa regra expressa o princípio orçamentário da",
+      "alts": ["exclusividade.", "universalidade.", "unidade.", "anualidade.", "não afetação das receitas."],
+      "certa": 0,
+      "comentario": "É o princípio da exclusividade, previsto no art. 165, § 8º, da CF, que impede a inclusão de matérias alheias ao orçamento na LOA. Universalidade exige todas as receitas e despesas no orçamento, unidade exige um único orçamento por ente, anualidade fixa sua vigência e a não afetação veda a vinculação de impostos."
+    },
+    {
+      "ref": "WF-ADP-007",
+      "materia": "Administração pública",
+      "assunto": "Princípios orçamentários",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Acerca dos princípios orçamentários, julgue o item a seguir.\n\nEm regra, é vedada a vinculação de receita de impostos a órgão, fundo ou despesa, ressalvadas as exceções previstas na própria Constituição, como as destinações para ações e serviços públicos de saúde e para a manutenção e o desenvolvimento do ensino.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. Trata-se do princípio da não afetação (ou não vinculação) das receitas de impostos, previsto no art. 167, IV, da CF, que traz as exceções, entre elas os recursos mínimos para saúde e educação e as repartições constitucionais de receitas."
+    },
+    {
+      "ref": "WF-ADP-008",
+      "materia": "Administração pública",
+      "assunto": "Controle interno e externo",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "A respeito do controle da administração pública federal, assinale a afirmativa correta.",
+      "alts": [
+        "O Tribunal de Contas da União é órgão integrante do Poder Judiciário.",
+        "O controle externo é exercido pelo Congresso Nacional, com o auxílio do Tribunal de Contas da União.",
+        "O sistema de controle interno existe apenas no âmbito do Poder Executivo.",
+        "Os responsáveis pelo controle interno que tomarem conhecimento de irregularidade não têm o dever de dar ciência dela ao TCU.",
+        "Compete ao TCU julgar as contas prestadas anualmente pelo Presidente da República."
+      ],
+      "certa": 1,
+      "comentario": "Pelo art. 71 da CF, o controle externo cabe ao Congresso Nacional, com o auxílio do TCU, que não integra o Judiciário. O controle interno é mantido de forma integrada pelos três Poderes, e seus responsáveis devem dar ciência de irregularidades ao TCU, sob pena de responsabilidade solidária (art. 74). As contas do Presidente são julgadas pelo Congresso (art. 49, IX), cabendo ao TCU emitir parecer prévio."
+    },
+    {
+      "ref": "WF-ADP-009",
+      "materia": "Administração pública",
+      "assunto": "Controle interno e externo",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Com relação ao controle externo, julgue o item a seguir.\n\nCompete ao Tribunal de Contas da União julgar as contas prestadas anualmente pelo Presidente da República.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Errado. O TCU aprecia as contas do Presidente mediante parecer prévio (art. 71, I, da CF), mas o julgamento compete exclusivamente ao Congresso Nacional (art. 49, IX). O TCU julga, isto sim, as contas dos demais administradores e responsáveis por recursos públicos (art. 71, II)."
+    },
+    {
+      "ref": "WF-ADP-010",
+      "materia": "Administração pública",
+      "assunto": "Governança e accountability",
+      "dificuldade": "media",
+      "estilo": "Cesgranrio",
+      "enunciado": "Na classificação de O'Donnell, a accountability horizontal corresponde",
+      "alts": [
+        "ao voto periódico dos cidadãos nas eleições.",
+        "à pressão exercida pela imprensa e pelas organizações da sociedade civil.",
+        "às pesquisas de opinião sobre a avaliação dos governantes.",
+        "às consultas populares, como plebiscitos e referendos.",
+        "à fiscalização exercida por órgãos do próprio Estado com poder legal para supervisionar e sancionar outros órgãos, como os tribunais de contas."
+      ],
+      "certa": 4,
+      "comentario": "A accountability horizontal ocorre entre agências estatais de mesmo nível, como tribunais de contas, Ministério Público e o próprio Legislativo. Eleições, consultas populares e pressão da sociedade e da imprensa são formas de controle exercidas de baixo para cima pelos cidadãos, e não horizontal."
+    },
+    {
+      "ref": "WF-ADP-011",
+      "materia": "Administração pública",
+      "assunto": "Orçamento público (PPA, LDO, LOA)",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Nos termos do art. 165 da Constituição Federal, a lei que compreende as metas e prioridades da administração pública federal e orienta a elaboração da lei orçamentária anual é a",
+      "alts": [
+        "lei do plano plurianual.",
+        "lei orçamentária anual.",
+        "lei de diretrizes orçamentárias.",
+        "lei de abertura de crédito especial.",
+        "Lei 4.320/1964."
+      ],
+      "certa": 2,
+      "comentario": "A LDO (art. 165, § 2º, da CF) estabelece metas e prioridades e orienta a elaboração da LOA, fazendo a ponte entre o PPA, de médio prazo, e o orçamento anual. A Lei 4.320/1964 contém normas gerais de direito financeiro."
+    },
+    {
+      "ref": "WF-ADP-012",
+      "materia": "Administração pública",
+      "assunto": "Princípios orçamentários",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "O princípio orçamentário segundo o qual a lei de orçamento deve conter todas as receitas e todas as despesas do ente é o da",
+      "alts": ["unidade.", "universalidade.", "exclusividade.", "especificação.", "anualidade."],
+      "certa": 1,
+      "comentario": "A universalidade (arts. 2º e 3º da Lei 4.320/1964) exige que todas as receitas e despesas constem do orçamento. A unidade exige um orçamento único por ente, a exclusividade veda matéria estranha, a especificação proíbe dotações globais e a anualidade fixa a vigência de um exercício."
+    },
+    {
+      "ref": "WF-GP-001",
+      "materia": "Gestão de pessoas",
+      "assunto": "Recrutamento e seleção",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo ao provimento de pessoas nas organizações.\n\nO recrutamento consiste em escolher, entre os candidatos atraídos, aquele mais adequado ao cargo, enquanto a seleção corresponde à divulgação das vagas no mercado.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Errado. Os conceitos estão invertidos: o recrutamento atrai e divulga, formando um conjunto de candidatos, e a seleção compara e escolhe, entre eles, os mais adequados ao cargo."
+    },
+    {
+      "ref": "WF-GP-002",
+      "materia": "Gestão de pessoas",
+      "assunto": "Recrutamento e seleção",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Constitui vantagem típica do recrutamento interno em relação ao recrutamento externo",
+      "alts": [
+        "ser, em geral, mais rápido e econômico e motivar os empregados pela perspectiva de crescimento na carreira.",
+        "trazer novas ideias e experiências de outras organizações.",
+        "renovar a cultura organizacional.",
+        "enriquecer o capital intelectual com talentos vindos do mercado.",
+        "eliminar qualquer conflito entre os colegas que disputam a vaga."
+      ],
+      "certa": 0,
+      "comentario": "O recrutamento interno costuma ser mais rápido, barato e motivador, além de aproveitar quem já conhece a organização. Trazer ideias novas, renovar a cultura e captar talentos do mercado são vantagens do recrutamento externo, e a disputa interna pode, ao contrário, gerar conflitos."
+    },
+    {
+      "ref": "WF-GP-003",
+      "materia": "Gestão de pessoas",
+      "assunto": "Avaliação de desempenho",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "O método de avaliação de desempenho em que o empregado é avaliado por todos os que interagem com ele, como superiores, colegas, subordinados e clientes, além de se autoavaliar, é chamado de",
+      "alts": ["escala gráfica.", "escolha forçada.", "incidentes críticos.", "pesquisa de campo.", "avaliação 360 graus."],
+      "certa": 4,
+      "comentario": "Na avaliação 360 graus o desempenho é observado por várias fontes ao redor do avaliado. Escala gráfica, escolha forçada, incidentes críticos e pesquisa de campo são métodos em que, em geral, a avaliação parte do superior ou de um especialista."
+    },
+    {
+      "ref": "WF-GP-004",
+      "materia": "Gestão de pessoas",
+      "assunto": "Avaliação de desempenho",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Acerca dos erros comuns na avaliação de desempenho, julgue o item a seguir.\n\nOcorre o efeito halo quando o avaliador deixa que a impressão sobre uma característica marcante do avaliado contamine a avaliação dos demais fatores.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. No efeito halo, um traço positivo ou negativo do avaliado, que chama a atenção do avaliador, acaba influenciando as notas de todos os outros critérios."
+    },
+    {
+      "ref": "WF-GP-005",
+      "materia": "Gestão de pessoas",
+      "assunto": "Treinamento e desenvolvimento",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "No processo de treinamento, a etapa inicial, que identifica as carências de conhecimentos e habilidades a serem supridas, é o(a)",
+      "alts": [
+        "avaliação dos resultados.",
+        "levantamento ou diagnóstico das necessidades de treinamento.",
+        "execução do programa.",
+        "programação ou desenho do treinamento.",
+        "contratação dos instrutores."
+      ],
+      "certa": 1,
+      "comentario": "O ciclo de treinamento começa pelo diagnóstico (levantamento de necessidades), segue para o desenho ou programação, depois a implementação e, por fim, a avaliação. Sem o diagnóstico não há como definir o que treinar."
+    },
+    {
+      "ref": "WF-GP-006",
+      "materia": "Gestão de pessoas",
+      "assunto": "Treinamento e desenvolvimento",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "No modelo de avaliação de treinamento de Kirkpatrick, o nível que verifica se os participantes estão aplicando no trabalho o que aprenderam é o de",
+      "alts": ["reação.", "aprendizagem.", "comportamento.", "resultados.", "retorno sobre o investimento."],
+      "certa": 2,
+      "comentario": "Os quatro níveis de Kirkpatrick são reação (satisfação com o treinamento), aprendizagem (conhecimentos adquiridos), comportamento (aplicação no trabalho) e resultados (impacto na organização). O retorno sobre o investimento é um quinto nível acrescentado por outro autor, Jack Phillips."
+    },
+    {
+      "ref": "WF-ARQ-001",
+      "materia": "Arquivologia",
+      "assunto": "Ciclo vital dos documentos",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Com base na teoria das três idades, julgue o item a seguir.\n\nOs documentos de arquivo permanente, dotados de valor histórico, probatório e informativo, podem ser eliminados após o prazo previsto na tabela de temporalidade.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Errado. Os documentos permanentes devem ser definitivamente preservados (art. 8º, § 3º, da Lei 8.159/1991) e são inalienáveis e imprescritíveis (art. 10). A eliminação só é destinação possível para documentos que não tenham valor permanente."
+    },
+    {
+      "ref": "WF-ARQ-002",
+      "materia": "Arquivologia",
+      "assunto": "Ciclo vital dos documentos",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Documentos que já não são de uso corrente nas atividades do órgão produtor, mas que, por razões de interesse administrativo, aguardam sua eliminação ou recolhimento para guarda permanente, integram o arquivo",
+      "alts": ["intermediário.", "corrente.", "permanente.", "setorial.", "especial."],
+      "certa": 0,
+      "comentario": "É a definição de documentos intermediários do art. 8º, § 2º, da Lei 8.159/1991. Os correntes estão em curso ou são consultados com frequência e os permanentes têm valor histórico, probatório e informativo; setorial e especial não são idades do ciclo vital."
+    },
+    {
+      "ref": "WF-ARQ-003",
+      "materia": "Arquivologia",
+      "assunto": "Métodos de arquivamento",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "No método numérico simples, atribui-se a cada correspondente um número, na ordem de chegada, sem preocupação com a ordem alfabética dos nomes. Por isso, esse método é classificado como",
+      "alts": [
+        "direto, pois a busca é feita diretamente na pasta.",
+        "semi-indireto, por combinar letras e números.",
+        "ideográfico, por ser organizado por assuntos.",
+        "alfanumérico.",
+        "indireto, pois exige a consulta a um índice auxiliar para localizar o documento."
+      ],
+      "certa": 4,
+      "comentario": "Os métodos numéricos são indiretos: para achar a pasta de um correspondente, é preciso consultar antes um índice que relaciona nomes e números. Métodos como o alfabético permitem a busca direta, e o alfanumérico é considerado semi-indireto."
+    },
+    {
+      "ref": "WF-ARQ-004",
+      "materia": "Arquivologia",
+      "assunto": "Tabela de temporalidade",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Acerca da gestão de documentos, julgue o item a seguir.\n\nA tabela de temporalidade de documentos estabelece os prazos de guarda dos documentos nas fases corrente e intermediária e indica sua destinação final, que pode ser a eliminação ou a guarda permanente.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. A tabela de temporalidade é o instrumento resultante da avaliação documental: define por quanto tempo cada tipo de documento fica em cada fase e se, ao final, será eliminado ou recolhido para guarda permanente."
+    },
+    {
+      "ref": "WF-ARQ-005",
+      "materia": "Arquivologia",
+      "assunto": "Gestão de documentos (Lei 8.159/1991)",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Com base na Lei 8.159/1991, que dispõe sobre a política nacional de arquivos públicos e privados, assinale a afirmativa correta.",
+      "alts": [
+        "A eliminação de documentos públicos pode ser decidida livremente pelo chefe da unidade que os produziu.",
+        "Os documentos de valor permanente podem ser alienados, desde que mediante autorização legislativa.",
+        "Documentos intermediários são aqueles de valor histórico que devem ser definitivamente preservados.",
+        "A eliminação de documentos produzidos por instituições públicas depende de autorização da instituição arquivística pública, na sua específica esfera de competência.",
+        "Documentos correntes são os que já foram recolhidos à instituição arquivística pública."
+      ],
+      "certa": 3,
+      "comentario": "O art. 9º da Lei 8.159/1991 condiciona a eliminação de documentos públicos à autorização da instituição arquivística pública competente. Os documentos permanentes são inalienáveis e imprescritíveis (art. 10), o valor histórico define os permanentes, e não os intermediários, e os correntes são os documentos em curso ou de consulta frequente no órgão produtor."
+    },
+    {
+      "ref": "WF-ARQ-006",
+      "materia": "Arquivologia",
+      "assunto": "Métodos de arquivamento",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Pelas regras de alfabetação do método alfabético, o nome de pessoa física Paulo Roberto Medeiros deve ser arquivado como",
+      "alts": [
+        "Paulo Roberto Medeiros.",
+        "Roberto, Paulo Medeiros.",
+        "Roberto Medeiros, Paulo.",
+        "Medeiros, Paulo Roberto.",
+        "Paulo, Roberto Medeiros."
+      ],
+      "certa": 3,
+      "comentario": "A regra geral do método alfabético manda arquivar nomes de pessoas físicas pelo último sobrenome, seguido do prenome e dos demais nomes. Por isso a entrada correta é Medeiros, Paulo Roberto; as demais formas não começam pelo último sobrenome."
+    }
+  ]
+}

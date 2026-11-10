@@ -2,7 +2,8 @@
    Estende o WFQuadro.metodos sem mexer no quadro.js, como o graficos.js (carregue depois dele: usa wfNovoCartao).
    - Questões: b.dados = { questoes: [{ id, materia, enunciado, alts: [5], certa, expl, banca?, prova?, ano?, assunto?, dificuldade?, orig? }],
                            resp: { id: indice }, modo: 'estudar'|'editar'|'banco', i, simulado: { ids, em, nome } }
-               "Banco": questões abertas do servidor (CartoesController, tabela questoes_banco) por banca, matéria, assunto, ano e dificuldade.
+               "Banco": questões abertas do servidor (CartoesController, tabela questoes_banco) por área, banca, matéria, assunto, ano,
+               dificuldade e "só com comentário"; o comentário do gabarito vira o "expl" da questão no cartão.
    - Criador:  b.dados = { posts: [{ id, titulo, rede, etapa, data, legenda, tags, link }], filtro }
    - RH:       b.dados = { vagas: [{ id, nome }], passos: [texto], criterios: [{ id, nome }], modelos: { etapa: texto }, auto: { tarefas, entrevista },
                            cands: [{ id, nome, vaga, etapa, contato, nota, obs, feitos: {}, hist: [{ etapa, em }], score: { idCriterio: 1..5 },
@@ -135,7 +136,7 @@
             // devolve sempre o objeto lido de novo (o reativo): o "??=" devolveria o objeto cru e o Alpine não veria as mudanças
             this.wfCxUI[b.id] ??= {
                 materia: '', so: 'todas', filtros: null, res: null, carregando: false, erro: '', sel: {}, abertos: {}, nSim: 10,
-                bf: { banca: '', materia: '', assunto: '', ano: '', dificuldade: '', busca: '' },
+                bf: { area: '', banca: '', materia: '', assunto: '', ano: '', dificuldade: '', busca: '', comentadas: false },
             };
             return this.wfCxUI[b.id];
         },
@@ -233,10 +234,12 @@
         },
         qzLetra(k) { return LETRAS[k]; },
         qzDif(d) { return DIFS[d] || ''; },
+        /** Questões erradas do cartão (para virar flashcards no cartão Flashcards). */
+        qzErradas(b) { const r = b.dados.resp || {}; return (b.dados.questoes || []).filter(q => q.id in r && r[q.id] !== q.certa); },
         /** Linha de origem da questão (banca · prova · assunto · dificuldade), quando veio do banco. */
         qzOrigem(q) {
             if (!q || !q.banca) return '';
-            return [q.banca, q.prova, q.assunto && q.assunto !== 'Geral' ? q.assunto : '', q.dificuldade ? 'dificuldade ' + (DIFS[q.dificuldade] || '').toLowerCase() + ' (estimada)' : ''].filter(Boolean).join(' · ');
+            return [q.banca, q.prova, q.assunto && q.assunto !== 'Geral' ? q.assunto : '', q.dificuldade ? 'dificuldade ' + (DIFS[q.dificuldade] || '').toLowerCase() + (q.fonte === 'wf' ? '' : ' (estimada)') : ''].filter(Boolean).join(' · ');
         },
 
         /* banco de questões abertas (servidor) */
@@ -255,19 +258,23 @@
         },
         qzBancoMaterias(b) {
             const ui = this.qzUI(b), f = ui.filtros;
-            return f ? f.materias.filter(m => !ui.bf.banca || m.bancas.includes(ui.bf.banca)) : [];
+            return f ? f.materias.filter(m => (!ui.bf.banca || m.bancas.includes(ui.bf.banca)) && (!ui.bf.area || (m.areas || []).includes(ui.bf.area))) : [];
         },
+        qzBancoBancas(b) { const ui = this.qzUI(b), f = ui.filtros; return f ? f.bancas.filter(x => !ui.bf.area || !x.areas || x.areas.includes(ui.bf.area)) : []; },
+        /** Escolhe uma área (atalho dos botões do banco) e busca. */
+        qzBancoArea(b, area) { const ui = this.qzUI(b); ui.bf.area = ui.bf.area === area ? '' : area; this.qzBancoMudou(b, 'area'); },
         qzBancoAssuntos(b) { const ui = this.qzUI(b); return (ui.filtros && ui.bf.materia && ui.filtros.assuntos[ui.bf.materia]) || []; },
         qzBancoMudou(b, campo) {
             const ui = this.qzUI(b);
-            if (campo === 'banca' && ui.bf.materia && !this.qzBancoMaterias(b).some(m => m.nome === ui.bf.materia)) ui.bf.materia = '';
-            if (campo === 'banca' || campo === 'materia') ui.bf.assunto = '';
+            if (campo === 'area' && ui.bf.banca && !this.qzBancoBancas(b).some(x => x.nome === ui.bf.banca)) ui.bf.banca = '';
+            if (['area', 'banca'].includes(campo) && ui.bf.materia && !this.qzBancoMaterias(b).some(m => m.nome === ui.bf.materia)) ui.bf.materia = '';
+            if (['area', 'banca', 'materia'].includes(campo)) ui.bf.assunto = '';
             this.qzBancoBuscar(b, 1);
         },
-        qzBancoLimpar(b) { const ui = this.qzUI(b); ui.bf = { banca: '', materia: '', assunto: '', ano: '', dificuldade: '', busca: '' }; this.qzBancoBuscar(b, 1); },
+        qzBancoLimpar(b) { const ui = this.qzUI(b); ui.bf = { area: '', banca: '', materia: '', assunto: '', ano: '', dificuldade: '', busca: '', comentadas: false }; this.qzBancoBuscar(b, 1); },
         qzBancoParams(b) {
             const bf = this.qzUI(b).bf, p = new URLSearchParams();
-            Object.entries(bf).forEach(([k, v]) => { if (String(v || '').trim()) p.set(k, String(v).trim()); });
+            Object.entries(bf).forEach(([k, v]) => { if (v === true) p.set(k, '1'); else if (v !== false && String(v || '').trim()) p.set(k, String(v).trim()); });
             return p;
         },
         async qzBancoBuscar(b, pagina) {
@@ -289,8 +296,8 @@
         },
         qzBancoNSel(b) { return Object.keys(this.qzUI(b).sel).length; },
         qzDoBanco(q) {
-            return { id: uid(), materia: q.materia, enunciado: q.enunciado, alts: LETRAS.map((_, k) => q.alts[k] || ''), certa: q.certa, expl: '',
-                banca: q.banca, prova: q.prova, ano: q.ano, assunto: q.assunto, dificuldade: q.dificuldade, orig: q.ref };
+            return { id: uid(), materia: q.materia, enunciado: q.enunciado, alts: LETRAS.map((_, k) => q.alts[k] || ''), certa: q.certa, expl: q.comentario || '',
+                area: q.area, banca: q.banca, prova: q.prova, ano: q.ano, assunto: q.assunto, dificuldade: q.dificuldade, fonte: q.fonte, orig: q.ref };
         },
         /** Põe as questões do banco no cartão (sem repetir) e devolve os ids no cartão, na mesma ordem. */
         qzBancoGuardar(b, lista) {
@@ -327,7 +334,7 @@
             if (!ids.length) { ui.erro = `O cartão está no limite de ${MAX} questões. Tire algumas em “Editar”.`; return; }
             b.dados.resp ??= {};
             ids.forEach(id => delete b.dados.resp[id]);
-            const bf = ui.bf, nome = [bf.banca, bf.materia, bf.assunto, bf.ano, DIFS[bf.dificuldade]].filter(Boolean).join(' · ') || 'Todas as provas';
+            const bf = ui.bf, nome = [bf.area, bf.banca, bf.materia, bf.assunto, bf.ano, DIFS[bf.dificuldade]].filter(Boolean).join(' · ') || 'Todas as provas';
             b.dados.simulado = { ids, em: new Date().toISOString(), nome };
             b.dados.modo = 'estudar'; ui.so = 'simulado'; ui.materia = ''; b.dados.i = 0;
             this.aviso(`Simulado com ${ids.length} questões pronto.` + (cheio ? ' Algumas não couberam no cartão.' : ''));

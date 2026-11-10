@@ -46,6 +46,21 @@ class EstudoCartoesTest extends TestCase
         // math.js e nerdamer vêm de CDN com versão exata
         $this->assertMatchesRegularExpression('#https://cdnjs\.cloudflare\.com/ajax/libs/mathjs/\d+\.\d+\.\d+/math\.min\.js#', $js);
         $this->assertMatchesRegularExpression('#https://cdn\.jsdelivr\.net/npm/nerdamer@\d+\.\d+\.\d+/all\.min\.js#', $js);
+        $this->assertMatchesRegularExpression('#https://cdnjs\.cloudflare\.com/ajax/libs/KaTeX/\d+\.\d+\.\d+/katex\.min\.js#', $js);
+    }
+
+    public function test_flashcards_e_matematica_tem_as_telas_novas(): void
+    {
+        $u = User::factory()->create();
+        $html = $this->actingAs($u)->get('/areas/mente')->assertOk()->getContent();
+        foreach (['fcBaralhos(b)', 'fcLivre(b, \'dificeis\')', 'fcDesfazer(b)', 'fcBaixarAnki(b)', 'fcBaixarCsv(b)', 'fcImportarArquivo(b,',
+            'fcPrevisaoSvg(b)', 'fcHtml(fcAtual(b).frente)', 'mtTeclas()', 'mtGruposExemplos()', 'mtPlotAdd(b)', 'mtPrimeiroErro(b)', 'fcDeQuestoes(b)'] as $trecho) {
+            $this->assertStringContainsString($trecho, $html, "faltou: $trecho");
+        }
+        // a carta é mostrada com x-html: o texto tem de passar pelo cartaHtml (escapa tudo, só imagem e fórmula viram HTML)
+        $js = file_get_contents(public_path('js/estudo.js'));
+        $this->assertStringContainsString('return cartaHtml(t,', $js);
+        $this->assertStringContainsString("s = esc(s);", $js);
     }
 
     public function test_classes_utilitarias_dos_cartoes_existem_no_tailwind_gerado(): void

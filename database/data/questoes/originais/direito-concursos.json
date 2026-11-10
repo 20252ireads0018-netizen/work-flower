@@ -1,0 +1,596 @@
+{
+  "area": "Direito",
+  "questoes": [
+    {
+      "ref": "WF-DCO-001",
+      "materia": "Direito Constitucional",
+      "assunto": "Direitos e garantias fundamentais (art. 5º)",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Acerca da inviolabilidade do domicílio, julgue o item a seguir.\n\nPor determinação judicial, é permitido ingressar na casa de alguém, sem o consentimento do morador, a qualquer hora do dia ou da noite.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Errado. Pelo art. 5º, XI, da CF, o ingresso por determinação judicial só pode ocorrer durante o dia. À noite, sem consentimento, só se admite a entrada em caso de flagrante delito, desastre ou para prestar socorro."
+    },
+    {
+      "ref": "WF-DCO-002",
+      "materia": "Direito Constitucional",
+      "assunto": "Remédios constitucionais",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Marcos deseja conhecer as informações relativas à sua própria pessoa que constam de um banco de dados mantido por órgão governamental, mas teve o acesso negado. O remédio constitucional adequado para assegurar esse conhecimento é o",
+      "alts": ["mandado de segurança.", "habeas data.", "mandado de injunção.", "ação popular.", "habeas corpus."],
+      "certa": 1,
+      "comentario": "O habeas data (art. 5º, LXXII, da CF) serve para assegurar o conhecimento e a retificação de informações relativas à pessoa do impetrante constantes de registros de entidades governamentais ou de caráter público. O mandado de segurança é residual, o mandado de injunção supre falta de norma regulamentadora, a ação popular anula atos lesivos e o habeas corpus protege a liberdade de locomoção."
+    },
+    {
+      "ref": "WF-DCO-003",
+      "materia": "Direito Constitucional",
+      "assunto": "Remédios constitucionais",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo à ação popular.\n\nQualquer cidadão é parte legítima para propor ação popular que vise a anular ato lesivo ao meio ambiente, ficando o autor, salvo comprovada má-fé, isento de custas judiciais e do ônus da sucumbência.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. É o que dispõe o art. 5º, LXXIII, da CF, que inclui entre os objetos da ação popular os atos lesivos ao patrimônio público, à moralidade administrativa, ao meio ambiente e ao patrimônio histórico e cultural, com isenção de custas e sucumbência salvo má-fé."
+    },
+    {
+      "ref": "WF-DCO-004",
+      "materia": "Direito Constitucional",
+      "assunto": "Remédios constitucionais",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "De acordo com a Constituição Federal, o mandado de segurança coletivo pode ser impetrado por",
+      "alts": [
+        "qualquer partido político registrado no Tribunal Superior Eleitoral, independentemente de representação parlamentar.",
+        "associação legalmente constituída e em funcionamento há pelo menos dois anos.",
+        "partido político com representação no Congresso Nacional.",
+        "qualquer cidadão no pleno gozo de seus direitos políticos.",
+        "associação ainda não legalmente constituída, desde que em funcionamento de fato há pelo menos um ano."
+      ],
+      "certa": 2,
+      "comentario": "O art. 5º, LXX, da CF legitima o partido político com representação no Congresso Nacional e a organização sindical, entidade de classe ou associação legalmente constituída e em funcionamento há pelo menos um ano. Erram as alternativas que dispensam a representação no Congresso, exigem dois anos, admitem associação não constituída legalmente ou conferem legitimidade ao cidadão individualmente."
+    },
+    {
+      "ref": "WF-DCO-005",
+      "materia": "Direito Constitucional",
+      "assunto": "Direitos e garantias fundamentais (art. 5º)",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Com relação ao direito de reunião, julgue o item seguinte.\n\nA realização de reunião pacífica, sem armas, em local aberto ao público depende de prévia autorização da autoridade competente.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Errado. O art. 5º, XVI, da CF assegura a reunião pacífica, sem armas, em locais abertos ao público, independentemente de autorização. Exige-se apenas prévio aviso à autoridade competente e que a reunião não frustre outra anteriormente convocada para o mesmo local."
+    },
+    {
+      "ref": "WF-DCO-006",
+      "materia": "Direito Constitucional",
+      "assunto": "Organização do Estado",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Sobre a organização político-administrativa da República Federativa do Brasil, assinale a alternativa correta.",
+      "alts": [
+        "Compreende a União, os Estados, o Distrito Federal e os Municípios, todos autônomos, nos termos da Constituição.",
+        "Os Territórios Federais são entes federativos dotados de autonomia política.",
+        "O Distrito Federal pode ser dividido em Municípios, por lei distrital.",
+        "Os Estados podem incorporar-se entre si independentemente de consulta à população diretamente interessada.",
+        "Os Municípios não integram a Federação, sendo meras divisões administrativas dos Estados."
+      ],
+      "certa": 0,
+      "comentario": "A alternativa A reproduz o art. 18, caput, da CF. Os Territórios integram a União e não são entes autônomos (art. 18, § 2º); o Distrito Federal não pode ser dividido em Municípios (art. 32); a incorporação de Estados exige plebiscito e lei complementar (art. 18, § 3º); e os Municípios são entes federativos."
+    },
+    {
+      "ref": "WF-DCO-007",
+      "materia": "Direito Constitucional",
+      "assunto": "Organização do Estado",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Acerca da repartição de competências, julgue o item a seguir.\n\nCompete privativamente à União legislar sobre direito penal e direito do trabalho.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. O art. 22, I, da CF atribui à União a competência privativa para legislar sobre direito civil, comercial, penal, processual, eleitoral, agrário, marítimo, aeronáutico, espacial e do trabalho."
+    },
+    {
+      "ref": "WF-DCO-008",
+      "materia": "Direito Constitucional",
+      "assunto": "Administração pública (art. 37)",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Segundo a Constituição Federal, é permitida a acumulação remunerada de",
+      "alts": [
+        "dois cargos técnicos de nível superior, ainda que nenhum deles seja de professor ou da área da saúde.",
+        "três cargos de professor, havendo compatibilidade de horários.",
+        "dois cargos de professor, independentemente de compatibilidade de horários.",
+        "um cargo efetivo de nível médio com um cargo em comissão, ainda que sem compatibilidade de horários.",
+        "um cargo de professor com outro técnico ou científico, havendo compatibilidade de horários."
+      ],
+      "certa": 4,
+      "comentario": "O art. 37, XVI, da CF veda a acumulação, salvo, havendo compatibilidade de horários, de dois cargos de professor, de um de professor com outro técnico ou científico e de dois cargos ou empregos privativos de profissionais de saúde com profissão regulamentada. A compatibilidade de horários é sempre exigida e as hipóteses admitem, no máximo, dois cargos."
+    },
+    {
+      "ref": "WF-DCO-009",
+      "materia": "Direito Constitucional",
+      "assunto": "Administração pública (art. 37)",
+      "dificuldade": "facil",
+      "estilo": "FGV",
+      "enunciado": "Em relação ao acesso a cargos e empregos públicos, conforme o art. 37 da Constituição Federal, assinale a afirmativa correta.",
+      "alts": [
+        "O concurso público pode ser realizado exclusivamente por meio de avaliação de títulos.",
+        "O prazo de validade do concurso público é de até quatro anos, prorrogável uma vez.",
+        "A admissão em emprego público nas empresas estatais dispensa concurso público.",
+        "O prazo de validade do concurso público é de até dois anos, prorrogável uma vez, por igual período.",
+        "A nomeação para cargo em comissão declarado em lei de livre nomeação e exoneração exige concurso de provas e títulos."
+      ],
+      "certa": 3,
+      "comentario": "O art. 37, III, da CF fixa a validade do concurso em até dois anos, prorrogável uma vez por igual período. O concurso é de provas ou de provas e títulos (inciso II), alcança também os empregos públicos e não é exigido para os cargos em comissão de livre nomeação e exoneração."
+    },
+    {
+      "ref": "WF-DCO-010",
+      "materia": "Direito Constitucional",
+      "assunto": "Administração pública (art. 37)",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "No que se refere aos direitos dos servidores públicos civis, julgue o item a seguir.\n\nÉ garantido ao servidor público civil o direito à livre associação sindical, e o direito de greve será exercido nos termos e nos limites definidos em lei específica.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. O item reproduz o art. 37, VI e VII, da CF. A situação é diferente para os militares, aos quais são proibidas a sindicalização e a greve (art. 142, § 3º, IV)."
+    },
+    {
+      "ref": "WF-DCO-011",
+      "materia": "Direito Constitucional",
+      "assunto": "Poderes",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Nos termos do art. 2º da Constituição Federal, são Poderes da União, independentes e harmônicos entre si,",
+      "alts": [
+        "o Legislativo, o Executivo e o Moderador.",
+        "o Legislativo, o Executivo e o Judiciário.",
+        "o Executivo, o Judiciário e o Ministério Público.",
+        "o Legislativo, o Executivo, o Judiciário e o Tribunal de Contas.",
+        "o Legislativo, o Judiciário e o Ministério Público."
+      ],
+      "certa": 1,
+      "comentario": "O art. 2º da CF enumera apenas o Legislativo, o Executivo e o Judiciário. O Poder Moderador existiu só na Constituição de 1824; o Ministério Público é função essencial à justiça e o Tribunal de Contas é órgão que auxilia o Legislativo no controle externo."
+    },
+    {
+      "ref": "WF-DCO-012",
+      "materia": "Direito Constitucional",
+      "assunto": "Poderes",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Sobre a composição do Senado Federal, é correto afirmar:",
+      "alts": [
+        "O Senado compõe-se de representantes do povo, eleitos pelo sistema proporcional.",
+        "Cada Território Federal elege três Senadores.",
+        "Os Senadores têm mandato de quatro anos, com renovação integral a cada eleição.",
+        "Cada Senador é eleito com um único suplente.",
+        "Cada Estado e o Distrito Federal elegem três Senadores, com mandato de oito anos."
+      ],
+      "certa": 4,
+      "comentario": "Pelo art. 46 da CF, o Senado compõe-se de representantes dos Estados e do DF, eleitos pelo princípio majoritário, três por unidade, com mandato de oito anos e dois suplentes cada. A representação renova-se de quatro em quatro anos, alternadamente, por um e dois terços; os Territórios elegem Deputados, não Senadores."
+    },
+    {
+      "ref": "WF-DCO-013",
+      "materia": "Direito Constitucional",
+      "assunto": "Poderes",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Acerca do processo legislativo, julgue o item subsequente.\n\nÉ vedada a edição de medida provisória sobre matéria relativa a direito penal.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. O art. 62, § 1º, I, b, da CF veda a edição de medidas provisórias sobre direito penal, processual penal e processual civil."
+    },
+    {
+      "ref": "WF-DCO-014",
+      "materia": "Direito Constitucional",
+      "assunto": "Poderes",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Quanto às garantias e vedações aplicáveis aos juízes, assinale a afirmativa correta.",
+      "alts": [
+        "A vitaliciedade, no primeiro grau, é adquirida após três anos de efetivo exercício, como ocorre com a estabilidade dos servidores.",
+        "A inamovibilidade é absoluta, não admitindo remoção nem mesmo por motivo de interesse público.",
+        "A vitaliciedade, no primeiro grau, é adquirida após dois anos de exercício.",
+        "Os juízes podem dedicar-se à atividade político-partidária, desde que licenciados do cargo.",
+        "A irredutibilidade de subsídio impede a incidência do imposto de renda sobre a remuneração dos magistrados."
+      ],
+      "certa": 2,
+      "comentario": "O art. 95, I, da CF prevê que a vitaliciedade, no primeiro grau, só é adquirida após dois anos de exercício. A inamovibilidade admite remoção por interesse público (art. 93, VIII), a atividade político-partidária é vedada (art. 95, parágrafo único, III) e a irredutibilidade não afasta os tributos gerais, como o imposto de renda."
+    },
+    {
+      "ref": "WF-DCO-015",
+      "materia": "Direito Constitucional",
+      "assunto": "Remédios constitucionais",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Determinado direito previsto na Constituição depende de lei regulamentadora para ser exercido, mas essa lei nunca foi editada, o que torna inviável o seu exercício. Para enfrentar essa omissão, o titular do direito pode impetrar",
+      "alts": ["habeas corpus.", "habeas data.", "mandado de segurança.", "mandado de injunção.", "ação popular."],
+      "certa": 3,
+      "comentario": "O mandado de injunção (art. 5º, LXXI, da CF) é cabível sempre que a falta de norma regulamentadora torne inviável o exercício dos direitos e liberdades constitucionais e das prerrogativas inerentes à nacionalidade, à soberania e à cidadania. Os demais remédios têm outros objetos."
+    },
+    {
+      "ref": "WF-DAD-001",
+      "materia": "Direito Administrativo",
+      "assunto": "Princípios da administração pública",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "A respeito dos princípios da administração pública, julgue o item a seguir.\n\nO princípio da eficiência foi incluído entre os princípios expressos no caput do art. 37 da Constituição Federal pela Emenda Constitucional nº 19/1998.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. A redação original do art. 37 previa legalidade, impessoalidade, moralidade e publicidade; a eficiência foi acrescentada pela EC 19/1998, no contexto da reforma administrativa."
+    },
+    {
+      "ref": "WF-DAD-002",
+      "materia": "Direito Administrativo",
+      "assunto": "Princípios da administração pública",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Entre os princípios a seguir, aquele que NÃO está expressamente previsto no caput do art. 37 da Constituição Federal é o da",
+      "alts": ["razoabilidade.", "impessoalidade.", "moralidade.", "publicidade.", "eficiência."],
+      "certa": 0,
+      "comentario": "O caput do art. 37 traz apenas legalidade, impessoalidade, moralidade, publicidade e eficiência (LIMPE). A razoabilidade é princípio reconhecido pela doutrina e previsto em lei (por exemplo, art. 2º da Lei 9.784/1999), mas não consta do caput do art. 37."
+    },
+    {
+      "ref": "WF-DAD-003",
+      "materia": "Direito Administrativo",
+      "assunto": "Atos administrativos",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Uma autoridade sanitária apreende e inutiliza, no ato da fiscalização, alimentos deteriorados expostos à venda, sem precisar de prévia ordem judicial. O atributo do ato administrativo que fundamenta essa atuação direta é a",
+      "alts": ["imperatividade.", "autoexecutoriedade.", "presunção de legitimidade.", "tipicidade.", "finalidade."],
+      "certa": 1,
+      "comentario": "A autoexecutoriedade permite à Administração executar suas decisões diretamente, pelos próprios meios, sem recorrer previamente ao Judiciário. A imperatividade é a imposição de obrigações independentemente da concordância do particular, a presunção de legitimidade faz o ato ser tido como válido até prova em contrário, a tipicidade é a correspondência a figuras previstas em lei e a finalidade é elemento, não atributo."
+    },
+    {
+      "ref": "WF-DAD-004",
+      "materia": "Direito Administrativo",
+      "assunto": "Atos administrativos",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, acerca dos elementos do ato administrativo.\n\nSegundo a doutrina majoritária, são elementos ou requisitos do ato administrativo a competência, a finalidade, a forma, o motivo e o objeto.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. Esses são os cinco elementos tradicionalmente apontados pela doutrina, que encontram correspondência nos vícios descritos no art. 2º da Lei 4.717/1965 (Lei da Ação Popular): incompetência, vício de forma, ilegalidade do objeto, inexistência dos motivos e desvio de finalidade."
+    },
+    {
+      "ref": "WF-DAD-005",
+      "materia": "Direito Administrativo",
+      "assunto": "Anulação e revogação",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "A respeito da anulação e da revogação dos atos administrativos, é correto afirmar:",
+      "alts": [
+        "A revogação incide sobre atos ilegais e produz efeitos retroativos.",
+        "O Poder Judiciário, no exercício da função jurisdicional, pode revogar atos do Poder Executivo por considerá-los inconvenientes.",
+        "Os atos vinculados podem ser livremente revogados por razões de conveniência e oportunidade.",
+        "A Administração só pode anular seus próprios atos mediante prévia autorização judicial.",
+        "A anulação decorre de vício de legalidade, pode ser feita pela Administração ou pelo Judiciário e, em regra, produz efeitos retroativos."
+      ],
+      "certa": 4,
+      "comentario": "Pelo art. 53 da Lei 9.784/1999, a Administração deve anular seus atos ilegais e pode revogá-los por conveniência ou oportunidade. A anulação também pode ser feita pelo Judiciário e, em regra, retroage. A revogação atinge atos válidos, não retroage, é exclusiva da própria Administração e não alcança atos vinculados."
+    },
+    {
+      "ref": "WF-DAD-006",
+      "materia": "Direito Administrativo",
+      "assunto": "Anulação e revogação",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Com base na Lei 9.784/1999, julgue o item a seguir.\n\nO direito da administração pública federal de anular os atos administrativos de que decorram efeitos favoráveis para os destinatários decai em dez anos, contados da data em que foram praticados, salvo comprovada má-fé.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Errado. O art. 54 da Lei 9.784/1999 fixa o prazo decadencial de cinco anos, e não de dez, contados da data em que os atos foram praticados, ressalvada a comprovada má-fé."
+    },
+    {
+      "ref": "WF-DAD-007",
+      "materia": "Direito Administrativo",
+      "assunto": "Poderes administrativos",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Um fiscal municipal interdita um estabelecimento comercial que funcionava sem alvará e em desacordo com as normas de segurança. Essa atuação é manifestação do poder",
+      "alts": ["hierárquico.", "disciplinar.", "regulamentar.", "de polícia.", "de autotutela."],
+      "certa": 3,
+      "comentario": "O poder de polícia é a atividade que limita ou disciplina direitos e liberdades individuais em benefício do interesse público (art. 78 do CTN), como na fiscalização e interdição de estabelecimentos. Os poderes hierárquico e disciplinar atuam sobre a estrutura interna e os que têm vínculo especial com a Administração, o regulamentar diz respeito à edição de normas, e a autotutela é o controle dos próprios atos."
+    },
+    {
+      "ref": "WF-DAD-008",
+      "materia": "Direito Administrativo",
+      "assunto": "Poderes administrativos",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Acerca do poder regulamentar, conforme o art. 84 da Constituição Federal, assinale a afirmativa correta.",
+      "alts": [
+        "O Presidente da República pode, mediante decreto, dispor sobre a organização e o funcionamento da administração federal, quando isso não implicar aumento de despesa nem criação ou extinção de órgãos públicos.",
+        "O Presidente da República pode criar órgãos públicos por decreto, desde que não haja aumento de despesa.",
+        "O decreto regulamentar pode inovar na ordem jurídica, criando obrigações não previstas em lei.",
+        "O Presidente da República pode extinguir, por decreto, cargos públicos ocupados.",
+        "A competência para dispor, por decreto, sobre a organização da administração federal é indelegável."
+      ],
+      "certa": 0,
+      "comentario": "A alternativa A reproduz o art. 84, VI, a, da CF. O decreto só pode extinguir funções ou cargos públicos quando vagos (art. 84, VI, b), não pode criar órgãos nem inovar criando obrigações sem lei, e o parágrafo único do art. 84 permite delegar essa atribuição aos Ministros de Estado, ao Procurador-Geral da República ou ao Advogado-Geral da União."
+    },
+    {
+      "ref": "WF-DAD-009",
+      "materia": "Direito Administrativo",
+      "assunto": "Agentes públicos",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Com relação aos agentes públicos, julgue o item a seguir.\n\nOs empregados das empresas públicas e das sociedades de economia mista são regidos, em regra, pela legislação trabalhista, mas sua admissão depende de aprovação prévia em concurso público.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. As estatais que exploram atividade econômica sujeitam-se ao regime próprio das empresas privadas quanto às obrigações trabalhistas (art. 173, § 1º, II, da CF), mas o art. 37, II, exige concurso para a investidura em cargo ou emprego público, o que alcança essas entidades."
+    },
+    {
+      "ref": "WF-DAD-010",
+      "materia": "Direito Administrativo",
+      "assunto": "Responsabilidade civil do Estado",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Sobre a responsabilidade civil do Estado prevista no art. 37, § 6º, da Constituição Federal, é correto afirmar:",
+      "alts": [
+        "Adota-se, como regra, a teoria do risco integral, que não admite qualquer excludente de responsabilidade.",
+        "O direito de regresso contra o agente causador do dano independe de dolo ou culpa.",
+        "A culpa exclusiva da vítima pode afastar a responsabilidade do Estado, por romper o nexo causal.",
+        "A vítima deve provar a culpa do agente público para obter a indenização.",
+        "Somente as pessoas jurídicas de direito público respondem objetivamente pelos danos causados por seus agentes."
+      ],
+      "certa": 2,
+      "comentario": "A regra é a teoria do risco administrativo: a responsabilidade é objetiva, mas admite excludentes que rompem o nexo causal, como a culpa exclusiva da vítima. A vítima não precisa provar culpa, o regresso contra o agente exige dolo ou culpa, e o § 6º alcança também as pessoas de direito privado prestadoras de serviços públicos."
+    },
+    {
+      "ref": "WF-DAD-011",
+      "materia": "Direito Administrativo",
+      "assunto": "Improbidade administrativa",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "De acordo com o art. 37, § 4º, da Constituição Federal, os atos de improbidade administrativa importarão",
+      "alts": [
+        "a cassação dos direitos políticos, a perda da função pública e o ressarcimento ao erário.",
+        "a perda da função pública e o ressarcimento ao erário, ficando excluída a ação penal cabível.",
+        "a perda da nacionalidade e a indisponibilidade dos bens.",
+        "a suspensão dos direitos políticos, a perda da função pública, a indisponibilidade dos bens e o ressarcimento ao erário, sem prejuízo da ação penal cabível.",
+        "a prisão administrativa do agente e a perda da função pública."
+      ],
+      "certa": 3,
+      "comentario": "A alternativa D reproduz as consequências do art. 37, § 4º, da CF, na forma e gradação previstas em lei. A Constituição veda a cassação de direitos políticos (art. 15), as esferas civil e penal são independentes e não há perda de nacionalidade nem prisão administrativa como sanção por improbidade."
+    },
+    {
+      "ref": "WF-DAD-012",
+      "materia": "Direito Administrativo",
+      "assunto": "Licitações (Lei 14.133/2021)",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Acerca das modalidades de licitação previstas na Lei 14.133/2021, julgue o item a seguir.\n\nA nova lei de licitações manteve a tomada de preços e o convite entre as modalidades de licitação.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Errado. O art. 28 da Lei 14.133/2021 prevê como modalidades o pregão, a concorrência, o concurso, o leilão e o diálogo competitivo. A tomada de preços e o convite, previstos na antiga Lei 8.666/1993, não foram mantidos."
+    },
+    {
+      "ref": "WF-DAD-013",
+      "materia": "Direito Administrativo",
+      "assunto": "Licitações (Lei 14.133/2021)",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Sobre o pregão, nos termos da Lei 14.133/2021, assinale a afirmativa correta.",
+      "alts": [
+        "Adota obrigatoriamente o critério de julgamento de melhor técnica.",
+        "É a modalidade destinada à alienação de bens imóveis a quem oferecer o maior lance.",
+        "É a modalidade destinada à escolha de trabalho técnico, científico ou artístico, com concessão de prêmio ao vencedor.",
+        "Aplica-se obrigatoriamente às obras de engenharia de qualquer natureza.",
+        "É a modalidade obrigatória para aquisição de bens e serviços comuns, cujo critério de julgamento pode ser o de menor preço ou o de maior desconto."
+      ],
+      "certa": 4,
+      "comentario": "O art. 6º, XLI, da Lei 14.133/2021 define o pregão como modalidade obrigatória para bens e serviços comuns, julgada por menor preço ou maior desconto. A alienação de bens a quem oferecer o maior lance é leilão, a escolha de trabalho técnico, científico ou artístico é concurso, e o pregão não se aplica às obras nem aos serviços de engenharia que não sejam comuns (art. 29, parágrafo único)."
+    },
+    {
+      "ref": "WF-DAD-014",
+      "materia": "Direito Administrativo",
+      "assunto": "Licitações (Lei 14.133/2021)",
+      "dificuldade": "dificil",
+      "estilo": "FCC",
+      "enunciado": "Modalidade de licitação para contratação de obras, serviços e compras em que a Administração realiza diálogos com licitantes previamente selecionados mediante critérios objetivos, com o intuito de desenvolver alternativas capazes de atender às suas necessidades, devendo os licitantes apresentar proposta final após o encerramento dos diálogos. Trata-se de",
+      "alts": ["pregão.", "concorrência.", "diálogo competitivo.", "leilão.", "concurso."],
+      "certa": 2,
+      "comentario": "A descrição corresponde ao diálogo competitivo, definido no art. 6º, XLII, da Lei 14.133/2021 e voltado a contratações em que a Administração ainda precisa construir, com o mercado, a solução para sua necessidade. As demais modalidades não preveem fase de diálogos com licitantes pré-selecionados."
+    },
+    {
+      "ref": "WF-DAD-015",
+      "materia": "Direito Administrativo",
+      "assunto": "Licitações (Lei 14.133/2021)",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Um Município pretende escolher o melhor projeto artístico para um monumento em praça pública, concedendo prêmio ao vencedor. Segundo a Lei 14.133/2021, a modalidade de licitação adequada é o(a)",
+      "alts": ["concurso.", "leilão.", "pregão.", "concorrência.", "diálogo competitivo."],
+      "certa": 0,
+      "comentario": "O concurso (art. 6º, XXXIX, da Lei 14.133/2021) destina-se à escolha de trabalho técnico, científico ou artístico, com critério de melhor técnica ou conteúdo artístico e concessão de prêmio ou remuneração ao vencedor. O leilão serve à alienação de bens e o pregão a bens e serviços comuns."
+    },
+    {
+      "ref": "WF-DPE-001",
+      "materia": "Direito Penal e Processual",
+      "assunto": "Princípios do direito penal",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Considerando o princípio da legalidade penal, julgue o item a seguir.\n\nMedida provisória pode criar novo tipo penal, desde que seja posteriormente convertida em lei pelo Congresso Nacional.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Errado. Não há crime sem lei anterior que o defina (art. 5º, XXXIX, da CF e art. 1º do CP), e o art. 62, § 1º, I, b, da CF veda a edição de medida provisória sobre direito penal. A conversão posterior em lei não supre esse vício."
+    },
+    {
+      "ref": "WF-DPE-002",
+      "materia": "Direito Penal e Processual",
+      "assunto": "Crimes contra a administração pública",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Um servidor público responsável pela análise de pedidos de licença exige de um empresário determinada quantia em dinheiro, afirmando que, sem o pagamento, o pedido não será deferido. A conduta do servidor caracteriza, em tese, o crime de",
+      "alts": ["peculato.", "prevaricação.", "corrupção passiva.", "concussão.", "corrupção ativa."],
+      "certa": 3,
+      "comentario": "Concussão (art. 316 do CP) é exigir, para si ou para outrem, vantagem indevida em razão da função. Na corrupção passiva (art. 317) o núcleo é solicitar, receber ou aceitar promessa, sem a imposição típica da exigência; a corrupção ativa é praticada pelo particular, e peculato e prevaricação têm outras condutas."
+    },
+    {
+      "ref": "WF-DPE-003",
+      "materia": "Direito Penal e Processual",
+      "assunto": "Crimes contra a administração pública",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Um fiscal deixa de lavrar auto de infração contra estabelecimento pertencente a um amigo de infância, sem receber qualquer vantagem, apenas para poupá-lo do prejuízo. Em tese, o fiscal praticou o crime de",
+      "alts": ["concussão.", "corrupção passiva.", "peculato.", "condescendência criminosa.", "prevaricação."],
+      "certa": 4,
+      "comentario": "Prevaricação (art. 319 do CP) consiste em retardar ou deixar de praticar, indevidamente, ato de ofício para satisfazer interesse ou sentimento pessoal, como a amizade. Não houve vantagem indevida (o que afasta concussão e corrupção) nem apropriação de bens, e a condescendência criminosa refere-se a deixar de responsabilizar subordinado."
+    },
+    {
+      "ref": "WF-DPE-004",
+      "materia": "Direito Penal e Processual",
+      "assunto": "Crimes contra a administração pública",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Acerca dos crimes praticados por funcionário público contra a administração em geral, julgue o item a seguir.\n\nO crime de corrupção passiva pode configurar-se pela simples solicitação de vantagem indevida pelo funcionário público, ainda que a vantagem não venha a ser entregue.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. O art. 317 do CP tem como um dos núcleos o verbo solicitar, de modo que o crime se consuma com a própria solicitação, independentemente do recebimento da vantagem."
+    },
+    {
+      "ref": "WF-DPE-005",
+      "materia": "Direito Penal e Processual",
+      "assunto": "Crimes contra a administração pública",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Sobre o crime de peculato, previsto no art. 312 do Código Penal, assinale a afirmativa correta.",
+      "alts": [
+        "No peculato culposo, a reparação do dano posterior à sentença irrecorrível extingue a punibilidade.",
+        "No peculato culposo, a reparação do dano, se precede à sentença irrecorrível, extingue a punibilidade.",
+        "No peculato doloso, a reparação do dano antes da sentença extingue a punibilidade.",
+        "O peculato só pode ter por objeto bens públicos, nunca bens particulares.",
+        "O Código Penal não prevê a modalidade culposa de peculato."
+      ],
+      "certa": 1,
+      "comentario": "O art. 312, § 3º, do CP dispõe que, no peculato culposo, a reparação do dano anterior à sentença irrecorrível extingue a punibilidade e, se posterior, reduz de metade a pena imposta. Esse benefício não se aplica ao peculato doloso, e o caput admite como objeto bem público ou particular de que o funcionário tenha a posse em razão do cargo."
+    },
+    {
+      "ref": "WF-DPE-006",
+      "materia": "Direito Penal e Processual",
+      "assunto": "Inquérito policial",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo ao inquérito policial.\n\nA autoridade policial pode mandar arquivar os autos do inquérito quando concluir pela inexistência de crime.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Errado. O art. 17 do CPP proíbe expressamente que a autoridade policial mande arquivar autos de inquérito, o que decorre da indisponibilidade do inquérito para a polícia."
+    },
+    {
+      "ref": "WF-DPE-007",
+      "materia": "Direito Penal e Processual",
+      "assunto": "Inquérito policial",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "A respeito do inquérito policial, é correto afirmar:",
+      "alts": [
+        "É indispensável ao oferecimento da denúncia pelo Ministério Público.",
+        "Pode ser arquivado pela própria autoridade policial.",
+        "Nos termos do art. 10 do CPP, deve terminar, em regra, no prazo de 10 dias se o indiciado estiver preso e de 30 dias se estiver solto.",
+        "É processo judicial em que se asseguram contraditório e ampla defesa plenos.",
+        "Admite que todas as suas peças sejam produzidas oralmente, dispensando a forma escrita."
+      ],
+      "certa": 2,
+      "comentario": "O art. 10 do CPP fixa os prazos de 10 dias para indiciado preso e 30 dias para indiciado solto. O inquérito é dispensável quando já houver elementos suficientes, não pode ser arquivado pela polícia (art. 17), é procedimento administrativo de natureza inquisitiva e suas peças são reduzidas a escrito (art. 9º)."
+    },
+    {
+      "ref": "WF-DPE-008",
+      "materia": "Direito Penal e Processual",
+      "assunto": "Princípios do direito penal",
+      "dificuldade": "dificil",
+      "estilo": "Vunesp",
+      "enunciado": "Sobre a lei penal no tempo, conforme o art. 2º do Código Penal, assinale a alternativa correta.",
+      "alts": [
+        "Ninguém pode ser punido por fato que lei posterior deixa de considerar crime, cessando em virtude dela a execução e os efeitos penais da sentença condenatória.",
+        "A lei penal mais grave retroage para alcançar fatos anteriores ainda não julgados.",
+        "A lei posterior mais benéfica não alcança fatos já decididos por sentença condenatória transitada em julgado.",
+        "A abolitio criminis apaga também os efeitos civis da condenação, como o dever de indenizar.",
+        "A lei posterior mais benéfica só se aplica se o réu a requerer antes da sentença de primeiro grau."
+      ],
+      "certa": 0,
+      "comentario": "A alternativa A reproduz o caput do art. 2º do CP (abolitio criminis), que faz cessar apenas os efeitos penais, permanecendo os civis. A lei mais grave não retroage e, pelo parágrafo único, a lei posterior que de qualquer modo favorecer o agente aplica-se aos fatos anteriores, ainda que decididos por sentença transitada em julgado, sem depender de requerimento prévio."
+    },
+    {
+      "ref": "WF-LEG-001",
+      "materia": "Legislação e Ética no serviço público",
+      "assunto": "Lei 8.112/1990 - Provimento",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Com base na Lei 8.112/1990, julgue o item a seguir.\n\nA transferência é forma de provimento de cargo público atualmente prevista na Lei 8.112/1990.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Errado. O art. 8º da Lei 8.112/1990 prevê como formas de provimento a nomeação, a promoção, a readaptação, a reversão, o aproveitamento, a reintegração e a recondução. A transferência e a ascensão foram retiradas do rol por serem incompatíveis com a exigência de concurso público."
+    },
+    {
+      "ref": "WF-LEG-002",
+      "materia": "Legislação e Ética no serviço público",
+      "assunto": "Lei 8.112/1990 - Provimento",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Servidor estável foi demitido após processo administrativo disciplinar, mas a demissão foi posteriormente invalidada por decisão judicial. O retorno desse servidor ao cargo anteriormente ocupado, com ressarcimento de todas as vantagens, denomina-se",
+      "alts": ["reversão.", "reintegração.", "aproveitamento.", "recondução.", "readaptação."],
+      "certa": 1,
+      "comentario": "Reintegração (art. 28 da Lei 8.112/1990) é a reinvestidura do servidor estável no cargo anteriormente ocupado quando invalidada sua demissão por decisão administrativa ou judicial. Reversão é o retorno do aposentado, aproveitamento é o retorno do servidor em disponibilidade, recondução é o retorno ao cargo anterior por inabilitação em estágio probatório ou reintegração do anterior ocupante, e readaptação decorre de limitação de capacidade física ou mental."
+    },
+    {
+      "ref": "WF-LEG-003",
+      "materia": "Legislação e Ética no serviço público",
+      "assunto": "Estabilidade",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Acerca da estabilidade do servidor público, julgue o item a seguir.\n\nConforme a Constituição Federal, o servidor nomeado para cargo de provimento efetivo em virtude de concurso público adquire estabilidade após três anos de efetivo exercício, sendo obrigatória, como condição para tanto, a avaliação especial de desempenho por comissão instituída para essa finalidade.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Certo. É o que dispõem o caput e o § 4º do art. 41 da CF, com a redação da EC 19/1998. A regra constitucional de três anos prevalece sobre o prazo de dois anos que ainda aparece no texto do art. 21 da Lei 8.112/1990."
+    },
+    {
+      "ref": "WF-LEG-004",
+      "materia": "Legislação e Ética no serviço público",
+      "assunto": "Lei 8.112/1990 - Vacância",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Na Lei 8.112/1990, determinado instituto aparece tanto no rol das formas de provimento (art. 8º) quanto no rol das hipóteses de vacância (art. 33). Esse instituto é a",
+      "alts": ["reintegração.", "reversão.", "nomeação.", "promoção.", "aproveitamento."],
+      "certa": 3,
+      "comentario": "A promoção provê o novo cargo e, ao mesmo tempo, gera a vacância do cargo anterior, por isso consta dos arts. 8º e 33 (o mesmo ocorre com a readaptação). Reintegração, reversão, nomeação e aproveitamento são apenas formas de provimento."
+    },
+    {
+      "ref": "WF-LEG-005",
+      "materia": "Legislação e Ética no serviço público",
+      "assunto": "Lei 8.112/1990 - Penalidades",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "A respeito das penalidades disciplinares previstas na Lei 8.112/1990, assinale a alternativa correta.",
+      "alts": [
+        "A suspensão não pode exceder 90 dias.",
+        "A suspensão pode ser aplicada por até 180 dias.",
+        "A multa é penalidade autônoma, prevista no rol do art. 127.",
+        "A advertência pode ser aplicada verbalmente, dispensando registro.",
+        "A destituição de cargo em comissão não está prevista entre as penalidades disciplinares."
+      ],
+      "certa": 0,
+      "comentario": "O art. 130 limita a suspensão a 90 dias. A advertência é aplicada por escrito (art. 129), a multa não é penalidade autônoma, mas conversão possível da suspensão (art. 130, § 2º), e a destituição de cargo em comissão consta do rol do art. 127."
+    },
+    {
+      "ref": "WF-LEG-006",
+      "materia": "Legislação e Ética no serviço público",
+      "assunto": "Decreto 1.171/1994 - Código de Ética",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "De acordo com o Código de Ética Profissional do Servidor Público Civil do Poder Executivo Federal (Decreto 1.171/1994), a pena aplicável ao servidor pela Comissão de Ética é a de",
+      "alts": ["advertência.", "suspensão.", "censura.", "demissão.", "multa."],
+      "certa": 2,
+      "comentario": "O Código de Ética prevê que a pena aplicável pela Comissão de Ética é a de censura, fundamentada em parecer e com ciência do faltoso. Advertência, suspensão e demissão são penalidades disciplinares da Lei 8.112/1990, aplicadas em outra esfera."
+    },
+    {
+      "ref": "WF-LEG-007",
+      "materia": "Legislação e Ética no serviço público",
+      "assunto": "Decreto 1.171/1994 - Código de Ética",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Segundo as regras deontológicas do Decreto 1.171/1994, o servidor público não pode desprezar o elemento ético de sua conduta. Assim, não terá de decidir somente entre o legal e o ilegal, o justo e o injusto, o conveniente e o inconveniente, o oportuno e o inoportuno, mas principalmente entre o",
+      "alts": ["legal e o ilegal.", "conveniente e o inconveniente.", "justo e o injusto.", "oportuno e o inoportuno.", "honesto e o desonesto."],
+      "certa": 4,
+      "comentario": "O Código de Ética coloca a escolha entre o honesto e o desonesto como critério principal da conduta do servidor, acima dos demais pares citados. As outras alternativas repetem justamente os critérios que o texto diz não bastarem."
+    }
+  ]
+}

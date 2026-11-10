@@ -12,7 +12,8 @@ use Illuminate\Validation\Rule;
 
 /**
  * Apoio dos cartões do quadro (public/js/cartoes-extra.js e graficos.js):
- * - banco de questões abertas (filtros, busca paginada e simulado sorteado);
+ * - banco de questões abertas (filtros por área, banca, matéria, assunto, ano, dificuldade e "com comentário";
+ *   busca paginada e simulado sorteado);
  * - tarefas da área para ligar a um hábito (Hábitos) e criar o checklist de integração (RH).
  */
 class CartoesController extends Controller
@@ -61,12 +62,14 @@ class CartoesController extends Controller
     private function filtrosPedido(Request $request): array
     {
         return $request->validate([
+            'area'        => ['nullable', 'string', 'max:40'],
             'banca'       => ['nullable', 'string', 'max:40'],
             'materia'     => ['nullable', 'string', 'max:60'],
             'assunto'     => ['nullable', 'string', 'max:60'],
             'ano'         => ['nullable', 'integer', 'between:1990,2100'],
             'dificuldade' => ['nullable', Rule::in(array_keys(QuestoesBanco::DIFICULDADES))],
             'busca'       => ['nullable', 'string', 'max:80'],
+            'comentadas'  => ['nullable', 'boolean'],
             'pagina'      => ['nullable', 'integer', 'min:1'],
         ]);
     }
@@ -74,10 +77,13 @@ class CartoesController extends Controller
     private function consulta(array $f)
     {
         $q = DB::table('questoes_banco');
-        foreach (['banca', 'materia', 'assunto', 'ano', 'dificuldade'] as $c) {
+        foreach (['area', 'banca', 'materia', 'assunto', 'ano', 'dificuldade'] as $c) {
             if (isset($f[$c]) && $f[$c] !== '') {
                 $q->where($c, $f[$c]);
             }
+        }
+        if (! empty($f['comentadas'])) {
+            $q->whereNotNull('comentario');
         }
         if (! empty($f['busca'])) {
             $termo = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], trim($f['busca'])) . '%';

@@ -1,8 +1,11 @@
 /* Work Flower · cartões de estudo da área Mente: "Flashcards", "Pomodoro", "Plano de estudos" e "Matemática".
    Estende o WFQuadro.metodos sem mexer no quadro.js, como o graficos.js (carregue depois dele: usa wfNovoCartao).
-   - Flashcards: revisão espaçada (estilo SM-2). Errei / Difícil / Bom / Fácil decidem quando a carta volta.
-       b.dados = { cartas: [{ id, frente, verso, materia, int (dias), ef, prox ('AAAA-MM-DD' ou null = nova), reps, lapsos, orig? }],
-                   modo: 'estudar'|'editar'|'importar', materia, novasDia, hist: { 'AAAA-MM-DD': { n, ok } }, novas: { d, n } }
+   - Flashcards: baralhos (c.materia), revisão espaçada (estilo SM-2: Errei / Difícil / Bom / Fácil decidem quando a carta volta),
+       desfazer, estudo livre (todas / difíceis / novas, sem mexer na agenda), estatísticas (30 dias, previsão de 14, intervalos,
+       cartas difíceis), importar/exportar (texto, CSV, .txt do Anki), imagens ![](...) e fórmulas $...$ (KaTeX de CDN quando aparece uma),
+       questões (ou só as erradas) de um cartão "Questões de concurso" viram cartas.
+       b.dados = { cartas: [{ id, frente, verso, materia (baralho), int (dias), ef, prox ('AAAA-MM-DD' ou null = nova), reps, lapsos, orig? }],
+                   modo: 'baralhos'|'estudar'|'editar'|'importar'|'progresso', materia (baralho escolhido), novasDia, hist: { 'AAAA-MM-DD': { n, ok } }, novas: { d, n } }
    - Pomodoro: foco / pausa curta / pausa longa ligados a uma matéria; cada foco terminado vira uma sessão.
        b.dados = { foco, curta, longa, ciclos, materias: [nome], materia, fase, rodando, fim (ms), resta (s), feitos, som, auto,
                    sessoes: [{ id, d: 'AAAA-MM-DD', em (ms), materia, min }] }
@@ -12,7 +15,8 @@
                    provas: [{ id, nome, data }], ver: 'semana'|'metas'|'progresso' }
    - Matemática: uma conta por linha com a resposta ao lado (variáveis, funções, unidades, porcentagem, soma do bloco),
        derivar / integrar / simplificar / resolver / fatorar / expandir / limite e gráfico de funções (arrastar e rolar).
-       math.js e nerdamer (CAS) vêm de CDN só quando o cartão aparece. b.dados = { texto, virgula, graus, graf: { xmin, xmax, ymin, ymax } }
+       Teclado de símbolos, exemplos por assunto, erros explicados em português e o campo "Desenhar y =" (b.dados.plots).
+       math.js e nerdamer (CAS) vêm de CDN só quando o cartão aparece. b.dados = { texto, virgula, graus, verGraf, plots: [expr], graf: { xmin, xmax, yc } }
    Desenhos (SVG) gerados aqui com texto escapado; partials/estudo-*-cartao mostram. */
 (function () {
     'use strict';
@@ -31,6 +35,9 @@
     const MAX_CARTAS = 3000, MAX_SESSOES = 3000, MAX_HIST = 400, MAX_TEXTO_MAT = 20000;
     const MATHJS = 'https://cdnjs.cloudflare.com/ajax/libs/mathjs/13.2.0/math.min.js';
     const NERDAMER = 'https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/all.min.js';
+    const KATEX = 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js';
+    const KATEX_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css';
+    const MAX_IMGS_BYTES = 2500000; // imagens coladas (data URL) somadas num cartão de flashcards
 
     const hoje = () => iso(new Date());
     const addDias = (s, n) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return iso(d); };
@@ -96,14 +103,110 @@
         return { ef: Math.round(ef * 100) / 100, int, reps, lapsos, prox: addDias(dia || hoje(), int) };
     }
     const intTxt = d => (d <= 0 ? 'de novo' : d < 30 ? d + 'd' : d < 365 ? Math.round(d / 30) + ' mês' : (Math.round(d / 36.5) / 10).toLocaleString('pt-BR') + ' ano');
-    /** "frente ; verso" ou "frente<TAB>verso" (exportação do Anki/Quizlet), uma por linha. Matéria opcional em 3ª coluna. */
+    /** CSV com aspas (campos com quebra de linha, "" dentro de aspas). Devolve as linhas como listas de campos. */
+    function lerCsv(texto, sep) {
+        const linhas = [];
+        let campo = '', linha = [], aspas = false;
+        const s = String(texto || '').replace(/\r\n?/g, '\n');
+        for (let i = 0; i < s.length; i++) {
+            const ch = s[i];
+            if (aspas) {
+                if (ch === '"') { if (s[i + 1] === '"') { campo += '"'; i++; } else aspas = false; }
+                else campo += ch;
+            } else if (ch === '"' && campo === '') aspas = true;
+            else if (ch === sep) { linha.push(campo); campo = ''; }
+            else if (ch === '\n') { linha.push(campo); linhas.push(linha); linha = []; campo = ''; }
+            else campo += ch;
+        }
+        if (campo !== '' || linha.length) { linha.push(campo); linhas.push(linha); }
+        return linhas;
+    }
+    /** HTML do Anki → texto das cartas (quebras, imagens em ![](...), fórmulas \( \) em $ $). */
+    function deHtml(t) {
+        return String(t || '')
+            .replace(/<br\s*\/?>|<\/(div|p|li)>/gi, '\n')
+            .replace(/<img[^>]*src="([^"]+)"[^>]*>/gi, (m, src) => `![](${src})`)
+            .replace(/<[^>]+>/g, '')
+            .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+            .replace(/\\\(([\s\S]+?)\\\)/g, '$$$1$$').replace(/\\\[([\s\S]+?)\\\]/g, '$$$$$1$$$$')
+            .replace(/\n{3,}/g, '\n\n').trim();
+    }
+    /** Texto das cartas → HTML para o Anki (quebras em <br>, imagens em <img>, fórmulas em \( \) e \[ \]). */
+    function paraAnki(t) {
+        const partes = [];
+        let s = String(t || '').replace(/\$\$([\s\S]+?)\$\$|(?<![R\\])\$(?!\s)([^$\n]+?)(?<!\s)\$|!\[([^\]]*)\]\(([^)\s]+)\)/g, (m, bloco, inline, alt, src) => {
+            partes.push(src !== undefined ? `<img src="${esc(src)}">` : bloco !== undefined ? '\\[' + esc(bloco) + '\\]' : '\\(' + esc(inline) + '\\)');
+            return '\u0000' + (partes.length - 1) + '\u0000';
+        });
+        s = esc(s).replace(/\t/g, ' ').replace(/\n/g, '<br>');
+        return s.replace(/\u0000(\d+)\u0000/g, (m, k) => partes[+k]);
+    }
+    /**
+     * Cartas coladas ou de arquivo. Aceita:
+     * - exportação do Anki (.txt, separado por tabulação; linhas "#separator:tab", "#html:true" etc. são lidas e ignoradas);
+     * - CSV com aspas, separado por vírgula ou ponto e vírgula (cabeçalho "frente,verso,baralho" opcional);
+     * - uma carta por linha: "frente ; verso ; baralho" (também "frente - verso").
+     */
     function lerImportacao(texto) {
-        return String(texto || '').split(/\r?\n/).map(l => {
-            const p = l.includes('\t') ? l.split('\t') : l.split(/\s*;\s*|\s+-\s+|\s*=\s*/);
-            if (p.length < 2 || !p[0].trim() || !p[1].trim()) return null;
-            return { frente: p[0].trim().slice(0, 2000), verso: p[1].trim().slice(0, 4000), materia: (p[2] || '').trim().slice(0, 60) };
+        let s = String(texto || '').replace(/^﻿/, '');
+        const html = /^#html:true/im.test(s);
+        let colBaralho = 2;
+        const mDeck = s.match(/^#deck column:(\d+)/im);
+        if (mDeck) colBaralho = +mDeck[1] - 1;
+        s = s.split(/\r?\n/).filter(l => !/^#[a-z ]+:/i.test(l)).join('\n');
+        const primeira = (s.split('\n').find(l => l.trim()) || '');
+        let linhas;
+        if (primeira.includes('\t')) linhas = lerCsv(s, '\t');
+        else if (/^\s*"/.test(primeira) || /^\s*(frente|front)\s*[,;]/i.test(primeira)) linhas = lerCsv(s, (primeira.match(/;/g) || []).length > (primeira.match(/,/g) || []).length ? ';' : ',');
+        else linhas = s.split('\n').map(l => l.split(/\s*;\s*|\s+-\s+/));
+        if (linhas.length && /^(frente|front)$/i.test((linhas[0][0] || '').trim())) linhas.shift();
+        const limpa = v => (html ? deHtml(v) : String(v || '')).trim();
+        return linhas.map(p => {
+            if (!p || p.length < 2 || !limpa(p[0]) || !limpa(p[1])) return null;
+            const baralho = limpa(p[colBaralho] || '').split('::').pop();
+            return { frente: limpa(p[0]).slice(0, 2000), verso: limpa(p[1]).slice(0, 4000), materia: baralho.slice(0, 60) };
         }).filter(Boolean);
     }
+    const csvCampo = v => (/[",;\n\r]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v));
+    /** Endereço de imagem aceito nas cartas: http(s) ou data:image (png, jpeg, webp, gif). */
+    const IMG_OK = /^(https?:\/\/[^\s)"'<>]+|data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+)$/i;
+    const TEM_FORMULA = /\$\$[\s\S]+?\$\$|(?<![R\\])\$(?!\s)[^$\n]+?(?<!\s)\$/;
+    /** Texto da carta → HTML seguro: tudo escapado; só ![](imagem) e fórmulas $...$ / $$...$$ (KaTeX) viram HTML. */
+    function cartaHtml(t, katex) {
+        const partes = [];
+        let s = String(t || '').replace(/\$\$([\s\S]+?)\$\$|(?<![R\\])\$(?!\s)([^$\n]+?)(?<!\s)\$|!\[([^\]]*)\]\(([^)\s]+)\)/g, (m, bloco, inline, alt, src) => {
+            partes.push({ m, bloco, inline, alt, src });
+            return '\u0000' + (partes.length - 1) + '\u0000';
+        });
+        s = esc(s);
+        return s.replace(/\u0000(\d+)\u0000/g, (_, k) => {
+            const p = partes[+k];
+            if (p.src !== undefined) return IMG_OK.test(p.src) ? `<img class="fc-img" src="${esc(p.src)}" alt="${esc(p.alt || 'imagem')}" loading="lazy">` : esc(p.m);
+            const tex = p.bloco !== undefined ? p.bloco : p.inline;
+            if (katex) { try { return katex.renderToString(tex, { displayMode: p.bloco !== undefined, throwOnError: false, trust: false, strict: 'ignore' }); } catch (_) { /* mostra o código */ } }
+            return `<code class="fc-tex">${esc(tex)}</code>`;
+        });
+    }
+    /** Foto/print → JPEG pequeno em data URL (lado maior até 720 px, até ~90 KB). */
+    async function comprimirImagem(arquivo) {
+        const url = URL.createObjectURL(arquivo);
+        try {
+            const img = await new Promise((ok, falha) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => falha(new Error('imagem inválida')); i.src = url; });
+            let lado = 720, q = 0.82, out = '';
+            for (let volta = 0; volta < 6; volta++) {
+                const f = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+                const c = document.createElement('canvas');
+                c.width = Math.max(1, Math.round(img.naturalWidth * f)); c.height = Math.max(1, Math.round(img.naturalHeight * f));
+                const ctx = c.getContext('2d');
+                ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+                out = c.toDataURL('image/jpeg', q);
+                if (out.length <= 120000) break;
+                lado = Math.round(lado * 0.8); q = Math.max(0.5, q - 0.08);
+            }
+            return out;
+        } finally { URL.revokeObjectURL(url); }
+    }
+    const embaralhar = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
     /* ================= Matemática: interpretar as linhas ================= */
     const NOMES_PT = { sen: 'sin', tg: 'tan', arcsen: 'asin', arccos: 'acos', arctg: 'atan', raiz: 'sqrt', log: 'log10', ln: 'log', cotg: 'cot', cossec: 'csc' };
@@ -181,7 +284,28 @@
         }
         return [...new Set(out.map(r => Math.round(r * 1e9) / 1e9))].slice(0, 12);
     }
-    const PRECISA_CAS = /^\s*(integrar|integral|∫|resolver|resolva|fatorar|fatore|expandir|expanda|limite|lim)\b/i;
+    /** Erro do math.js → frase curta em português, com dica de como arrumar. */
+    function erroAmigavel(err, linha) {
+        const m = String(err && err.message || err || '');
+        let r;
+        if ((r = m.match(/Undefined symbol (\w+)/))) {
+            const s = r[1];
+            if (/^[a-z]$/i.test(s)) return `“${s}” não tem valor: escreva antes ${s} = 5, ou use “gráfico …” / “resolver …”`;
+            return `“${s}” não existe: confira a escrita (sen, cos, raiz, ln…) ou defina ${s} = …`;
+        }
+        if ((r = m.match(/Undefined function (\w+)/))) return `a função “${r[1]}” não existe (use sen, cos, tg, raiz, ln, log, abs…)`;
+        if (/Parenthesis \) expected/.test(m) || (/Unexpected end of expression/.test(m) && (linha.match(/\(/g) || []).length > (linha.match(/\)/g) || []).length)) return 'falta fechar um parêntese “)”';
+        if (/Unexpected end of expression/.test(m)) return 'a conta terminou no meio: falta um número depois do sinal';
+        if (/Unexpected operator/.test(m)) return 'tem um sinal sobrando ou dois seguidos (ex.: 2 + * 3)';
+        if (/Value expected/.test(m)) return 'faltou um número ou variável aqui';
+        if (/Unexpected type of character|Syntax error/.test(m)) return 'tem um caractere que a calculadora não entende';
+        if (/Units do not match|unit/i.test(m)) return 'as unidades não combinam (ex.: km com kg)';
+        if (/Too few arguments|Too many arguments/.test(m)) return 'número errado de valores na função (separe com ; ou , conforme a vírgula decimal)';
+        if (/Dimension mismatch|Matrix/i.test(m)) return 'os tamanhos das listas/matrizes não combinam';
+        if (/Cannot convert|Unexpected type of argument/.test(m)) return 'tipos não combinam nesta conta';
+        return 'não entendi esta linha: ' + m.slice(0, 80);
+    }
+    const PRECISA_CAS =/^\s*(integrar|integral|∫|resolver|resolva|fatorar|fatore|expandir|expanda|limite|lim)\b/i;
 
     /** Avalia todas as linhas. Devolve { linhas: [{ txt, cls, tit }], escopo, funcs: [{ expr, nome }] }. */
     function avaliarTudo(texto, opc, math, nerd) {
@@ -342,8 +466,19 @@
             } catch (err) {
                 // texto solto (sem números nem operadores) é anotação: fica sem resposta
                 if (!/[\d+\-*/^=()]/.test(l)) { linhas.push({ txt: '', cls: '' }); return; }
-                linhas.push({ txt: '?', cls: 'erro', tit: String(err && err.message || err).slice(0, 200) });
+                const msg = erroAmigavel(err, l);
+                linhas.push({ txt: '⚠ ' + msg, cls: 'erro', tit: msg, msg });
             }
+        });
+        // funções do campo "Desenhar" (fora do texto)
+        (opc.plots || []).forEach(p => {
+            try {
+                const nome = String(p).replace(/^\s*y\s*=\s*/i, '').trim();
+                if (!nome) return;
+                const e = /^[a-zA-Z]\w*$/.test(nome) && typeof escopo[nome] === 'function' ? nome + '(x)' : traduzir(nome, virgula);
+                math.parse(e);
+                funcs.push({ expr: e, nome });
+            } catch (_) { /* função inválida: o campo mostra o erro */ }
         });
         return { linhas, escopo, funcs };
     }
@@ -425,6 +560,26 @@
         'gráfico f; sen(x); x^2/4',
     ].join('\n');
 
+    /** Exemplos clicáveis do cartão de Matemática, por assunto. */
+    const GRUPOS_EXEMPLOS = [
+        { nome: 'Contas', itens: ['12,5 * 3', '2^10', 'raiz(144)', 'raiz(27; 3)', '5!', '(3 + 4) * 2', '1.250,00 + 830,50'] },
+        { nome: 'Porcentagem', itens: ['15% de 200', '1500 - 10%', '1200 + 8%', '30 / 120 * 100'] },
+        { nome: 'Unidades', itens: ['5 km para m', '1,5 L para mL', '500 g para kg', '100 kg para lb'] },
+        { nome: 'Funções', itens: ['f(x) = x^2 - 3x', 'f(5)', 'g(x) = 2x + 1', 'g(f(2))'] },
+        { nome: 'Equações', itens: ['resolver x^2 - 5x + 6 = 0', 'resolver 2x + 3 = 11', 'fatorar x^3 - 8', 'expandir (x + 2)^3', 'simplificar (x^2 - 1)/(x - 1)'] },
+        { nome: 'Cálculo', itens: ['derivar x^3 * sen(x)', 'derivar x^2 em x = 3', 'd2/dx2 x^4', 'integrar x^2 * e^x', 'integrar sen(x) de 0 a pi', 'limite sen(x)/x quando x -> 0', 'limite (1 + 1/n)^n quando n -> infinito'] },
+        { nome: 'Trigonometria', itens: ['sen(pi/6)', 'cos(0)', 'tg(pi/4)', 'arcsen(1)'] },
+        { nome: 'Estatística', itens: ['mean(4; 8; 15; 16; 23; 42)', 'median(3; 1; 4; 1; 5)', 'std(2; 4; 4; 4; 5; 5; 7; 9)', 'combinations(10; 3)'] },
+        { nome: 'Gráficos', itens: ['gráfico x^2', 'gráfico sen(x); cos(x)', 'gráfico 1/x', 'gráfico e^x; ln(x)', 'gráfico abs(x) - 2'] },
+    ];
+    /** Teclado de símbolos: [rótulo, texto inserido ("|" = onde o cursor fica), dica]. */
+    const TECLAS_MAT = [
+        ['π', 'pi', 'pi'], ['e', 'e', 'número de Euler'], ['√', 'raiz(|)', 'raiz quadrada'], ['∛', 'raiz(|; 3)', 'raiz cúbica'], ['x²', '^2', 'ao quadrado'], ['xⁿ', '^', 'potência'],
+        ['( )', '(|)', 'parênteses'], ['×', ' * ', 'vezes'], ['÷', ' / ', 'dividido'], ['%', '% de ', 'porcentagem'], ['n!', '!', 'fatorial'], ['|x|', 'abs(|)', 'módulo'],
+        ['sen', 'sen(|)', 'seno'], ['cos', 'cos(|)', 'cosseno'], ['tg', 'tg(|)', 'tangente'], ['ln', 'ln(|)', 'logaritmo natural'], ['log', 'log(|)', 'logaritmo na base 10'], ['∞', 'infinito', 'infinito (em limites)'],
+        ['d/dx', 'derivar |', 'derivada'], ['∫', 'integrar |', 'integral'], ['∫ₐᵇ', 'integrar | de 0 a 1', 'integral definida'], ['lim', 'limite | quando x -> 0', 'limite'], ['=0', 'resolver | = 0', 'resolver equação'], ['📈', 'gráfico |', 'desenhar no gráfico'],
+    ];
+
     /* ================= métodos dos cartões ================= */
     const extras = {
         /* ---------- criar ---------- */
@@ -476,9 +631,46 @@
         },
 
         /* ---------- Flashcards ---------- */
-        fcUI(b) { return this.esUI(b, { virada: false, vistos: {}, busca: '', imp: '', fonte: '', nova: { frente: '', verso: '', materia: '' }, sessao: 0 }); },
+        // b.dados.materia é o baralho escolhido ('' = todos); cada carta guarda o baralho em c.materia (nome antigo do campo).
+        fcUI(b) {
+            return this.esUI(b, { virada: false, vistos: {}, busca: '', imp: '', fonte: '', soErradas: true, nova: { frente: '', verso: '', materia: '' }, sessao: 0,
+                livre: null, ultimo: null, novoBaralho: '', renomear: null });
+        },
         fcCartas(b) { const m = b.dados.materia; return (b.dados.cartas || []).filter(c => !m || c.materia === m); },
         fcMaterias(b) { return [...new Set((b.dados.cartas || []).map(c => c.materia).filter(Boolean))].sort((a, c) => a.localeCompare(c, 'pt-BR')); },
+        /** Resumo de cada baralho (para a tela "Baralhos"). */
+        fcBaralhos(b) {
+            const d = hoje(), por = {};
+            (b.dados.cartas || []).forEach(c => {
+                const k = c.materia || '';
+                const x = por[k] ??= { nome: k, total: 0, novas: 0, revisar: 0, maduras: 0 };
+                x.total++;
+                if (!c.prox) x.novas++; else if (c.prox <= d) x.revisar++;
+                if ((c.int || 0) >= 21) x.maduras++;
+            });
+            const lim = Math.max(0, (b.dados.novasDia ?? 20) - (b.dados.novas && b.dados.novas.d === d ? b.dados.novas.n : 0));
+            return Object.values(por).map(x => ({ ...x, novasHoje: Math.min(x.novas, lim) })).sort((a, c) => (a.nome || '~').localeCompare(c.nome || '~', 'pt-BR'));
+        },
+        fcAbrirBaralho(b, nome, modo) { b.dados.materia = nome; this.fcUI(b).livre = null; this.fcUI(b).virada = false; b.dados.modo = modo || 'estudar'; },
+        fcCriarBaralho(b) {
+            const ui = this.fcUI(b), nome = ui.novoBaralho.trim().slice(0, 60);
+            if (!nome) { this.aviso('Escreva o nome do baralho.'); return; }
+            b.dados.materia = nome; ui.nova.materia = nome; ui.novoBaralho = ''; b.dados.modo = 'editar';
+            this.aviso(`Baralho “${nome}” criado. Escreva a primeira carta.`);
+        },
+        fcRenomearBaralho(b, antigo) {
+            const ui = this.fcUI(b), novo = String(ui.renomear?.nome || '').trim().slice(0, 60);
+            ui.renomear = null;
+            if (!novo || novo === antigo) return;
+            (b.dados.cartas || []).forEach(c => { if ((c.materia || '') === antigo) c.materia = novo; });
+            if (b.dados.materia === antigo) b.dados.materia = novo;
+        },
+        fcApagarBaralho(b, nome) {
+            const n = (b.dados.cartas || []).filter(c => (c.materia || '') === nome).length;
+            if (!confirm(`Apagar o baralho “${nome || 'Sem baralho'}” e as ${n} cartas dele?`)) return;
+            b.dados.cartas = b.dados.cartas.filter(c => (c.materia || '') !== nome);
+            if (b.dados.materia === nome) b.dados.materia = '';
+        },
         /** Cartas para hoje: as vencidas e as novas (até o limite diário), as já vistas nesta sessão vão para o fim. */
         fcFila(b) {
             const d = hoje(), ui = this.fcUI(b), cartas = this.fcCartas(b);
@@ -487,22 +679,37 @@
             const novas = cartas.filter(c => !c.prox).slice(0, Math.max(0, (b.dados.novasDia ?? 20) - usadas));
             return [...vencidas, ...novas].sort((a, c) => (ui.vistos[a.id] || 0) - (ui.vistos[c.id] || 0));
         },
-        fcAtual(b) { return this.fcFila(b)[0] || null; },
+        fcAtual(b) {
+            const ui = this.fcUI(b);
+            if (ui.livre) { const id = ui.livre.ids[ui.livre.i]; return id ? (b.dados.cartas || []).find(c => c.id === id) || null : null; }
+            return this.fcFila(b)[0] || null;
+        },
         fcContagem(b) {
-            const d = hoje(), cartas = this.fcCartas(b), fila = this.fcFila(b);
+            const d = hoje(), cartas = this.fcCartas(b), fila = this.fcFila(b), h = b.dados.hist || {};
+            let n30 = 0, ok30 = 0;
+            for (let i = 0; i < 30; i++) { const x = h[addDias(d, -i)]; if (x) { n30 += x.n || 0; ok30 += x.ok || 0; } }
             return {
                 novas: fila.filter(c => !c.prox).length, revisar: fila.filter(c => c.prox).length,
                 total: cartas.length, maduras: cartas.filter(c => (c.int || 0) >= 21).length,
                 amanha: cartas.filter(c => c.prox && c.prox <= addDias(d, 1)).length - fila.filter(c => c.prox).length,
-                feitasHoje: (b.dados.hist || {})[d] ? b.dados.hist[d].n : 0,
-                acertoHoje: (b.dados.hist || {})[d] && b.dados.hist[d].n ? Math.round(b.dados.hist[d].ok / b.dados.hist[d].n * 100) : null,
+                feitasHoje: h[d] ? h[d].n : 0,
+                acertoHoje: h[d] && h[d].n ? Math.round(h[d].ok / h[d].n * 100) : null,
+                acerto30: n30 ? Math.round(ok30 / n30 * 100) : null, revisoes30: n30,
             };
         },
-        fcPrevisao(b, c, nota) { return intTxt(agendar(c, nota).int); },
+        fcPrevisao(b, c, nota) { return this.fcUI(b).livre ? '' : intTxt(agendar(c, nota).int); },
         fcResponder(b, nota) {
             const c = this.fcAtual(b), ui = this.fcUI(b);
             if (!c || !ui.virada) return;
+            if (ui.livre) { // estudo livre: não mexe na agenda; a que errou volta uma vez no fim
+                const L = ui.livre;
+                L.n++; if (nota > 0) L.ok++;
+                if (nota === 0 && !L.voltou[c.id]) { L.ids.push(c.id); L.voltou[c.id] = 1; }
+                L.i++; ui.virada = false;
+                return;
+            }
             const d = hoje();
+            ui.ultimo = { id: c.id, antes: { ef: c.ef, int: c.int, reps: c.reps, lapsos: c.lapsos, prox: c.prox ?? null }, d, nota, visto: ui.vistos[c.id] };
             if (!c.prox) { // nova: conta no limite diário
                 if (!b.dados.novas || b.dados.novas.d !== d) b.dados.novas = { d, n: 0 };
                 b.dados.novas.n++;
@@ -517,16 +724,76 @@
             ui.vistos[c.id] = ++ui.sessao;
             ui.virada = false;
         },
-        fcTecla(b, ev) {
-            if (b.dados.modo !== 'estudar' || /INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)) return;
+        /** Desfaz a última resposta (volta a agenda da carta, o histórico e o limite de novas). */
+        fcDesfazer(b) {
+            const ui = this.fcUI(b), u = ui.ultimo;
+            if (!u) return;
+            const c = (b.dados.cartas || []).find(x => x.id === u.id);
+            ui.ultimo = null;
+            if (!c) return;
+            Object.assign(c, u.antes);
+            if (!u.antes.prox && b.dados.novas && b.dados.novas.d === u.d) b.dados.novas.n = Math.max(0, b.dados.novas.n - 1);
+            const h = (b.dados.hist || {})[u.d];
+            if (h) { h.n = Math.max(0, h.n - 1); if (u.nota > 0) h.ok = Math.max(0, h.ok - 1); }
+            if (u.visto) ui.vistos[c.id] = u.visto; else delete ui.vistos[c.id];
+            ui.vistos[c.id] = -1; // volta para a frente da fila
+            ui.virada = true;
+        },
+        /** Estudo livre (treino antes da prova): todas, só as difíceis ou só as novas do baralho, embaralhadas, sem mexer na agenda. */
+        fcLivre(b, tipo) {
+            const cartas = this.fcCartas(b).filter(c => tipo === 'dificeis' ? (c.lapsos || 0) > 0 || (c.ef && c.ef < 2.2) : tipo === 'novas' ? !c.prox : true);
+            if (!cartas.length) { this.aviso(tipo === 'dificeis' ? 'Nenhuma carta difícil (que você já errou) neste baralho.' : 'Nenhuma carta neste baralho.'); return; }
             const ui = this.fcUI(b);
+            ui.livre = { tipo, ids: embaralhar(cartas.map(c => c.id)), i: 0, ok: 0, n: 0, voltou: {} };
+            ui.virada = false;
+            b.dados.modo = 'estudar';
+        },
+        fcSairLivre(b) { this.fcUI(b).livre = null; this.fcUI(b).virada = false; },
+        fcLivreTxt(b) {
+            const L = this.fcUI(b).livre;
+            if (!L) return '';
+            return ({ todas: 'Estudo livre', dificeis: 'Só as difíceis', novas: 'Só as novas' }[L.tipo] || 'Estudo livre') + ` · ${Math.min(L.i + 1, L.ids.length)} de ${L.ids.length}`;
+        },
+        fcTecla(b, ev) {
+            if ((b.dados.modo || 'estudar') !== 'estudar' || /INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)) return;
+            const ui = this.fcUI(b);
+            if ((ev.ctrlKey || ev.metaKey) && ev.key === 'z') { ev.preventDefault(); this.fcDesfazer(b); return; }
             if (ev.key === ' ' || ev.key === 'Enter') { ev.preventDefault(); if (!ui.virada) ui.virada = true; else this.fcResponder(b, 2); }
             else if (ui.virada && /^[1-4]$/.test(ev.key)) { ev.preventDefault(); this.fcResponder(b, +ev.key - 1); }
+        },
+        /** Carta com fórmula ($...$) ou imagem (![](...)) → HTML (carrega o KaTeX na primeira fórmula). */
+        fcHtml(t) {
+            const L = this.wfEsLib;
+            if (TEM_FORMULA.test(String(t || '')) && !L.katex && !L.katexCarregando) {
+                L.katexCarregando = true;
+                if (!document.querySelector('link[data-katex]')) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = KATEX_CSS; l.crossOrigin = 'anonymous'; l.dataset.katex = '1'; document.head.appendChild(l); }
+                carregar(KATEX).then(() => { L.katex = true; }).catch(() => { /* fórmulas ficam como código */ }).finally(() => { L.katexCarregando = false; });
+            }
+            return cartaHtml(t, L.katex ? window.katex : null);
+        },
+        fcRica(t) { return TEM_FORMULA.test(String(t || '')) || /!\[[^\]]*\]\(/.test(String(t || '')); },
+        fcBytesImagens(b) { return (b.dados.cartas || []).reduce((s, c) => s + ((c.frente + c.verso).match(/data:image\/[^)]+/g) || []).reduce((t, x) => t + x.length, 0), 0); },
+        /** Põe uma imagem (arquivo ou colada) no campo, como ![](data:...). */
+        async fcImagem(b, alvo, campo, arquivo, el) {
+            if (!arquivo || !/^image\//.test(arquivo.type)) return;
+            if (this.fcBytesImagens(b) > MAX_IMGS_BYTES) { this.aviso('Este cartão já tem muitas imagens. Use um endereço de imagem: ![](https://...)'); return; }
+            try {
+                const url = await comprimirImagem(arquivo), md = `![imagem](${url})`;
+                const t = alvo[campo] || '', p = el && el.selectionStart != null ? el.selectionStart : t.length;
+                alvo[campo] = t.slice(0, p) + (p && t[p - 1] !== '\n' ? '\n' : '') + md + '\n' + t.slice(p);
+            } catch (_) { this.aviso('Não deu para ler essa imagem.'); }
+        },
+        fcColar(b, alvo, campo, ev) {
+            const item = [...((ev.clipboardData || {}).items || [])].find(i => i.kind === 'file' && /^image\//.test(i.type));
+            if (!item) return;
+            ev.preventDefault();
+            this.fcImagem(b, alvo, campo, item.getAsFile(), ev.target);
         },
         fcAdicionar(b) {
             const n = this.fcUI(b).nova;
             if (!n.frente.trim() || !n.verso.trim()) { this.aviso('Preencha a frente e o verso.'); return; }
             if ((b.dados.cartas || []).length >= MAX_CARTAS) { this.aviso(`Limite de ${MAX_CARTAS} cartas por cartão.`); return; }
+            b.dados.cartas ??= [];
             b.dados.cartas.unshift({ id: uid(), frente: n.frente.trim(), verso: n.verso.trim(), materia: (n.materia || b.dados.materia || '').trim(), prox: null });
             this.fcUI(b).nova = { frente: '', verso: '', materia: n.materia };
         },
@@ -538,44 +805,102 @@
         },
         fcImportarTexto(b) {
             const ui = this.fcUI(b), novas = lerImportacao(ui.imp);
-            if (!novas.length) { this.aviso('Nada para importar. Use uma carta por linha: frente ; verso'); return; }
-            const livre = MAX_CARTAS - (b.dados.cartas || []).length;
-            novas.slice(0, livre).forEach(n => b.dados.cartas.push({ id: uid(), ...n, materia: n.materia || b.dados.materia || '', prox: null }));
+            if (!novas.length) { this.aviso('Nada para importar. Use uma carta por linha (frente ; verso), um CSV ou o .txt exportado do Anki.'); return; }
+            b.dados.cartas ??= [];
+            const livre = MAX_CARTAS - b.dados.cartas.length, ja = new Set(b.dados.cartas.map(c => c.frente + '\u0001' + c.verso));
+            let n = 0, rep = 0;
+            novas.slice(0, livre).forEach(x => {
+                if (ja.has(x.frente + '\u0001' + x.verso)) { rep++; return; }
+                b.dados.cartas.push({ id: uid(), ...x, materia: x.materia || b.dados.materia || '', prox: null });
+                n++;
+            });
             ui.imp = '';
-            b.dados.modo = 'estudar';
-            const n = Math.min(novas.length, livre);
-            this.aviso(n === 1 ? '1 carta importada.' : `${n} cartas importadas.`);
+            if (n) b.dados.modo = 'baralhos';
+            this.aviso((n === 1 ? '1 carta importada' : `${n} cartas importadas`) + (rep ? ` (${rep} repetidas ficaram de fora)` : '') + (novas.length > livre ? `. Limite de ${MAX_CARTAS} cartas.` : '.'));
+        },
+        /** Arquivo .csv / .txt (Anki) / .tsv → mesma importação do texto colado. */
+        fcImportarArquivo(b, arquivo) {
+            if (!arquivo) return;
+            if (arquivo.size > 5e6) { this.aviso('Arquivo grande demais (máximo 5 MB).'); return; }
+            arquivo.text().then(t => { this.fcUI(b).imp = t; this.fcImportarTexto(b); }).catch(() => this.aviso('Não deu para ler o arquivo.'));
         },
         /** Cartões "Questões" da página que podem virar flashcards. */
         fcFontes(b) { return this.estado.blocos.filter(x => x.tipo === 'questoes' && (x.dados.questoes || []).length).map(x => ({ id: x.id, nome: (x.titulo || 'Questões') + ' (' + x.dados.questoes.length + ')' })); },
-        fcImportarQuestoes(b) {
-            const x = this.blocoPorId(this.fcUI(b).fonte);
-            if (!x) { this.aviso('Escolha um cartão de Questões.'); return; }
-            const L = ['A', 'B', 'C', 'D', 'E'], ja = new Set((b.dados.cartas || []).map(c => c.orig).filter(Boolean));
+        /** Questões de um cartão viram cartas (frente: enunciado + alternativas; verso: resposta + comentário). Devolve quantas. */
+        fcTrazerQuestoes(b, x, soErradas) {
+            const L = ['A', 'B', 'C', 'D', 'E'];
+            b.dados.cartas ??= [];
+            const ja = new Set(b.dados.cartas.map(c => c.orig).filter(Boolean)), resp = x.dados.resp || {};
             let n = 0;
-            const soErradas = !!this.fcUI(b).soErradas, resp = x.dados.resp || {};
             (x.dados.questoes || []).forEach(q => {
                 const orig = 'q:' + x.id + ':' + q.id;
                 if (ja.has(orig) || b.dados.cartas.length >= MAX_CARTAS) return;
                 if (soErradas && !(q.id in resp && resp[q.id] !== q.certa)) return;
                 const alts = (q.alts || []).map((a, k) => (a ? L[k] + ') ' + a : '')).filter(Boolean).join('\n');
                 const certa = q.alts && q.alts[q.certa] ? L[q.certa] + ') ' + q.alts[q.certa] : '';
-                b.dados.cartas.push({ id: uid(), orig, materia: q.materia || '', prox: null, frente: (q.enunciado + (alts ? '\n\n' + alts : '')).slice(0, 2000), verso: ('Resposta: ' + certa + (q.expl ? '\n\n' + q.expl : '')).slice(0, 4000) });
+                const origem = q.banca ? '\n\n(' + [q.banca, q.prova].filter(Boolean).join(' · ') + ')' : '';
+                b.dados.cartas.push({ id: uid(), orig, materia: q.materia || 'Questões', prox: null,
+                    frente: (q.enunciado + (alts ? '\n\n' + alts : '')).slice(0, 2000),
+                    verso: ('Resposta: ' + certa + (q.expl ? '\n\n' + q.expl : '') + origem).slice(0, 4000) });
                 n++;
             });
+            return n;
+        },
+        fcImportarQuestoes(b) {
+            const x = this.blocoPorId(this.fcUI(b).fonte);
+            if (!x) { this.aviso('Escolha um cartão de Questões.'); return; }
+            const n = this.fcTrazerQuestoes(b, x, !!this.fcUI(b).soErradas);
             this.aviso(n === 1 ? '1 questão virou flashcard.' : n ? `${n} questões viraram flashcards.` : 'Nenhuma questão nova para trazer.');
-            if (n) b.dados.modo = 'estudar';
+            if (n) b.dados.modo = 'baralhos';
+        },
+        /** Atalho do cartão de Questões: as que errei vão para o primeiro cartão de Flashcards da página. */
+        fcDeQuestoes(qb) {
+            const alvo = this.estado.blocos.find(x => x.tipo === 'flashcards');
+            if (!alvo) { this.aviso('Adicione um cartão “Flashcards (revisão espaçada)” nesta página primeiro.'); return; }
+            const n = this.fcTrazerQuestoes(alvo, qb, true);
+            this.aviso(n ? `${n} ${n === 1 ? 'questão errada virou flashcard' : 'questões erradas viraram flashcards'} em “${alvo.titulo || 'Flashcards'}”.` : 'As questões que você errou já estão nos flashcards.');
         },
         fcSvg(b) {
             const h = b.dados.hist || {}, d = hoje();
-            const itens = Array.from({ length: 14 }, (_, i) => { const k = addDias(d, i - 13); return { r: dataCurta(k), v: h[k] ? h[k].n : 0, cor: CORES[1] }; });
-            return svgBarras(itens, { rotulo: 'Revisões nos últimos 14 dias' });
+            const itens = Array.from({ length: 30 }, (_, i) => {
+                const k = addDias(d, i - 29), x = h[k];
+                return { r: i % 5 === 4 ? dataCurta(k) : '', v: x ? x.n : 0, cor: x && x.n && x.ok / x.n < 0.7 ? CORES[3] : CORES[1] };
+            });
+            return svgBarras(itens, { rotulo: 'Revisões nos últimos 30 dias (laranja: menos de 70% de acerto)' });
+        },
+        /** Quantas cartas vencem em cada um dos próximos 14 dias (as atrasadas contam hoje). */
+        fcPrevisaoSvg(b) {
+            const d = hoje(), cartas = this.fcCartas(b);
+            const itens = Array.from({ length: 14 }, (_, i) => {
+                const k = addDias(d, i);
+                return { r: i === 0 ? 'hoje' : dataCurta(k), v: cartas.filter(c => c.prox && (i === 0 ? c.prox <= k : c.prox === k)).length, cor: CORES[0] };
+            });
+            return svgBarras(itens, { rotulo: 'Revisões previstas para os próximos 14 dias' });
+        },
+        fcIntervalosSvg(b) {
+            const cartas = this.fcCartas(b), f = (a, z) => cartas.filter(c => c.prox && (c.int || 0) >= a && (c.int || 0) < z).length;
+            return svgBarras([
+                { r: 'Novas', v: cartas.filter(c => !c.prox).length, cor: '#2563eb' },
+                { r: 'Aprendendo (<7d)', v: f(0, 7), cor: CORES[3] },
+                { r: 'Jovens (7–20d)', v: f(7, 21), cor: CORES[2] },
+                { r: 'Maduras (21d+)', v: f(21, 1e9), cor: '#16a34a' },
+            ], { rotulo: 'Cartas por intervalo' });
+        },
+        fcDificeis(b) { return this.fcCartas(b).filter(c => (c.lapsos || 0) > 0).sort((a, c) => (c.lapsos || 0) - (a.lapsos || 0) || (a.ef || 2.5) - (c.ef || 2.5)).slice(0, 8); },
+        fcBaixar(nome, texto, tipo) {
+            const url = URL.createObjectURL(new Blob(['﻿' + texto], { type: tipo + ';charset=utf-8' }));
+            const a = document.createElement('a'); a.href = url; a.download = nome; a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        },
+        fcNomeArquivo(b) { return ((b.titulo || 'flashcards') + (b.dados.materia ? ' - ' + b.dados.materia : '')).replace(/[\\/:*?"<>|]+/g, '').trim() || 'flashcards'; },
+        /** .txt para o Anki (Arquivo › Importar): HTML, baralho na 3ª coluna ("Work Flower::Baralho"). */
+        fcBaixarAnki(b) {
+            const linhas = this.fcCartas(b).map(c => [paraAnki(c.frente), paraAnki(c.verso), 'Work Flower::' + (c.materia || 'Geral').replace(/[\t:]+/g, ' ')].join('\t'));
+            this.fcBaixar(this.fcNomeArquivo(b) + ' (Anki).txt', ['#separator:tab', '#html:true', '#deck column:3', ...linhas].join('\n'), 'text/plain');
         },
         fcBaixarCsv(b) {
-            const linhas = (b.dados.cartas || []).map(c => [c.frente, c.verso, c.materia || ''].map(t => String(t).replace(/[\t\r\n]+/g, ' ')).join('\t'));
-            const url = URL.createObjectURL(new Blob([linhas.join('\n')], { type: 'text/tab-separated-values;charset=utf-8' }));
-            const a = document.createElement('a'); a.href = url; a.download = (b.titulo || 'flashcards').replace(/[\\/:*?"<>|]+/g, '') + '.txt'; a.click();
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            const linhas = this.fcCartas(b).map(c => [c.frente, c.verso, c.materia || '', c.prox || '', c.int || 0, c.lapsos || 0].map(csvCampo).join(','));
+            this.fcBaixar(this.fcNomeArquivo(b) + '.csv', ['frente,verso,baralho,proxima_revisao,intervalo_dias,erros', ...linhas].join('\r\n'), 'text/csv');
         },
 
         /* ---------- Pomodoro ---------- */
@@ -787,7 +1112,7 @@
         },
 
         /* ---------- Matemática ---------- */
-        mtUI(b) { return this.esUI(b, { ajuda: false, cursor: null, arrasto: null, gw: 600, gh: 260, rolagem: 0 }); },
+        mtUI(b) { return this.esUI(b, { ajuda: false, teclado: false, plot: '', plotErro: '', cursor: null, arrasto: null, gw: 600, gh: 260, rolagem: 0 }); },
         /** Carrega o math.js (e o nerdamer quando alguma linha pede CAS). */
         mtGarantir(b) {
             const L = this.wfEsLib;
@@ -803,7 +1128,7 @@
         /** Resultado de cada linha (guardado fora do Alpine; recalcula quando o texto ou as opções mudam). */
         mtCalc(b) {
             const L = this.wfEsLib, d = b.dados;
-            const chave = [d.texto, d.virgula, d.graus, L.math, L.cas].join('\u0001');
+            const chave = [d.texto, d.virgula, d.graus, L.math, L.cas, (d.plots || []).join('\u0002')].join('\u0001');
             const c = CACHE_MT.get(b.id);
             if (c && c.chave === chave) return c.res;
             if (!L.math || !window.math) { this.mtGarantir(b); return { linhas: [], escopo: {}, funcs: [] }; }
@@ -824,6 +1149,40 @@
             b.dados.texto = t + (t && !t.endsWith('\n') ? '\n' : '') + txt;
         },
         mtExemplo(b) { b.dados.texto = EXEMPLO_MAT; },
+        mtGruposExemplos() { return GRUPOS_EXEMPLOS; },
+        mtTeclas() { return TECLAS_MAT; },
+        /** Tecla do teclado de símbolos: escreve na posição do cursor (o "|" marca onde o cursor fica). */
+        mtTecla(b, ta, t) {
+            const txt = b.dados.texto || '', ini = ta ? ta.selectionStart : txt.length, fim = ta ? ta.selectionEnd : txt.length;
+            const k = t.indexOf('|'), ins = t.replace('|', ''), sel = txt.slice(ini, fim);
+            const novo = k >= 0 && sel ? ins.slice(0, k) + sel + ins.slice(k) : ins;
+            b.dados.texto = txt.slice(0, ini) + novo + txt.slice(fim);
+            const pos = ini + (k >= 0 ? k + sel.length : novo.length);
+            if (ta) this.$nextTick(() => { ta.focus(); ta.setSelectionRange(pos, pos); });
+        },
+        /** Primeiro erro do texto (para a faixa de aviso embaixo do editor). */
+        mtPrimeiroErro(b) {
+            const ls = this.mtLinhas(b), i = ls.findIndex(r => r.cls === 'erro');
+            return i < 0 ? '' : `Linha ${i + 1}: ${ls[i].msg || ls[i].tit || 'não entendi'}`;
+        },
+        /** Campo "Desenhar y =": acrescenta uma função ao gráfico (sem escrever no texto). */
+        mtPlotAdd(b) {
+            const ui = this.mtUI(b), f = String(ui.plot || '').replace(/^\s*y\s*=\s*/i, '').trim().slice(0, 200);
+            ui.plotErro = '';
+            if (!f) return;
+            if (window.math) {
+                try { window.math.parse(traduzir(f, !!b.dados.virgula)); } catch (e) { ui.plotErro = erroAmigavel(e, f); return; }
+            }
+            b.dados.plots ??= [];
+            if (b.dados.plots.length >= 8) { ui.plotErro = 'No máximo 8 funções no campo. Tire alguma.'; return; }
+            if (!b.dados.plots.includes(f)) b.dados.plots.push(f);
+            b.dados.verGraf = true;
+            ui.plot = '';
+        },
+        mtPlotTirar(b, f) { b.dados.plots = (b.dados.plots || []).filter(x => x !== f); },
+        mtCor(k) { return CORES[k % CORES.length]; },
+        /** Funções no gráfico (as do texto e as do campo), com a cor de cada uma. */
+        mtFuncoes(b) { return this.mtCalc(b).funcs.map((f, k) => ({ nome: f.nome, cor: CORES[k % CORES.length], doCampo: (b.dados.plots || []).includes(f.nome) })); },
         mtMedir(b, el) {
             const ui = this.mtUI(b), ajusta = () => { const w = Math.round(el.clientWidth), h = Math.round(el.clientHeight); if (w > 20 && (w !== ui.gw || h !== ui.gh)) { ui.gw = w; ui.gh = Math.max(120, h); } };
             ajusta();
@@ -900,7 +1259,7 @@
             if (primeira && (this.estado.blocos || []).some(b => b.tipo === 'pomodoro')) setTimeout(() => this.pmRelogio(), 500);
             return r;
         };
-        return Object.assign(m, extras, { wfEsUI: {}, wfEsAgora: Date.now(), wfEsLib: { math: false, cas: false, carregando: false, casCarregando: false, erro: '' } });
+        return Object.assign(m, extras, { wfEsUI: {}, wfEsAgora: Date.now(), wfEsLib: { math: false, cas: false, carregando: false, casCarregando: false, erro: '', katex: false, katexCarregando: false } });
     };
     window.WFEstudo = { agendar, lerImportacao, traduzir, avaliarTudo, segunda, raizes, simpson };
 })();

@@ -1,0 +1,956 @@
+{
+  "area": "Tecnologia",
+  "questoes": [
+    {
+      "ref": "WF-PROG-001",
+      "materia": "Programação",
+      "assunto": "Estruturas de repetição em Python",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Considere o trecho de código em Python a seguir.\n\nx = 0\nfor i in range(1, 5):\n    x += i\nprint(x)\n\nAo ser executado, o trecho exibe:",
+      "alts": ["10", "15", "9", "4", "5"],
+      "certa": 0,
+      "comentario": "range(1, 5) gera 1, 2, 3 e 4 (o limite superior não é incluído), logo x = 1 + 2 + 3 + 4 = 10. O valor 15 só ocorreria se o 5 fosse incluído, e 4 ou 5 confundem a soma com o número de iterações ou com o limite."
+    },
+    {
+      "ref": "WF-PROG-002",
+      "materia": "Programação",
+      "assunto": "Recursão",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Analise a função recursiva escrita em Python.\n\ndef f(n):\n    if n <= 1:\n        return 1\n    return n * f(n - 2)\n\nprint(f(7))\n\nO valor exibido é:",
+      "alts": ["5040", "105", "48", "35", "15"],
+      "certa": 1,
+      "comentario": "A função decrementa n de 2 em 2: f(7) = 7 × f(5) = 7 × 5 × f(3) = 7 × 5 × 3 × f(1) = 105, pois f(1) é o caso base e retorna 1. O valor 5040 seria 7! (decremento de 1 em 1), e 48 seria o produto dos pares 6 × 4 × 2."
+    },
+    {
+      "ref": "WF-PROG-003",
+      "materia": "Programação",
+      "assunto": "Encapsulamento",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo à programação orientada a objetos.\n\nEncapsulamento consiste em ocultar os detalhes internos de implementação de um objeto, como seus atributos, permitindo o acesso a eles de forma controlada por meio de uma interface pública, como métodos de acesso.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "O item descreve corretamente o encapsulamento: o estado interno fica protegido (por exemplo, atributos privados) e o acesso ocorre por métodos públicos que podem validar as operações."
+    },
+    {
+      "ref": "WF-PROG-004",
+      "materia": "Programação",
+      "assunto": "Operadores aritméticos em Java",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Considere o trecho de código Java a seguir.\n\nint a = 7, b = 2;\nSystem.out.println(a / b + a % b);\n\nO valor impresso é:",
+      "alts": ["4.5", "5", "4", "3", "4.0"],
+      "certa": 2,
+      "comentario": "Como a e b são do tipo int, a / b é divisão inteira e vale 3; a % b é o resto da divisão, que vale 1; a soma é 4, impressa como inteiro. As opções 4.5 e 4.0 supõem aritmética de ponto flutuante, que não ocorre entre dois int."
+    },
+    {
+      "ref": "WF-PROG-005",
+      "materia": "Programação",
+      "assunto": "Coerção de tipos em JavaScript",
+      "dificuldade": "dificil",
+      "estilo": "FCC",
+      "enunciado": "Em JavaScript, ao executar a instrução abaixo, o valor exibido no console é:\n\nconsole.log(\"5\" + 3 - 1);",
+      "alts": ["7", "531", "NaN", "52", "TypeError"],
+      "certa": 3,
+      "comentario": "A avaliação ocorre da esquerda para a direita: \"5\" + 3 é concatenação e resulta na string \"53\"; em seguida, o operador - converte \"53\" para número, e 53 - 1 = 52. Não há erro nem NaN, pois \"53\" é conversível para número."
+    },
+    {
+      "ref": "WF-PROG-006",
+      "materia": "Programação",
+      "assunto": "Herança em Java",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, acerca da linguagem Java.\n\nEm Java, uma classe pode estender diretamente mais de uma classe, desde que não haja conflito entre os nomes dos métodos herdados.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Java não admite herança múltipla de classes: a cláusula extends de uma classe aceita apenas uma superclasse. A possibilidade de múltiplos supertipos ocorre por meio da implementação de várias interfaces."
+    },
+    {
+      "ref": "WF-PROG-007",
+      "materia": "Programação",
+      "assunto": "Polimorfismo",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Considere o código Java a seguir.\n\nclass A {\n    String nome() { return \"A\"; }\n}\nclass B extends A {\n    String nome() { return \"B\"; }\n}\n\nE, em um método main:\n\nA obj = new B();\nSystem.out.println(obj.nome());\n\nO que é impresso?",
+      "alts": ["A", "AB", "null", "Erro de compilação", "B"],
+      "certa": 4,
+      "comentario": "O método nome() foi sobrescrito em B, e a chamada é resolvida em tempo de execução pelo tipo real do objeto (B), não pelo tipo da variável (A). Isso é polimorfismo por sobrescrita; o código compila normalmente, pois B é subtipo de A."
+    },
+    {
+      "ref": "WF-PROG-008",
+      "materia": "Programação",
+      "assunto": "Fatiamento de listas em Python",
+      "dificuldade": "facil",
+      "estilo": "FGV",
+      "enunciado": "Considere o código Python a seguir.\n\nlista = [3, 1, 4, 1, 5]\nprint(lista[1:3])\n\nO resultado exibido é:",
+      "alts": ["[1, 4]", "[3, 1, 4]", "[1, 4, 1]", "[3, 1]", "[4, 1]"],
+      "certa": 0,
+      "comentario": "Os índices começam em 0, e o fatiamento [1:3] inclui o índice 1 e exclui o 3, retornando os elementos das posições 1 e 2, ou seja, [1, 4]. As demais opções erram ao incluir o limite superior ou ao começar a contagem em 1."
+    },
+    {
+      "ref": "WF-PROG-009",
+      "materia": "Programação",
+      "assunto": "Argumentos padrão mutáveis",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Considere a função Python a seguir.\n\ndef f(x, lista=[]):\n    lista.append(x)\n    return lista\n\nJulgue o item.\n\nSe forem feitas, em sequência, as chamadas f(1) e f(2), a segunda chamada retornará [1, 2], pois o valor padrão do parâmetro lista é avaliado uma única vez, no momento da definição da função.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Em Python, os valores padrão são criados quando a instrução def é executada, e não a cada chamada; assim, a mesma lista é reaproveitada entre as chamadas. A primeira chamada deixa a lista como [1] e a segunda acrescenta 2, retornando [1, 2]."
+    },
+    {
+      "ref": "WF-PROG-010",
+      "materia": "Programação",
+      "assunto": "Tratamento de exceções em Java",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Considere o trecho Java a seguir.\n\ntry {\n    System.out.print(\"A\");\n    int x = 10 / 0;\n    System.out.print(\"B\");\n} catch (ArithmeticException e) {\n    System.out.print(\"C\");\n} finally {\n    System.out.print(\"D\");\n}\n\nA saída produzida é:",
+      "alts": ["ABD", "ACD", "AC", "ABCD", "AD"],
+      "certa": 1,
+      "comentario": "Imprime-se A; a divisão inteira por zero lança ArithmeticException, de modo que o print de B não é executado. O fluxo vai ao catch, que imprime C, e o bloco finally sempre executa, imprimindo D, resultando em ACD."
+    },
+    {
+      "ref": "WF-PROG-011",
+      "materia": "Programação",
+      "assunto": "Interfaces em Java",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Sobre interfaces na linguagem Java, assinale a alternativa correta.",
+      "alts": [
+        "Uma interface pode ser instanciada diretamente, como se fosse uma classe concreta.",
+        "Uma classe adota uma interface por meio da palavra-chave extends.",
+        "Uma classe pode implementar mais de uma interface.",
+        "Atributos declarados em uma interface são, implicitamente, variáveis de instância que cada objeto pode alterar.",
+        "Uma classe que implementa uma interface fica proibida de estender outra classe."
+      ],
+      "certa": 2,
+      "comentario": "Java permite que uma classe implemente várias interfaces (class X implements I1, I2). Classes usam implements, e não extends, para adotar interfaces; atributos de interfaces são implicitamente public static final; e uma classe pode estender uma superclasse e implementar interfaces ao mesmo tempo."
+    },
+    {
+      "ref": "WF-PROG-012",
+      "materia": "Programação",
+      "assunto": "Lógica e pseudocódigo",
+      "dificuldade": "media",
+      "estilo": "Cesgranrio",
+      "enunciado": "Considere o pseudocódigo a seguir.\n\na ← 5\nb ← 3\na ← a + b\nb ← a - b\na ← a - b\nescreva(a, b)\n\nAo final da execução, são escritos, nessa ordem, os valores:",
+      "alts": ["5 3", "8 5", "8 3", "3 5", "3 8"],
+      "certa": 3,
+      "comentario": "Após a ← a + b, a vale 8; b ← 8 - 3 faz b valer 5; a ← 8 - 5 faz a valer 3. O algoritmo troca os valores das variáveis sem usar variável auxiliar, resultando em 3 e 5."
+    },
+    {
+      "ref": "WF-PROG-013",
+      "materia": "Programação",
+      "assunto": "Recursão",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo a algoritmos recursivos.\n\nUma função recursiva deve possuir ao menos um caso base, que encerra a sequência de chamadas; na ausência dele, a execução tende a prosseguir indefinidamente até esgotar a pilha de chamadas.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "O caso base é a condição em que a função retorna sem chamar a si mesma. Sem ele, cada chamada empilha um novo registro de ativação, até ocorrer estouro de pilha (stack overflow) ou erro equivalente de limite de recursão."
+    },
+    {
+      "ref": "WF-PROG-014",
+      "materia": "Programação",
+      "assunto": "Escopo e closures em JavaScript",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Considere o código JavaScript a seguir.\n\nvar fs = [];\nfor (var i = 0; i < 3; i++) {\n    fs.push(function () { return i; });\n}\nconsole.log(fs[0]() + fs[1]() + fs[2]());\n\nO valor exibido é:",
+      "alts": ["0", "3", "6", "012", "9"],
+      "certa": 4,
+      "comentario": "Variáveis declaradas com var têm escopo de função, e não de bloco; por isso, as três funções capturam a mesma variável i, que vale 3 ao fim do laço. Cada chamada retorna 3 e a soma é 9; com let, cada iteração teria sua própria variável e o resultado seria 0 + 1 + 2 = 3."
+    },
+    {
+      "ref": "WF-PROG-015",
+      "materia": "Programação",
+      "assunto": "Laços e operadores em Python",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Considere o código Python a seguir.\n\nn = 1234\ns = 0\nwhile n > 0:\n    s += n % 10\n    n //= 10\nprint(s)\n\nO valor exibido é:",
+      "alts": ["10", "4321", "1234", "24", "4"],
+      "certa": 0,
+      "comentario": "A cada iteração, n % 10 extrai o último dígito e n //= 10 o remove por divisão inteira, de modo que o laço soma os dígitos 4 + 3 + 2 + 1 = 10. O algoritmo não inverte o número (4321) nem multiplica os dígitos (24)."
+    },
+    {
+      "ref": "WF-PROG-016",
+      "materia": "Programação",
+      "assunto": "Sobrecarga e sobrescrita",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo à programação orientada a objetos em Java.\n\nOcorre sobrecarga (overloading) de métodos quando uma subclasse redefine um método herdado da superclasse, mantendo exatamente a mesma assinatura.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "O item descreve a sobrescrita (overriding). A sobrecarga ocorre quando métodos com o mesmo nome têm listas de parâmetros diferentes, em número, tipo ou ordem."
+    },
+    {
+      "ref": "WF-PROG-017",
+      "materia": "Programação",
+      "assunto": "Estruturas de repetição em Java",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Considere o trecho Java a seguir.\n\nint s = 0;\nfor (int i = 10; i > 0; i -= 3) {\n    s += i;\n}\nSystem.out.println(s);\n\nO valor impresso é:",
+      "alts": ["21", "22", "30", "18", "10"],
+      "certa": 1,
+      "comentario": "A variável i assume os valores 10, 7, 4 e 1; no passo seguinte valeria -2 e a condição i > 0 falharia. A soma é 10 + 7 + 4 + 1 = 22."
+    },
+    {
+      "ref": "WF-PROG-018",
+      "materia": "Programação",
+      "assunto": "Recursão com strings",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Considere a função Python a seguir.\n\ndef g(s):\n    if len(s) <= 1:\n        return s\n    return g(s[1:]) + s[0]\n\nprint(g(\"bola\"))\n\nO resultado exibido é:",
+      "alts": ["bola", "b", "alob", "olab", "aloba"],
+      "certa": 2,
+      "comentario": "A função processa recursivamente o restante da string e só depois concatena o primeiro caractere ao final, invertendo a string: g(\"bola\") = g(\"ola\") + \"b\" = (g(\"la\") + \"o\") + \"b\" = \"al\" + \"o\" + \"b\" = \"alob\"."
+    },
+    {
+      "ref": "WF-PROG-019",
+      "materia": "Programação",
+      "assunto": "Classes abstratas",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Sobre classes abstratas na linguagem Java, assinale a afirmativa correta.",
+      "alts": [
+        "Podem ser instanciadas com new, desde que declarem um construtor público.",
+        "Precisam declarar ao menos um método abstrato; caso contrário, o código não compila.",
+        "Uma subclasse concreta pode deixar de implementar os métodos abstratos herdados.",
+        "Podem conter tanto métodos abstratos quanto métodos com implementação.",
+        "Seus métodos abstratos devem ser escritos com corpo vazio, isto é, com chaves sem instruções."
+      ],
+      "certa": 3,
+      "comentario": "Uma classe abstrata pode misturar métodos abstratos e concretos. Ela nunca é instanciada diretamente, mesmo tendo construtor; pode ser declarada abstract sem nenhum método abstrato; subclasses concretas são obrigadas a implementar os abstratos herdados; e métodos abstratos não têm corpo, terminando em ponto e vírgula."
+    },
+    {
+      "ref": "WF-PROG-020",
+      "materia": "Programação",
+      "assunto": "Igualdade em JavaScript",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, acerca da linguagem JavaScript.\n\nA expressão 0 === \"0\" resulta em true, pois o operador de igualdade estrita converte os operandos para um mesmo tipo antes de compará-los.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "O operador === não faz conversão de tipos: como um operando é number e o outro é string, o resultado é false. Quem realiza conversão antes de comparar é o operador de igualdade abstrata ==, para o qual 0 == \"0\" é true."
+    },
+    {
+      "ref": "WF-PROG-021",
+      "materia": "Programação",
+      "assunto": "Lógica proposicional",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Considere as variáveis lógicas A = verdadeiro, B = falso e C = verdadeiro. Assinale a alternativa cuja expressão resulta em verdadeiro.",
+      "alts": [
+        "(A e B) ou (não C)",
+        "não (A ou C)",
+        "A e B e C",
+        "(não A) ou B",
+        "(A ou B) e C"
+      ],
+      "certa": 4,
+      "comentario": "Em (A ou B) e C, tem-se (V ou F) = V e, depois, V e V = V. Nas demais, (A e B) e (não C) são falsos; não (A ou C) = não V = F; A e B e C é falso porque B é falso; (não A) ou B = F ou F = F."
+    },
+    {
+      "ref": "WF-PROG-022",
+      "materia": "Programação",
+      "assunto": "try/except/else/finally em Python",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Considere o código Python a seguir.\n\ndef h(x):\n    try:\n        r = 10 // x\n    except ZeroDivisionError:\n        return \"E\"\n    else:\n        return \"OK\"\n    finally:\n        print(\"F\", end=\"\")\n\nprint(h(0))\n\nA saída produzida é:",
+      "alts": ["FE", "EF", "E", "F", "OKF"],
+      "certa": 0,
+      "comentario": "A divisão por zero desvia para o except, que prepara o retorno \"E\"; antes de a função efetivamente retornar, o finally executa e imprime F sem quebra de linha. Só então o print externo exibe o valor retornado, E, resultando em FE."
+    },
+    {
+      "ref": "WF-PROG-023",
+      "materia": "Programação",
+      "assunto": "Construtores e herança",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Considere as classes Java a seguir.\n\nclass A { A() { System.out.print(\"1\"); } }\nclass B extends A { B() { System.out.print(\"2\"); } }\nclass C extends B { C() { System.out.print(\"3\"); } }\n\nA execução da instrução new C(); produz como saída:",
+      "alts": ["321", "123", "3", "13", "23"],
+      "certa": 1,
+      "comentario": "Todo construtor em Java chama implicitamente super() como primeira instrução, quando não há chamada explícita. Assim, o construtor de A conclui primeiro, depois o de B e, por fim, o de C, imprimindo 123."
+    },
+    {
+      "ref": "WF-PROG-024",
+      "materia": "Programação",
+      "assunto": "Dicionários em Python",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Considere o código Python a seguir.\n\nd = {\"a\": 1, \"b\": 2}\nd[\"a\"] = d.get(\"c\", 5) + d[\"b\"]\nprint(d[\"a\"])\n\nO valor exibido é:",
+      "alts": ["3", "1", "7", "KeyError", "6"],
+      "certa": 2,
+      "comentario": "O método get retorna o valor padrão 5 quando a chave \"c\" não existe, sem lançar exceção; somado a d[\"b\"], que vale 2, resulta em 7, que passa a ser o valor de d[\"a\"]. KeyError só ocorreria com o acesso d[\"c\"] por colchetes."
+    },
+    {
+      "ref": "WF-PROG-025",
+      "materia": "Programação",
+      "assunto": "Referências em Python",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Considere o trecho Python a seguir.\n\nx = [1, 2]\ny = x\ny.append(3)\n\nJulgue o item.\n\nApós a execução do trecho, x continua valendo [1, 2], pois a atribuição y = x cria uma cópia independente da lista.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "A atribuição y = x apenas faz y referenciar o mesmo objeto lista que x. Assim, a alteração feita por y.append(3) é visível por x, que passa a valer [1, 2, 3]; uma cópia exigiria, por exemplo, x.copy() ou list(x)."
+    },
+    {
+      "ref": "WF-ED-001",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Pilha",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "Em uma pilha inicialmente vazia, foram executadas as operações: empilhar(1), empilhar(2), desempilhar(), empilhar(3), empilhar(4), desempilhar(), desempilhar().\n\nOs elementos removidos, na ordem em que saíram, foram:",
+      "alts": ["2, 3, 4", "1, 2, 3", "4, 3, 2", "2, 4, 3", "2, 4, 1"],
+      "certa": 3,
+      "comentario": "A pilha segue a política LIFO. Após empilhar 1 e 2, sai o 2; empilham-se 3 e 4, e as duas remoções seguintes retiram 4 e depois 3, restando apenas o 1 na pilha."
+    },
+    {
+      "ref": "WF-ED-002",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Fila",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Em uma fila inicialmente vazia, foram inseridos, nessa ordem, os elementos A, B e C. Em seguida, realizou-se uma remoção, inseriu-se o elemento D e realizou-se outra remoção.\n\nO próximo elemento a ser removido dessa fila será:",
+      "alts": ["A", "B", "D", "Nenhum, pois a fila estará vazia", "C"],
+      "certa": 4,
+      "comentario": "A fila segue a política FIFO: a primeira remoção retira A e a segunda retira B, ficando C e D, nessa ordem. Portanto, o próximo a sair é C."
+    },
+    {
+      "ref": "WF-ED-003",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Árvore binária de busca",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo a estruturas de dados.\n\nEm uma árvore binária de busca, o percurso em ordem (in-order: subárvore esquerda, raiz, subárvore direita) visita as chaves em ordem crescente.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Em uma árvore binária de busca, as chaves da subárvore esquerda são menores e as da direita são maiores que a raiz. Visitar esquerda, raiz e direita recursivamente produz, portanto, as chaves em ordem crescente."
+    },
+    {
+      "ref": "WF-ED-004",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Percursos em árvore",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "As chaves 50, 30, 70, 20, 40, 60 e 80 são inseridas, nessa ordem, em uma árvore binária de busca inicialmente vazia, sem balanceamento.\n\nO percurso em pré-ordem dessa árvore é:",
+      "alts": [
+        "50, 30, 20, 40, 70, 60, 80",
+        "20, 30, 40, 50, 60, 70, 80",
+        "20, 40, 30, 60, 80, 70, 50",
+        "50, 30, 70, 20, 40, 60, 80",
+        "50, 70, 80, 60, 30, 40, 20"
+      ],
+      "certa": 0,
+      "comentario": "A raiz é 50, com 30 (filhos 20 e 40) à esquerda e 70 (filhos 60 e 80) à direita. A pré-ordem visita raiz, esquerda e direita: 50, 30, 20, 40, 70, 60, 80. A alternativa B é o percurso em ordem, a C é o pós-ordem e a D é o percurso em largura."
+    },
+    {
+      "ref": "WF-ED-005",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Busca binária",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "A complexidade de tempo, no pior caso, da busca binária em um vetor ordenado com n elementos é:",
+      "alts": ["O(1)", "O(log n)", "O(n)", "O(n log n)", "O(n²)"],
+      "certa": 1,
+      "comentario": "A cada comparação, a busca binária descarta metade do intervalo restante, de modo que, no pior caso, são necessários cerca de log₂ n passos. O(n) é a complexidade da busca sequencial."
+    },
+    {
+      "ref": "WF-ED-006",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Algoritmos de ordenação",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Um sistema precisa ordenar registros com um algoritmo que seja estável e que tenha complexidade O(n log n) mesmo no pior caso. Entre os algoritmos abaixo, em suas versões clássicas, atende a esses dois requisitos o:",
+      "alts": ["Quicksort", "Heapsort", "Merge sort", "Selection sort", "Shell sort"],
+      "certa": 2,
+      "comentario": "O merge sort é estável e executa em O(n log n) em todos os casos. O quicksort tem pior caso O(n²); o heapsort é O(n log n), mas não é estável; o selection sort é O(n²) e o shell sort não é estável."
+    },
+    {
+      "ref": "WF-ED-007",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Tabelas hash",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo a tabelas de dispersão (hash).\n\nEm uma tabela hash com tratamento de colisões por encadeamento, a busca por uma chave tem complexidade O(1) no pior caso, independentemente da função de dispersão utilizada.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "O tempo O(1) é o caso médio, sob uma boa função de dispersão e fator de carga controlado. No pior caso, todas as chaves podem cair na mesma posição, formando uma única lista encadeada, e a busca passa a custar O(n)."
+    },
+    {
+      "ref": "WF-ED-008",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Dijkstra",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Considere um grafo não direcionado e ponderado com os vértices A, B, C e D e as arestas: A–B (peso 4), A–C (peso 1), C–B (peso 2), B–D (peso 1) e C–D (peso 5).\n\nAo aplicar o algoritmo de Dijkstra a partir de A, o custo do caminho mínimo de A até D é:",
+      "alts": ["5", "6", "3", "4", "7"],
+      "certa": 3,
+      "comentario": "O caminho A–C–B–D custa 1 + 2 + 1 = 4, menor que A–B–D (4 + 1 = 5) e A–C–D (1 + 5 = 6). O Dijkstra encontra esse valor ao fixar C com distância 1, depois B com distância 3 e, por fim, D com distância 4."
+    },
+    {
+      "ref": "WF-ED-009",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Busca em largura (BFS)",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Considere um grafo não direcionado com as arestas A–B, A–C, B–D, C–D, C–E, D–F e E–F. Os vizinhos de cada vértice são sempre examinados em ordem alfabética.\n\nA ordem de visita dos vértices em uma busca em largura (BFS) iniciada em A é:",
+      "alts": [
+        "A, B, D, C, E, F",
+        "A, C, E, F, D, B",
+        "A, B, C, E, D, F",
+        "A, D, B, C, E, F",
+        "A, B, C, D, E, F"
+      ],
+      "certa": 4,
+      "comentario": "A BFS usa uma fila: de A descobre B e C; ao processar B, descobre D; ao processar C, descobre E (D já foi descoberto); ao processar D, descobre F. A ordem é A, B, C, D, E, F; a alternativa A corresponde à busca em profundidade."
+    },
+    {
+      "ref": "WF-ED-010",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Árvore AVL",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo a árvores balanceadas.\n\nEm uma árvore AVL, a diferença entre as alturas das subárvores esquerda e direita de qualquer nó é de, no máximo, uma unidade, o que garante que a altura da árvore seja O(log n).",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "A propriedade de balanceamento da AVL exige fator de balanceamento -1, 0 ou +1 em todos os nós, mantido por rotações após inserções e remoções. Com isso, a altura fica limitada a O(log n), assim como as operações de busca, inserção e remoção."
+    },
+    {
+      "ref": "WF-ED-011",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Complexidade Big-O",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Considere o trecho Python a seguir, em que n é um inteiro positivo.\n\ntotal = 0\nfor i in range(n):\n    for j in range(i, n):\n        total += 1\n\nA complexidade de tempo desse trecho, em notação Big-O, é:",
+      "alts": ["O(n²)", "O(n)", "O(n log n)", "O(log n)", "O(2ⁿ)"],
+      "certa": 0,
+      "comentario": "O laço interno executa n, n - 1, ..., 1 vezes, totalizando n(n + 1)/2 incrementos. Como a notação Big-O despreza constantes e termos de menor ordem, a complexidade é O(n²)."
+    },
+    {
+      "ref": "WF-ED-012",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Listas encadeadas",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Em comparação com um vetor (array) estático, uma vantagem da lista simplesmente encadeada é:",
+      "alts": [
+        "o acesso direto ao i-ésimo elemento em tempo constante.",
+        "a inserção e a remoção no início da lista em tempo constante, sem necessidade de deslocar elementos.",
+        "o menor consumo de memória por elemento armazenado.",
+        "a possibilidade de aplicar busca binária com eficiência O(log n).",
+        "a melhor localidade de referência na memória cache."
+      ],
+      "certa": 1,
+      "comentario": "Na lista encadeada, inserir ou remover no início exige apenas ajustar ponteiros, em O(1). As demais são vantagens do vetor: acesso por índice em O(1), ausência de ponteiros extras, busca binária eficiente e elementos contíguos na memória."
+    },
+    {
+      "ref": "WF-ED-013",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Quicksort",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "Sobre a complexidade de tempo do quicksort no pior caso, assinale a afirmativa correta.",
+      "alts": [
+        "É O(n log n), pois o vetor é sempre dividido ao meio.",
+        "É O(n), e ocorre quando o vetor já está ordenado.",
+        "É O(n²), e ocorre quando as partições ficam sistematicamente desbalanceadas, como ao escolher sempre o primeiro elemento como pivô em um vetor já ordenado.",
+        "É O(log n), pois cada chamada descarta metade dos elementos.",
+        "É O(n³), devido às chamadas recursivas aninhadas."
+      ],
+      "certa": 2,
+      "comentario": "Se o pivô for sempre o menor ou o maior elemento, cada partição separa apenas um elemento, gerando n níveis de recursão com trabalho linear em cada um, ou seja, O(n²). O(n log n) é o caso médio, e a divisão ao meio não é garantida."
+    },
+    {
+      "ref": "WF-ED-014",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Notação pós-fixa",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo ao uso de pilhas na avaliação de expressões.\n\nA expressão infixa (A + B) * C, escrita em notação pós-fixa (polonesa reversa), corresponde a A B + C *.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Na notação pós-fixa, o operador vem depois de seus operandos: a soma A + B vira A B +, e o resultado é multiplicado por C, gerando A B + C *. Os parênteses deixam de ser necessários, e a expressão pode ser avaliada com uma pilha."
+    },
+    {
+      "ref": "WF-ED-015",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Percurso em pós-ordem",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "Considere uma árvore binária cuja raiz é 8. O filho esquerdo da raiz é 3, que tem como filhos 1 (à esquerda) e 6 (à direita). O filho direito da raiz é 10, que tem apenas o filho direito 14.\n\nO percurso em pós-ordem dessa árvore é:",
+      "alts": [
+        "8, 3, 1, 6, 10, 14",
+        "1, 3, 6, 8, 10, 14",
+        "1, 6, 3, 10, 14, 8",
+        "1, 6, 3, 14, 10, 8",
+        "14, 10, 8, 6, 3, 1"
+      ],
+      "certa": 3,
+      "comentario": "Na pós-ordem, visitam-se a subárvore esquerda, a direita e só então o nó: na subárvore de 3, obtém-se 1, 6, 3; na de 10, obtém-se 14, 10; por fim, a raiz 8. A alternativa A é a pré-ordem, a B é a ordem simétrica e a C coloca o 10 antes de seu filho 14."
+    },
+    {
+      "ref": "WF-ED-016",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Caminhos mínimos",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo a algoritmos em grafos.\n\nO algoritmo de Dijkstra produz caminhos mínimos corretos mesmo em grafos que possuem arestas de peso negativo, desde que não existam ciclos de peso negativo.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "O Dijkstra pressupõe pesos não negativos, pois considera definitiva a distância de um vértice ao retirá-lo da fila de prioridade; uma aresta negativa encontrada depois pode invalidar essa distância. Para grafos com arestas negativas e sem ciclos negativos, usa-se, por exemplo, o algoritmo de Bellman-Ford."
+    },
+    {
+      "ref": "WF-ED-017",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Hash com sondagem linear",
+      "dificuldade": "dificil",
+      "estilo": "FCC",
+      "enunciado": "Uma tabela hash com 7 posições (índices 0 a 6), inicialmente vazia, usa a função h(k) = k mod 7 e trata colisões por sondagem linear (tenta a próxima posição, circularmente). As chaves 10, 17 e 24 são inseridas nessa ordem.\n\nA chave 24 ficará armazenada na posição:",
+      "alts": ["3", "4", "6", "0", "5"],
+      "certa": 4,
+      "comentario": "As três chaves têm h(k) = 3 (10, 17 e 24 deixam resto 3 na divisão por 7). O 10 ocupa a posição 3; o 17 colide e vai para a 4; o 24 encontra 3 e 4 ocupadas e fica na posição 5."
+    },
+    {
+      "ref": "WF-ED-018",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Aplicações de pilha",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Um editor de textos oferece a função \"desfazer\", que reverte primeiro a ação mais recente, depois a anterior, e assim por diante. A estrutura de dados mais adequada para registrar as ações e implementar esse recurso é a:",
+      "alts": ["pilha", "fila", "fila de prioridade", "tabela hash", "árvore B"],
+      "certa": 0,
+      "comentario": "Desfazer exige retirar primeiro a última ação registrada, comportamento LIFO típico da pilha. A fila atende em ordem FIFO, e as demais estruturas não modelam diretamente a ordem cronológica inversa."
+    },
+    {
+      "ref": "WF-ED-019",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Selection sort",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "O vetor [5, 2, 9, 1, 6] será ordenado de forma crescente pelo selection sort: em cada passada, o menor elemento da parte ainda não ordenada é trocado com o primeiro elemento dessa parte.\n\nApós as três primeiras passadas, o vetor será:",
+      "alts": [
+        "[1, 2, 5, 6, 9]",
+        "[1, 2, 5, 9, 6]",
+        "[2, 5, 1, 6, 9]",
+        "[1, 2, 9, 5, 6]",
+        "[1, 5, 2, 9, 6]"
+      ],
+      "certa": 1,
+      "comentario": "Na 1ª passada, o 1 troca com o 5: [1, 2, 9, 5, 6]. Na 2ª, o menor de [2, 9, 5, 6] é o próprio 2 e nada muda. Na 3ª, o menor de [9, 5, 6] é o 5, que troca com o 9: [1, 2, 5, 9, 6]."
+    },
+    {
+      "ref": "WF-ED-020",
+      "materia": "Estruturas de dados e algoritmos",
+      "assunto": "Heap e fila de prioridade",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo a filas de prioridade.\n\nEm uma fila de prioridade implementada com heap binário, tanto a inserção quanto a remoção do elemento de maior prioridade têm complexidade O(n) no pior caso.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "No heap binário, a inserção sobe o novo elemento e a remoção da raiz desce o elemento reposicionado, percorrendo no máximo a altura da árvore. Como o heap é uma árvore completa, ambas as operações custam O(log n)."
+    },
+    {
+      "ref": "WF-ES-001",
+      "materia": "Engenharia de software",
+      "assunto": "Scrum: papéis",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "No Scrum, o responsável por maximizar o valor do produto resultante do trabalho do time e por gerenciar o Product Backlog é o:",
+      "alts": ["Scrum Master", "conjunto de Developers", "Product Owner", "grupo de stakeholders", "gerente de projeto"],
+      "certa": 2,
+      "comentario": "O Product Owner responde pelo valor do produto e pela gestão do Product Backlog, incluindo sua ordenação. O Scrum Master zela pela eficácia do time e pelo entendimento do Scrum; os Developers criam o incremento; e o Scrum não define o papel de gerente de projeto."
+    },
+    {
+      "ref": "WF-ES-002",
+      "materia": "Engenharia de software",
+      "assunto": "Scrum: eventos",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo ao Scrum.\n\nA Daily Scrum é um evento com duração máxima de 15 minutos, destinado aos Developers, cujo propósito é inspecionar o progresso em direção à Meta da Sprint e adaptar o planejamento do trabalho, se necessário.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "O item descreve corretamente a Daily Scrum: evento diário, limitado a 15 minutos, conduzido pelos Developers para inspecionar o avanço rumo à Meta da Sprint e ajustar o Sprint Backlog."
+    },
+    {
+      "ref": "WF-ES-003",
+      "materia": "Engenharia de software",
+      "assunto": "Requisitos não funcionais",
+      "dificuldade": "facil",
+      "estilo": "FGV",
+      "enunciado": "No levantamento de requisitos de um sistema de arrecadação municipal, foram registradas as declarações abaixo. Assinale a que expressa um requisito não funcional.",
+      "alts": [
+        "O sistema deve permitir que o contribuinte emita a segunda via do boleto.",
+        "O sistema deve calcular o valor da multa por atraso no pagamento.",
+        "O sistema deve enviar um e-mail de confirmação após o cadastro.",
+        "O sistema deve responder a 95% das consultas em até 2 segundos.",
+        "O sistema deve permitir ao gestor exportar relatórios mensais."
+      ],
+      "certa": 3,
+      "comentario": "O tempo de resposta é uma restrição de qualidade (desempenho) sobre como o sistema opera, o que caracteriza requisito não funcional. As demais descrevem funcionalidades, isto é, o que o sistema deve fazer, sendo requisitos funcionais."
+    },
+    {
+      "ref": "WF-ES-004",
+      "materia": "Engenharia de software",
+      "assunto": "SOLID",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "O princípio de projeto orientado a objetos segundo o qual uma classe deve ter um, e somente um, motivo para mudar é conhecido como Princípio:",
+      "alts": [
+        "Aberto/Fechado",
+        "da Substituição de Liskov",
+        "da Segregação de Interfaces",
+        "da Inversão de Dependência",
+        "da Responsabilidade Única"
+      ],
+      "certa": 4,
+      "comentario": "O Princípio da Responsabilidade Única (o S de SOLID) define que cada classe deve concentrar uma única responsabilidade, ou seja, um único motivo para ser alterada. Os demais princípios tratam de extensão sem modificação, substituição de subtipos, interfaces enxutas e dependência de abstrações."
+    },
+    {
+      "ref": "WF-ES-005",
+      "materia": "Engenharia de software",
+      "assunto": "Padrões GoF: criacionais",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "O padrão de projeto GoF cuja intenção é garantir que uma classe tenha uma única instância e fornecer um ponto global de acesso a ela é o:",
+      "alts": ["Singleton", "Factory Method", "Observer", "Adapter", "Decorator"],
+      "certa": 0,
+      "comentario": "Essa é a intenção do Singleton, padrão criacional. O Factory Method delega a subclasses a criação de objetos, o Observer trata de notificação de dependentes, o Adapter converte interfaces e o Decorator acrescenta responsabilidades dinamicamente."
+    },
+    {
+      "ref": "WF-ES-006",
+      "materia": "Engenharia de software",
+      "assunto": "Padrões GoF: comportamentais",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Em um sistema financeiro, sempre que a cotação de um ativo muda, diversos painéis devem ser atualizados automaticamente. Deseja-se que o objeto que mantém a cotação não dependa das classes concretas dos painéis, que podem se registrar e cancelar o registro em tempo de execução.\n\nO padrão de projeto GoF mais adequado para essa situação é o:",
+      "alts": ["Strategy", "Observer", "Composite", "Facade", "Prototype"],
+      "certa": 1,
+      "comentario": "O Observer define uma dependência um-para-muitos em que os observadores registrados são notificados quando o sujeito muda de estado, sem que este conheça suas classes concretas. Strategy troca algoritmos, Composite monta hierarquias todo-parte, Facade simplifica subsistemas e Prototype cria objetos por clonagem."
+    },
+    {
+      "ref": "WF-ES-007",
+      "materia": "Engenharia de software",
+      "assunto": "TDD",
+      "dificuldade": "facil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo a testes de software.\n\nNo desenvolvimento orientado a testes (TDD), o ciclo básico consiste em escrever um teste que falha, implementar o código mínimo necessário para que ele passe e, em seguida, refatorar o código.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "O item descreve o ciclo vermelho-verde-refatorar do TDD: o teste é escrito antes do código, falha inicialmente, passa com a implementação mínima e, com a proteção dos testes, o código é melhorado."
+    },
+    {
+      "ref": "WF-ES-008",
+      "materia": "Engenharia de software",
+      "assunto": "Git: ramos",
+      "dificuldade": "media",
+      "estilo": "Vunesp",
+      "enunciado": "No Git, o comando que cria um novo ramo (branch) chamado nova e, na mesma operação, passa a utilizá-lo como ramo atual é:",
+      "alts": ["git branch -d nova", "git merge nova", "git checkout -b nova", "git push nova", "git commit -b nova"],
+      "certa": 2,
+      "comentario": "git checkout -b nova cria o ramo e já muda para ele. git branch -d apaga um ramo, git merge integra outro ramo ao atual, git push envia commits a um remoto, e git commit não possui a opção -b."
+    },
+    {
+      "ref": "WF-ES-009",
+      "materia": "Engenharia de software",
+      "assunto": "SOLID: Liskov",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "A classe Quadrado herda de Retangulo e sobrescreve o método setLargura para também alterar a altura (e vice-versa), mantendo os lados iguais. Um trecho de código que recebe um Retangulo define largura 5 e altura 4 e espera obter área 20, mas, ao receber um Quadrado, obtém 16.\n\nEsse projeto viola o Princípio:",
+      "alts": [
+        "da Responsabilidade Única",
+        "Aberto/Fechado",
+        "da Segregação de Interfaces",
+        "da Substituição de Liskov",
+        "da Inversão de Dependência"
+      ],
+      "certa": 3,
+      "comentario": "Pelo Princípio da Substituição de Liskov, objetos de um subtipo devem poder substituir os do supertipo sem quebrar o comportamento esperado pelos clientes. Como Quadrado altera o contrato de Retangulo, um cliente correto passa a falhar, configurando a violação."
+    },
+    {
+      "ref": "WF-ES-010",
+      "materia": "Engenharia de software",
+      "assunto": "Kanban",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo a métodos ágeis.\n\nO método Kanban limita a quantidade de trabalho em progresso (WIP) em cada etapa do fluxo, e sua adoção obriga a organização do trabalho em iterações de duração fixa, como as sprints do Scrum.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "A primeira parte é correta: limitar o WIP é prática central do Kanban. O erro está na segunda: o Kanban trabalha com fluxo contínuo e não exige iterações de duração fixa, que são característica do Scrum."
+    },
+    {
+      "ref": "WF-ES-011",
+      "materia": "Engenharia de software",
+      "assunto": "UML",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Na UML, o diagrama comportamental que enfatiza a troca de mensagens entre objetos ao longo do tempo, organizada em linhas de vida, é o diagrama de:",
+      "alts": ["classes", "componentes", "implantação", "pacotes", "sequência"],
+      "certa": 4,
+      "comentario": "O diagrama de sequência mostra as linhas de vida dos participantes e as mensagens trocadas em ordem temporal. Os diagramas de classes, componentes, implantação e pacotes são estruturais."
+    },
+    {
+      "ref": "WF-ES-012",
+      "materia": "Engenharia de software",
+      "assunto": "XP",
+      "dificuldade": "facil",
+      "estilo": "FGV",
+      "enunciado": "Assinale a opção que apresenta uma prática da Programação Extrema (XP).",
+      "alts": [
+        "Programação em par.",
+        "Elaboração de documentação completa de requisitos antes de qualquer codificação.",
+        "Integração do código apenas ao final de cada release.",
+        "Proibição de refatoração depois que o código entra em produção.",
+        "Propriedade individual do código, em que cada módulo só pode ser alterado por seu autor."
+      ],
+      "certa": 0,
+      "comentario": "A programação em par é uma das práticas clássicas da XP. A XP, ao contrário das demais opções, valoriza design incremental, integração contínua, refatoração constante e propriedade coletiva do código."
+    },
+    {
+      "ref": "WF-ES-013",
+      "materia": "Engenharia de software",
+      "assunto": "Testes de integração",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo a níveis de teste.\n\nTestes de integração verificam o comportamento de uma unidade de código isolada, substituindo todas as suas dependências por dublês de teste, como mocks e stubs.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "O item descreve o teste de unidade, que isola o componente testado. O teste de integração verifica justamente a interação entre componentes reais, como módulos, banco de dados ou serviços."
+    },
+    {
+      "ref": "WF-ES-014",
+      "materia": "Engenharia de software",
+      "assunto": "Integração contínua",
+      "dificuldade": "media",
+      "estilo": "Cesgranrio",
+      "enunciado": "No contexto de DevOps, a integração contínua (CI) é corretamente descrita como a:",
+      "alts": [
+        "prática de liberar toda alteração diretamente em produção, dispensando testes.",
+        "prática de integrar com frequência as alterações ao repositório compartilhado, com build e testes automatizados a cada integração.",
+        "prática de manter ramos isolados por longos períodos e integrá-los apenas ao fim do projeto.",
+        "ferramenta de controle de versão que substitui o Git.",
+        "técnica de teste manual executada pelo usuário final na homologação."
+      ],
+      "certa": 1,
+      "comentario": "A integração contínua consiste em integrar mudanças com frequência, validando cada integração com build e testes automatizados para detectar problemas cedo. Ela não dispensa testes, opõe-se a ramos de longa duração e é uma prática, não uma ferramenta específica."
+    },
+    {
+      "ref": "WF-ES-015",
+      "materia": "Engenharia de software",
+      "assunto": "Git: rebase",
+      "dificuldade": "dificil",
+      "estilo": "Vunesp",
+      "enunciado": "Sobre o comando git rebase, assinale a alternativa correta.",
+      "alts": [
+        "Preserva os identificadores (hashes) originais dos commits reaplicados.",
+        "Sempre cria um commit de merge com dois pais.",
+        "Reaplica os commits do ramo atual sobre outra base, gerando novos commits com novos identificadores.",
+        "Apaga definitivamente o ramo usado como nova base.",
+        "Só pode ser usado em repositórios que não tenham nenhum remoto configurado."
+      ],
+      "certa": 2,
+      "comentario": "O rebase reaplica os commits sobre uma nova base, criando novos commits e, portanto, novos hashes, o que reescreve o histórico. Quem gera commit de merge com dois pais é o git merge (sem fast-forward); o rebase não apaga ramos nem exige ausência de remotos."
+    },
+    {
+      "ref": "WF-ES-016",
+      "materia": "Engenharia de software",
+      "assunto": "Padrões GoF: Strategy",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Uma loja virtual possui várias formas de calcular o frete (por peso, por região, frete grátis promocional). Deseja-se encapsular cada cálculo em uma classe própria, com interface comum, de modo que o objeto Pedido possa trocar o cálculo em tempo de execução, por composição.\n\nO padrão GoF que melhor atende a essa necessidade é o:",
+      "alts": ["Singleton", "Template Method", "Builder", "Strategy", "Proxy"],
+      "certa": 3,
+      "comentario": "O Strategy define uma família de algoritmos intercambiáveis, encapsulados atrás de uma interface comum e trocáveis por composição em tempo de execução. O Template Method varia passos de um algoritmo por herança, o Builder trata da construção de objetos complexos, o Proxy controla o acesso a um objeto e o Singleton limita instâncias."
+    },
+    {
+      "ref": "WF-ES-017",
+      "materia": "Engenharia de software",
+      "assunto": "UML: composição",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo ao diagrama de classes da UML.\n\nA composição representa uma relação todo-parte em que as partes não existem independentemente do todo, e é representada por um losango preenchido na extremidade da associação ligada ao todo.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Na composição, o ciclo de vida das partes depende do todo, e a notação é o losango preenchido junto à classe que representa o todo. A agregação, relação todo-parte mais fraca, usa o losango vazado."
+    },
+    {
+      "ref": "WF-ES-018",
+      "materia": "Engenharia de software",
+      "assunto": "Scrum: artefatos",
+      "dificuldade": "facil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Segundo o Guia do Scrum, são artefatos do Scrum:",
+      "alts": [
+        "Sprint Planning, Sprint Review e Sprint Retrospective.",
+        "Product Owner, Scrum Master e Developers.",
+        "quadro Kanban, limite de WIP e lead time.",
+        "histórias de usuário, casos de uso e protótipos.",
+        "Product Backlog, Sprint Backlog e Incremento."
+      ],
+      "certa": 4,
+      "comentario": "Os três artefatos do Scrum são o Product Backlog, o Sprint Backlog e o Incremento. A opção A lista eventos, a B lista as responsabilidades do Scrum Team, e as demais trazem elementos de outros métodos ou técnicas não prescritas pelo guia."
+    },
+    {
+      "ref": "WF-ES-019",
+      "materia": "Engenharia de software",
+      "assunto": "SOLID: inversão de dependência",
+      "dificuldade": "dificil",
+      "estilo": "FGV",
+      "enunciado": "A classe PedidoService criava diretamente, com new, uma instância de MySqlPedidoRepository. Após refatoração, passou a receber pelo construtor um objeto do tipo da interface PedidoRepository, implementada por MySqlPedidoRepository e por um repositório em memória usado nos testes.\n\nA refatoração aplica principalmente o Princípio:",
+      "alts": [
+        "da Inversão de Dependência",
+        "da Segregação de Interfaces",
+        "da Responsabilidade Única",
+        "da Substituição de Liskov",
+        "Aberto/Fechado"
+      ],
+      "certa": 0,
+      "comentario": "Pelo Princípio da Inversão de Dependência, módulos de alto nível não devem depender de implementações de baixo nível, e ambos devem depender de abstrações. A classe de serviço deixou de depender da classe concreta de MySQL e passou a depender da interface, recebida por injeção de dependência."
+    },
+    {
+      "ref": "WF-ES-020",
+      "materia": "Engenharia de software",
+      "assunto": "Entrega e implantação contínuas",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo a práticas de DevOps.\n\nA entrega contínua (continuous delivery) exige que toda alteração aprovada no pipeline seja publicada automaticamente em produção, sem qualquer etapa de aprovação manual, o que a torna sinônimo de implantação contínua (continuous deployment).",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "Na entrega contínua, o software é mantido sempre pronto para ser liberado, mas a publicação em produção pode depender de uma decisão manual. É a implantação contínua que publica automaticamente cada alteração aprovada, por isso os termos não são sinônimos."
+    },
+    {
+      "ref": "WF-WEB-001",
+      "materia": "Desenvolvimento web",
+      "assunto": "Códigos de status HTTP",
+      "dificuldade": "facil",
+      "estilo": "FCC",
+      "enunciado": "No protocolo HTTP, o código de status 404 indica:",
+      "alts": [
+        "requisição bem-sucedida.",
+        "recurso não encontrado.",
+        "erro interno do servidor.",
+        "redirecionamento permanente.",
+        "falta de autenticação para acessar o recurso."
+      ],
+      "certa": 1,
+      "comentario": "O 404 (Not Found) indica que o servidor não encontrou o recurso solicitado. Sucesso corresponde a 200, erro interno a 500, redirecionamento permanente a 301 e falta de autenticação a 401."
+    },
+    {
+      "ref": "WF-WEB-002",
+      "materia": "Desenvolvimento web",
+      "assunto": "Métodos HTTP",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo ao protocolo HTTP.\n\nOs métodos GET, PUT e DELETE são definidos como idempotentes, ao passo que o método POST, em regra, não é idempotente.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Um método é idempotente quando repetir a mesma requisição produz o mesmo efeito no servidor que executá-la uma única vez, o que a especificação do HTTP garante para GET, PUT e DELETE. O POST não tem essa garantia: repeti-lo pode, por exemplo, criar vários recursos."
+    },
+    {
+      "ref": "WF-WEB-003",
+      "materia": "Desenvolvimento web",
+      "assunto": "APIs REST",
+      "dificuldade": "media",
+      "estilo": "FGV",
+      "enunciado": "Em uma API REST, um cliente deseja cadastrar um novo recurso em uma coleção (por exemplo, um novo usuário em /usuarios). O método HTTP usualmente empregado e o código de status apropriado para indicar sucesso na criação são, respectivamente:",
+      "alts": [
+        "GET e 200 OK",
+        "DELETE e 204 No Content",
+        "POST e 201 Created",
+        "HEAD e 301 Moved Permanently",
+        "OPTIONS e 500 Internal Server Error"
+      ],
+      "certa": 2,
+      "comentario": "Por convenção REST, a criação de um recurso em uma coleção usa POST, e o servidor responde 201 Created, geralmente com o cabeçalho Location apontando para o novo recurso. GET consulta, DELETE remove, e os códigos 301 e 500 não indicam criação."
+    },
+    {
+      "ref": "WF-WEB-004",
+      "materia": "Desenvolvimento web",
+      "assunto": "JSON",
+      "dificuldade": "facil",
+      "estilo": "Vunesp",
+      "enunciado": "Assinale a alternativa que apresenta um documento JSON válido.",
+      "alts": [
+        "{nome: \"Ana\", idade: 30}",
+        "{'nome': 'Ana', 'idade': 30}",
+        "{\"nome\": \"Ana\", \"idade\": 30,}",
+        "{\"nome\": \"Ana\", \"idade\": 30, \"ativo\": true}",
+        "{\"nome\": \"Ana\" \"idade\": 30}"
+      ],
+      "certa": 3,
+      "comentario": "Em JSON, as chaves e as strings devem estar entre aspas duplas, os pares são separados por vírgula e não se admite vírgula após o último par; true é um valor literal válido. A opção A não usa aspas nas chaves, a B usa aspas simples, a C tem vírgula sobrando e a E omite a vírgula entre os pares."
+    },
+    {
+      "ref": "WF-WEB-005",
+      "materia": "Desenvolvimento web",
+      "assunto": "Especificidade em CSS",
+      "dificuldade": "dificil",
+      "estilo": "Cesgranrio",
+      "enunciado": "Em CSS, considerando apenas a especificidade dos seletores (sem !important nem estilos inline), qual dos seletores a seguir tem maior especificidade?",
+      "alts": ["div p", ".menu .item a", "ul li a", "#menu .item", "#menu #topo"],
+      "certa": 4,
+      "comentario": "A especificidade compara primeiro a quantidade de seletores de id, depois a de classes e, por fim, a de elementos. #menu #topo tem dois ids, superando #menu .item (um id e uma classe); os demais não têm id."
+    },
+    {
+      "ref": "WF-WEB-006",
+      "materia": "Desenvolvimento web",
+      "assunto": "CORS",
+      "dificuldade": "dificil",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo a segurança em aplicações web.\n\nO CORS (Cross-Origin Resource Sharing) é um mecanismo de segurança aplicado pelo servidor que impede que qualquer cliente HTTP, inclusive ferramentas de linha de comando como o curl, obtenha respostas de requisições originadas de domínios não autorizados.",
+      "alts": ["Certo", "Errado"],
+      "certa": 1,
+      "comentario": "O CORS é aplicado pelo navegador: o servidor apenas informa, por cabeçalhos como Access-Control-Allow-Origin, quais origens podem ler suas respostas. Clientes fora do navegador, como o curl, não seguem essa política e recebem a resposta normalmente."
+    },
+    {
+      "ref": "WF-WEB-007",
+      "materia": "Desenvolvimento web",
+      "assunto": "Cookies",
+      "dificuldade": "media",
+      "estilo": "FCC",
+      "enunciado": "Ao definir um cookie de sessão, o servidor incluiu o atributo HttpOnly. Esse atributo:",
+      "alts": [
+        "impede que o cookie seja acessado por scripts executados no navegador, como por meio de document.cookie.",
+        "garante que o cookie seja enviado apenas em conexões HTTPS.",
+        "define a data de expiração do cookie.",
+        "restringe o envio do cookie a requisições originadas do mesmo site.",
+        "criptografa o conteúdo do cookie armazenado no disco do usuário."
+      ],
+      "certa": 0,
+      "comentario": "HttpOnly impede o acesso ao cookie via JavaScript, reduzindo o risco de roubo de sessão por XSS. O envio apenas por HTTPS é dado pelo atributo Secure, a expiração por Expires ou Max-Age e a restrição entre sites por SameSite; nenhum deles criptografa o cookie."
+    },
+    {
+      "ref": "WF-WEB-008",
+      "materia": "Desenvolvimento web",
+      "assunto": "HTML semântico",
+      "dificuldade": "facil",
+      "estilo": "FGV",
+      "enunciado": "No HTML5, o elemento semântico destinado a agrupar um bloco de links de navegação principal da página é:",
+      "alts": ["<section>", "<nav>", "<aside>", "<header>", "<link>"],
+      "certa": 1,
+      "comentario": "O elemento <nav> representa uma seção com links de navegação. <section> agrupa conteúdo temático, <aside> marca conteúdo complementar, <header> é o cabeçalho e <link> relaciona recursos externos, como folhas de estilo."
+    },
+    {
+      "ref": "WF-WEB-009",
+      "materia": "Desenvolvimento web",
+      "assunto": "Sessões e estado no HTTP",
+      "dificuldade": "media",
+      "estilo": "Cebraspe",
+      "enunciado": "Julgue o item a seguir, relativo ao desenvolvimento web.\n\nO HTTP é um protocolo sem estado (stateless); por isso, aplicações web recorrem a mecanismos como cookies e sessões para manter informações de um mesmo usuário entre requisições.",
+      "alts": ["Certo", "Errado"],
+      "certa": 0,
+      "comentario": "Cada requisição HTTP é tratada de forma independente, sem memória das anteriores. Para manter um login ou um carrinho, por exemplo, a aplicação usa cookies, frequentemente com um identificador de sessão associado a dados guardados no servidor."
+    },
+    {
+      "ref": "WF-WEB-010",
+      "materia": "Desenvolvimento web",
+      "assunto": "Códigos 401 e 403",
+      "dificuldade": "media",
+      "estilo": "Cesgranrio",
+      "enunciado": "Um usuário já autenticado em uma API tenta acessar um recurso para o qual não possui permissão. Para indicar explicitamente essa situação, o código de status HTTP mais adequado é:",
+      "alts": ["400 Bad Request", "401 Unauthorized", "403 Forbidden", "404 Not Found", "409 Conflict"],
+      "certa": 2,
+      "comentario": "O 403 Forbidden indica que o servidor entendeu a requisição, mas recusa atendê-la por falta de permissão. O 401, apesar do nome, sinaliza ausência ou invalidade de autenticação; o 400 indica requisição malformada e o 409, conflito com o estado do recurso."
+    }
+  ]
+}
