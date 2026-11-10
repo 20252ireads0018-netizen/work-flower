@@ -85,7 +85,8 @@
             }
             m.appendChild(b);
         });
-        document.body.appendChild(m);
+        // em tela cheia (nativa: só o elemento em tela cheia aparece; camada: o cartão fica acima de tudo) o menu entra no cartão
+        (document.fullscreenElement || document.webkitFullscreenElement || document.querySelector('.wf-item.wf-fs') || document.body).appendChild(m);
         // cabe na tela: vira para a esquerda/para cima se precisar
         const r = m.getBoundingClientRect();
         let px = x, py = y;

@@ -121,7 +121,7 @@
         painel.className = 'wf-fc';
         painel.setAttribute('role', 'dialog');
         painel.setAttribute('aria-label', 'Fundo do cartão');
-        document.body.appendChild(painel);
+        (document.fullscreenElement || document.webkitFullscreenElement || document.querySelector('.wf-item.wf-fs') || document.body).appendChild(painel);
 
         const usarArquivo = async arq => {
             if (!arq) return;

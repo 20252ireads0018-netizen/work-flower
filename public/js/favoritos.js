@@ -41,6 +41,10 @@
         const b = card.querySelector('.fav-btn');
         if (!b) return;
         const on = ehFav(card.dataset.bid);
+        // só mexe no DOM se mudou: regravar o texto disparava o MutationObserver de novo a cada 120 ms, sem parar,
+        // e a limpeza dos favoritos (que espera a página ficar quieta) nunca rodava
+        if (b.dataset.on === String(on)) return;
+        b.dataset.on = String(on);
         b.textContent = on ? '★' : '☆';
         b.title = on ? 'Tirar dos favoritos' : 'Favoritar (aparece na barra da borda esquerda)';
         b.setAttribute('aria-pressed', String(on));
@@ -139,8 +143,13 @@
         if (nova.length !== l.length) salvar(nova);
     }
     window.wfFavoritosLimpar = limpar;
+    // cartão excluído (quadro.js e diverso.js avisam com wf-bloco-removido): o favorito sai na hora
+    window.addEventListener('wf-bloco-removido', () => setTimeout(limpar, 50));
     // só depois da página montar (antes disso o estado ainda não carregou e tudo pareceria apagado)
-    setTimeout(() => { if (componente()) { pronto = true; limpar(); } }, 2500);
+    // (página lenta: tenta de novo até o quadro aparecer, por até ~20 s)
+    let tentativas = 0;
+    const armar = () => { if (componente()) { pronto = true; limpar(); } else if (++tentativas < 10) setTimeout(armar, 2000); };
+    setTimeout(armar, 2500);
     new MutationObserver(() => { clearTimeout(limpar._t); limpar._t = setTimeout(limpar, 600); })
         .observe(document.documentElement, { childList: true, subtree: true });
 
