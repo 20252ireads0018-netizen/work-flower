@@ -13,7 +13,7 @@ class EmailConta extends Model
 
     protected $fillable = [
         'user_id', 'tipo', 'endereco', 'host', 'porta', 'seguranca', 'usuario', 'senha',
-        'access_token', 'refresh_token', 'token_expira_em', 'pasta', 'uidvalidity', 'sincronizado_em', 'erro',
+        'access_token', 'refresh_token', 'token_expira_em', 'escopos', 'pasta', 'uidvalidity', 'sincronizado_em', 'erro',
     ];
 
     protected $hidden = ['senha', 'access_token', 'refresh_token', 'usuario'];
@@ -52,6 +52,8 @@ class EmailConta extends Model
             'seguranca'       => $this->seguranca,
             'sincronizado_em' => $this->sincronizado_em?->toIso8601String(),
             'erro'            => $this->erro,
+            // Gmail com permissão de envio (gmail.send), pedida só na primeira vez que a pessoa manda um e-mail
+            'pode_enviar'     => \App\Support\Emails\Google::podeEnviar($this),
         ];
     }
 }

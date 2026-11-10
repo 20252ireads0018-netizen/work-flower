@@ -30,6 +30,8 @@ class RedesController extends Controller
     public const REDES = ['instagram' => 'Instagram', 'tiktok' => 'TikTok'];
 
     private const IG_ESCOPOS = 'instagram_basic,instagram_manage_insights,pages_show_list,pages_read_engagement,business_management';
+    /** Permissão extra, pedida só quando a pessoa usa "Publicar no Instagram" no Criador (InstagramPublicarController). */
+    public const IG_PUBLICAR = 'instagram_content_publish';
     private const TT_ESCOPOS = 'user.info.basic,user.info.profile,user.info.stats,video.list';
     private const TT_API = 'https://open.tiktokapis.com/v2/';
 
@@ -54,7 +56,7 @@ class RedesController extends Controller
         return Repasse::url("redes/{$rede}", route('redes.retorno', $rede));
     }
 
-    private static function graph(): string
+    public static function graph(): string
     {
         return 'https://graph.facebook.com/' . config('services.meta.versao', 'v21.0') . '/';
     }
@@ -74,8 +76,9 @@ class RedesController extends Controller
         $url = $rede === 'instagram'
             ? 'https://www.facebook.com/' . config('services.meta.versao', 'v21.0') . '/dialog/oauth?' . http_build_query([
                 'client_id' => config('services.meta.id'), 'redirect_uri' => $retorno, 'state' => $state,
-                'scope' => self::IG_ESCOPOS, 'response_type' => 'code',
-            ])
+                // ?publicar=1 (botão "Publicar no Instagram" do Criador): pede também a permissão de publicar
+                'scope' => self::IG_ESCOPOS . ($request->boolean('publicar') ? ',' . self::IG_PUBLICAR : ''), 'response_type' => 'code',
+            ] + ($request->boolean('publicar') ? ['auth_type' => 'rerequest'] : []))
             : 'https://www.tiktok.com/v2/auth/authorize/?' . http_build_query([
                 'client_key' => config('services.tiktok.key'), 'redirect_uri' => $retorno, 'state' => $state,
                 'scope' => self::TT_ESCOPOS, 'response_type' => 'code',

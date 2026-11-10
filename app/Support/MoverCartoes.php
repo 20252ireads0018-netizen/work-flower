@@ -34,6 +34,7 @@ class MoverCartoes
         'texto', 'tabela', 'lista', 'imagem', 'mapa', 'pasta', 'vivo', 'claude', 'criador', 'editorimg',
         'editorpdf', 'editorvid', 'grafico', 'habitos', 'musica', 'questoes', 'rh', 'cenas',
         'gdrive', 'gmail', 'youtube', 'lembretes',
+        'discord', 'notion', 'textos', // partials/blocos-integracoes
     ];
 
     public const TIPOS_SO_DA_AREA = [

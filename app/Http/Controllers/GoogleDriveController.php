@@ -15,6 +15,8 @@ use RuntimeException;
  * Cartão "Google Drive" do quadro (public/js/integracoes-cartoes.js): a pasta "Work Flower" do Drive da pessoa
  * como se fosse do próprio site. Lista os arquivos (backups, cartões enviados, arquivos levados), traz um arquivo
  * para o quadro (texto, tabela, imagem ou o próprio cartão), manda um cartão para o Drive e faz backup na hora.
+ * Também navega pelas subpastas, cria pasta/Documento/Planilha/Apresentação, move, manda para a lixeira (e restaura
+ * ou apaga de vez) e baixa. Tudo dentro do escopo drive.file: só o que o próprio site criou ou abriu.
  * A conexão é a mesma de Configurações › Armazenamento (ArmazenamentoDestino tipo "gdrive"); sem ela, o cartão
  * mostra o botão de conectar.
  */
@@ -32,7 +34,29 @@ class GoogleDriveController extends Controller
         'application/vnd.google-apps.presentation' => ['text/plain', 'texto'],
     ];
 
-    /** GET /google/drive[?q=busca] */
+    /** Maior arquivo que o botão Baixar repassa (o site segura o arquivo na memória antes de mandar). */
+    public const MAX_BAIXAR = 25 * 1024 * 1024;
+
+    /** Id de arquivo ou pasta do Drive. */
+    private const ID = '/^[A-Za-z0-9_-]{10,100}$/';
+
+    /** Arquivos novos do Google que o cartão cria (vazios, com nome). */
+    private const NOVOS = [
+        'pasta'        => [GoogleDrive::PASTA, 'Pasta'],
+        'documento'    => ['application/vnd.google-apps.document', 'Documento'],
+        'planilha'     => ['application/vnd.google-apps.spreadsheet', 'Planilha'],
+        'apresentacao' => ['application/vnd.google-apps.presentation', 'Apresentação'],
+    ];
+
+    /** Arquivos do Google baixados no formato do Office. */
+    private const BAIXAR_COMO = [
+        'application/vnd.google-apps.document'     => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'docx'],
+        'application/vnd.google-apps.spreadsheet'  => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'xlsx'],
+        'application/vnd.google-apps.presentation' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'pptx'],
+        'application/vnd.google-apps.drawing'      => ['image/png', 'png'],
+    ];
+
+    /** GET /google/drive[?q=busca][&pasta=id][&lixeira=1] */
     public function lista(Request $request): JsonResponse
     {
         $u = $request->user();
@@ -54,13 +78,144 @@ class GoogleDriveController extends Controller
             'ultimo_backup' => $destino->ultimo_backup_em?->toIso8601String(),
             'erro_destino'  => $destino->erro,
         ];
+        $pasta = (string) $request->query('pasta', '');
+        if ($pasta !== '' && ! preg_match(self::ID, $pasta)) {
+            return response()->json(['ok' => false, 'erro' => 'Pasta inválida.'] + $info + $base, 422);
+        }
         try {
-            $arquivos = $destino->cliente()->listar(trim((string) $request->query('q', '')));
+            $cli = $destino->cliente();
+            $arquivos = $cli->listar(trim((string) $request->query('q', '')), 200, $pasta ?: null, $request->boolean('lixeira'));
+            $raiz = $cli->raiz();
         } catch (RuntimeException $e) {
             return response()->json(['ok' => false, 'erro' => $e->getMessage()] + $info + $base, 422);
         }
 
-        return response()->json(['ok' => true, 'arquivos' => $arquivos] + $info + $base);
+        return response()->json(['ok' => true, 'arquivos' => $arquivos, 'raiz' => $raiz] + $info + $base);
+    }
+
+    /** GET /google/drive/pastas: pastas que o site enxerga (destino do "Mover"). */
+    public function pastas(Request $request): JsonResponse
+    {
+        $destino = $this->exigir($request);
+        try {
+            $cli = $destino->cliente();
+
+            return response()->json(['ok' => true, 'raiz' => $cli->raiz(), 'pastas' => $cli->pastas()]);
+        } catch (RuntimeException $e) {
+            return response()->json(['ok' => false, 'erro' => $e->getMessage()], 422);
+        }
+    }
+
+    /** POST /google/drive/novo { tipo: pasta|documento|planilha|apresentacao, nome, pasta? }: cria vazio e devolve o link para abrir. */
+    public function criar(Request $request): JsonResponse
+    {
+        $destino = $this->exigir($request);
+        $d = $request->validate([
+            'tipo'  => ['required', 'in:' . implode(',', array_keys(self::NOVOS))],
+            'nome'  => ['nullable', 'string', 'max:120'],
+            'pasta' => ['nullable', 'string', 'regex:' . self::ID],
+        ], ['tipo.in' => 'Tipo de arquivo inválido.']);
+        [$mime, $padrao] = self::NOVOS[$d['tipo']];
+        $nome = self::nome((string) ($d['nome'] ?? '')) ?: $padrao . ' sem título';
+
+        try {
+            $f = $destino->cliente()->criar($nome, $mime, $d['pasta'] ?? null);
+        } catch (RuntimeException $e) {
+            return response()->json(['ok' => false, 'erro' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['ok' => true, 'arquivo' => $f, 'msg' => "Pronto: “{$nome}” está no seu Drive."]);
+    }
+
+    /** PATCH /google/drive/arquivos/{id}/mover { pasta } */
+    public function mover(Request $request, string $id): JsonResponse
+    {
+        $destino = $this->exigir($request);
+        $d = $request->validate(['pasta' => ['required', 'string', 'regex:' . self::ID]], ['pasta.required' => 'Escolha a pasta de destino.']);
+        if ($d['pasta'] === $id) {
+            return response()->json(['ok' => false, 'erro' => 'Uma pasta não pode ir para dentro dela mesma.'], 422);
+        }
+        try {
+            $cli = $destino->cliente();
+            if ($id === $cli->raiz()) {
+                return response()->json(['ok' => false, 'erro' => 'A pasta Work Flower fica onde está.'], 422);
+            }
+            $cli->mover($id, $d['pasta']);
+        } catch (RuntimeException $e) {
+            return response()->json(['ok' => false, 'erro' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['ok' => true, 'msg' => 'Arquivo movido.']);
+    }
+
+    /** PATCH /google/drive/arquivos/{id}/lixeira { lixeira: true|false }: manda para a lixeira do Drive ou restaura. */
+    public function lixeira(Request $request, string $id): JsonResponse
+    {
+        $destino = $this->exigir($request);
+        $d = $request->validate(['lixeira' => ['required', 'boolean']]);
+        try {
+            $cli = $destino->cliente();
+            if ($id === $cli->raiz()) {
+                return response()->json(['ok' => false, 'erro' => 'A pasta Work Flower não vai para a lixeira (é onde ficam os backups).'], 422);
+            }
+            $cli->lixeira($id, (bool) $d['lixeira']);
+        } catch (RuntimeException $e) {
+            return response()->json(['ok' => false, 'erro' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['ok' => true, 'msg' => $d['lixeira'] ? 'Foi para a lixeira do Drive (dá para restaurar em “Lixeira”).' : 'Arquivo restaurado.']);
+    }
+
+    /** DELETE /google/drive/arquivos/{id}: apaga de vez. Só o que já está na lixeira, para não sumir nada sem querer. */
+    public function apagar(Request $request, string $id): JsonResponse
+    {
+        $destino = $this->exigir($request);
+        try {
+            $cli = $destino->cliente();
+            $f = $cli->info($id);
+            if (empty($f['trashed'])) {
+                return response()->json(['ok' => false, 'erro' => 'Mande para a lixeira primeiro; de lá dá para apagar de vez.'], 422);
+            }
+            $cli->apagar($id);
+        } catch (RuntimeException $e) {
+            return response()->json(['ok' => false, 'erro' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['ok' => true, 'msg' => '“' . ($f['name'] ?? 'Arquivo') . '” apagado de vez do Drive.']);
+    }
+
+    /** GET /google/drive/arquivos/{id}/baixar: o arquivo (Documentos, Planilhas e Apresentações do Google saem em .docx/.xlsx/.pptx). */
+    public function baixar(Request $request, string $id)
+    {
+        $destino = $this->exigir($request);
+        try {
+            $cli = $destino->cliente();
+            $f = $cli->info($id);
+            $mime = (string) ($f['mimeType'] ?? '');
+            $nome = (string) ($f['name'] ?? 'arquivo');
+            if (isset(self::BAIXAR_COMO[$mime])) {
+                [$para, $ext] = self::BAIXAR_COMO[$mime];
+                $bruto = $cli->exportar($id, $para);
+                $mime = $para;
+                $nome .= '.' . $ext;
+            } elseif (str_starts_with($mime, 'application/vnd.google-apps.')) {
+                return response()->json(['ok' => false, 'erro' => 'Esse tipo não dá para baixar por aqui: abra no Google Drive.'], 422);
+            } elseif ((int) ($f['size'] ?? 0) > self::MAX_BAIXAR) {
+                return response()->json(['ok' => false, 'erro' => 'Arquivo grande demais para baixar por aqui (até ' . Uso::legivel(self::MAX_BAIXAR) . '): abra no Google Drive.'], 422);
+            } else {
+                $bruto = $cli->baixar($id);
+            }
+        } catch (RuntimeException $e) {
+            return response()->json(['ok' => false, 'erro' => $e->getMessage()], 422);
+        }
+
+        $seguro = preg_replace('/[^\w.\- ]+/u', '_', $nome) ?: 'arquivo';
+
+        return response($bruto, 200, [
+            'Content-Type'           => $mime ?: 'application/octet-stream',
+            'Content-Disposition'    => "attachment; filename=\"{$seguro}\"; filename*=UTF-8''" . rawurlencode($nome),
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     /**
@@ -117,16 +272,17 @@ class GoogleDriveController extends Controller
             'nome' => ['required', 'string', 'max:120'],
             'mime' => ['required', 'in:text/markdown,text/plain,text/csv,application/json'],
             'b64'  => ['required', 'string', 'max:' . (int) ceil(self::MAX_ENVIAR * 4 / 3) + 8],
+            'pasta' => ['nullable', 'string', 'regex:' . self::ID], // subpasta aberta no cartão
         ], ['nome.required' => 'Dê um nome ao arquivo.', 'b64.max' => 'Cartão grande demais para mandar ao Drive.']);
 
         $conteudo = base64_decode($d['b64'], true);
         if ($conteudo === false) {
             return response()->json(['ok' => false, 'erro' => 'Conteúdo inválido.'], 422);
         }
-        $nome = trim(preg_replace('/[\\\\\/:*?"<>|\x00-\x1f]+/', '-', $d['nome']), ' .-') ?: 'cartao';
+        $nome = self::nome($d['nome']) ?: 'cartao';
 
         try {
-            $id = $destino->cliente()->enviar($nome, $conteudo, $d['mime']);
+            $id = $destino->cliente()->enviar($nome, $conteudo, $d['mime'], $d['pasta'] ?? null);
         } catch (RuntimeException $e) {
             return response()->json(['ok' => false, 'erro' => $e->getMessage()], 422);
         }
@@ -139,7 +295,7 @@ class GoogleDriveController extends Controller
     {
         $destino = $this->exigir($request);
         $d = $request->validate(['nome' => ['required', 'string', 'max:120']]);
-        $nome = trim(preg_replace('/[\\\\\/:*?"<>|\x00-\x1f]+/', '-', $d['nome']), ' .-');
+        $nome = self::nome($d['nome']);
         if ($nome === '') {
             return response()->json(['ok' => false, 'erro' => 'Nome inválido.'], 422);
         }
@@ -188,6 +344,12 @@ class GoogleDriveController extends Controller
         abort_unless($d, 409, 'Conecte o Google Drive primeiro.');
 
         return $d;
+    }
+
+    /** Nome de arquivo sem barras nem caracteres que o Windows recusa (o arquivo pode ser baixado depois). */
+    private static function nome(string $n): string
+    {
+        return trim(preg_replace('/[\\\\\/:*?"<>|\x00-\x1f]+/', '-', $n), ' .-');
     }
 
     private static function utf8(string $t): string

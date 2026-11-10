@@ -253,15 +253,19 @@ class EmailController extends Controller
         if (! EmBreve::gmailLiberado($request->user())) {
             return redirect()->route('emails')->with('emails_erro', 'O login pelo Google ainda não foi configurado neste Work Flower. Use o Gmail com senha de app.');
         }
-        if (EmailConta::where('user_id', $request->user()->id)->count() >= self::MAX_CONTAS) {
+        // ?enviar=1&conta=ID: a pessoa clicou em "Permitir enviar" numa caixa Gmail que já está conectada
+        $enviar = $request->boolean('enviar');
+        $conta = $enviar ? EmailConta::where('user_id', $request->user()->id)->where('tipo', 'gmail')->find((int) $request->query('conta')) : null;
+        if (! $conta && EmailConta::where('user_id', $request->user()->id)->count() >= self::MAX_CONTAS) {
             return redirect()->route('emails')->with('emails_erro', 'Dá para conectar até ' . self::MAX_CONTAS . ' caixas. Remova uma para conectar outra.');
         }
         $state = Str::random(40);
         $request->session()->put("emails_state.{$state}", now()->timestamp);
+        $request->session()->put('emails_enviar', $enviar);
         // veio do cartão Gmail do quadro: volta para a mesma página depois do Google
         $request->session()->put('emails_voltar', $request->query('de') === 'cartao' ? YoutubeController::voltar($request) : null);
 
-        return redirect()->away(Google::urlAutorizacao($state));
+        return redirect()->away(Google::urlAutorizacao($state, $enviar, $conta?->endereco));
     }
 
     public function googleRetorno(Request $request, LeitorEmails $leitor): RedirectResponse
@@ -290,9 +294,20 @@ class EmailController extends Controller
             'access_token'    => $t['access_token'],
             'refresh_token'   => $t['refresh_token'] ?: $conta->refresh_token,
             'token_expira_em' => now()->addSeconds($t['expira']),
+            'escopos'         => $t['escopos'],
             'host'            => 'gmail.googleapis.com',
             'erro'            => null,
         ])->save();
+
+        $voltar = $request->session()->pull('emails_voltar');
+        if ($request->session()->pull('emails_enviar')) {
+            // "Permitir enviar": o Google deixa a pessoa desmarcar o envio na tela de consentimento
+            [$chave, $msg] = Google::podeEnviar($conta)
+                ? ['ok', "Envio liberado para {$t['email']}. Já dá para mandar e responder e-mails pelo cartão Gmail."]
+                : ['erro', 'O Google não liberou o envio (a opção de enviar e-mails ficou desmarcada). Tente de novo e marque a permissão.'];
+
+            return $voltar ? redirect($voltar)->with($chave, $msg) : redirect()->route('emails')->with('emails_' . $chave, $msg);
+        }
 
         try {
             $n = Sincronizar::conta($conta);
@@ -300,8 +315,6 @@ class EmailController extends Controller
         } catch (EmailErro $e) {
             $msg = "Gmail conectado ({$t['email']}), mas a primeira leitura falhou: " . $e->getMessage();
         }
-
-        $voltar = $request->session()->pull('emails_voltar');
 
         return $voltar ? redirect($voltar)->with('ok', $msg) : redirect()->route('emails')->with('emails_ok', $msg);
     }
@@ -332,8 +345,84 @@ class EmailController extends Controller
             'mensagens'  => $mensagens,
             'categorias' => EmailMensagem::where('user_id', $uid)->distinct()->orderBy('categoria')->pluck('categoria')->filter()->values(),
             'google'     => $google ? route('emails.google', ['de' => 'cartao']) : null,
+            // "Permitir enviar" de uma caixa Gmail (o cartão completa com &conta=ID)
+            'permitir_enviar' => $google ? route('emails.google', ['de' => 'cartao', 'enviar' => 1]) : null,
             'pagina'     => route('emails'),
         ]);
+    }
+
+    /**
+     * POST /negocios/emails/enviar {b64: base64(JSON {conta, modo: novo|responder|encaminhar, para, cc?, assunto, texto, mensagem?})}
+     * Manda pelo Gmail (escopo gmail.send). Caixas IMAP não mandam: o Work Flower não guarda SMTP por caixa.
+     * Sem a permissão de envio, responde 409 com "permitir" (o endereço do Google para liberar).
+     */
+    public function enviar(Request $request): JsonResponse
+    {
+        $this->abrirCorpo($request);
+        $uid = $request->user()->id;
+        $d = $request->validate([
+            'conta'    => ['required', 'integer'],
+            'modo'     => ['required', Rule::in(['novo', 'responder', 'encaminhar'])],
+            'para'     => ['required', 'string', 'max:2000'],
+            'cc'       => ['nullable', 'string', 'max:2000'],
+            'assunto'  => ['nullable', 'string', 'max:250'],
+            'texto'    => ['nullable', 'string', 'max:50000'],
+            'mensagem' => ['nullable', 'integer', 'required_unless:modo,novo'],
+        ], self::MENSAGENS + ['para.required' => 'Escreva para quem vai o e-mail.', 'mensagem.required_unless' => 'Falta a mensagem original.']);
+
+        $conta = EmailConta::where('user_id', $uid)->find((int) $d['conta']);
+        if (! $conta) {
+            return response()->json(['erro' => 'Caixa não encontrada.'], 404);
+        }
+        if ($conta->tipo !== 'gmail') {
+            return response()->json(['erro' => 'Por enquanto só dá para enviar por uma caixa Gmail conectada pelo Google.'], 422);
+        }
+        $permitir = EmBreve::gmailLiberado($request->user()) ? route('emails.google', ['de' => 'cartao', 'enviar' => 1, 'conta' => $conta->id]) : null;
+        if (! Google::podeEnviar($conta)) {
+            return response()->json(['erro' => 'Falta permitir o envio nesta caixa Gmail.', 'permitir' => $permitir], 409);
+        }
+
+        $original = null;
+        if ($d['modo'] !== 'novo') {
+            $original = EmailMensagem::where('user_id', $uid)->find((int) $d['mensagem']);
+            if (! $original) {
+                return response()->json(['erro' => 'Mensagem original não encontrada.'], 404);
+            }
+        }
+
+        $lista = function (?string $s): ?array {
+            $itens = array_values(array_filter(array_map('trim', preg_split('/[,;\n]+/', (string) $s))));
+            foreach ($itens as $e) {
+                // aceita "Nome <email>" ou só o e-mail
+                $end = preg_match('/<([^<>]+)>\s*$/', $e, $m) ? $m[1] : $e;
+                if (! filter_var($end, FILTER_VALIDATE_EMAIL) || preg_match('/[\r\n]/', $e)) return null;
+            }
+
+            return $itens;
+        };
+        $para = $lista($d['para']);
+        $cc = $lista($d['cc'] ?? '');
+        if (! $para || $cc === null) {
+            return response()->json(['erro' => 'Confira os endereços: separe por vírgula (ex.: ana@site.com, joao@site.com).'], 422);
+        }
+        if (count($para) + count($cc) > 20) {
+            return response()->json(['erro' => 'No máximo 20 destinatários por e-mail.'], 422);
+        }
+
+        try {
+            $id = \App\Support\Emails\EnviarGmail::enviar($conta, $para, $cc, trim((string) ($d['assunto'] ?? '')) ?: '(sem assunto)',
+                (string) ($d['texto'] ?? ''), $d['modo'], $original);
+        } catch (EmailErro $e) {
+            if ($e->getMessage() === \App\Support\Emails\EnviarGmail::SEM_PERMISSAO) {
+                return response()->json(['erro' => 'O Google não deixou enviar por esta caixa. Permita o envio de novo.', 'permitir' => $permitir], 409);
+            }
+
+            return response()->json(['erro' => $e->getMessage()], 422);
+        }
+
+        $verbo = ['novo' => 'enviado', 'responder' => 'respondido', 'encaminhar' => 'encaminhado'][$d['modo']];
+
+        return response()->json(['ok' => true, 'id' => $id, 'msg' => "E-mail {$verbo} pelo {$conta->endereco}."]);
     }
 
     /** GET /negocios/emails/mensagens/{mensagem}/corpo: a mensagem inteira, lida na hora na caixa. */

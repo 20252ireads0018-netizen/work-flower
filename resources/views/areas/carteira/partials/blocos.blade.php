@@ -56,6 +56,8 @@
                 </template>
                 {{-- Google Drive, Gmail, YouTube e Lembretes por e-mail (partials/integracoes-cartoes; js/integracoes-cartoes.js) --}}
                 @include('partials.integracoes-cartoes')
+                {{-- Discord, Notion e Textos rápidos (partials/blocos-integracoes; js/blocos-integracoes.js) --}}
+                @include('partials.blocos-integracoes')
                 <template x-if="b.tipo === 'rh'">
                     @include('partials.rh-cartao')
                 </template>

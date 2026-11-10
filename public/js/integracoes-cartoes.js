@@ -23,6 +23,7 @@
         URL_LEMB && { id: 'lembretes', nome: 'Lembretes por e-mail' },
     ].filter(Boolean);
     const DE_INTEGRACAO = ['gdrive', 'gmail', 'youtube', 'lembretes'];
+    const PASTA = 'application/vnd.google-apps.folder';
     const ANTES = [[0, 'Na hora'], [5, '5 min antes'], [10, '10 min antes'], [15, '15 min antes'], [30, '30 min antes'], [60, '1 hora antes'],
         [120, '2 horas antes'], [1440, '1 dia antes'], [2880, '2 dias antes'], [10080, '1 semana antes']];
 
@@ -145,7 +146,8 @@
 
         /* ---------- estado de cada cartão (não vai para o banco) ---------- */
         igUI(b) {
-            this.igEstado[b.id] ??= { carregando: false, erro: '', d: null, aberto: null, corpo: '', corpoErro: '', lendo: false, q: '', canal: '', pl: null, verPl: false, enviar: '', ocupado: '', novo: null };
+            this.igEstado[b.id] ??= { carregando: false, erro: '', d: null, aberto: null, corpo: '', corpoErro: '', lendo: false, q: '', canal: '', pl: null, verPl: false, enviar: '', ocupado: '', novo: null,
+                pilha: [], lixeira: false, mover: null, escrever: null, ytEd: null, ytPls: null, ytPl: '', novaPl: null };
             return this.igEstado[b.id];
         },
         igIniciar(b) {
@@ -157,7 +159,7 @@
             const ui = this.igUI(b), d = b.dados || {};
             if (ui.carregando) return;
             let url = '';
-            if (b.tipo === 'gdrive') url = URL_DRIVE + (ui.q ? '?q=' + encodeURIComponent(ui.q) : '');
+            if (b.tipo === 'gdrive') url = URL_DRIVE + '?' + new URLSearchParams({ q: ui.q || '', pasta: ui.lixeira ? '' : this.igDrivePasta(b), lixeira: ui.lixeira ? '1' : '' });
             else if (b.tipo === 'gmail') url = URL_GMAIL + '/cartao?' + new URLSearchParams({ q: ui.q || '', categoria: d.categoria || '', conta: +d.conta || '' });
             else if (b.tipo === 'youtube') {
                 if (d.video) return; // cartão de um vídeo só: não precisa do servidor
@@ -266,6 +268,45 @@
             });
             this.aviso(r.ok ? 'Evento criado amanhã às 9h no calendário do painel, com lembrete 30 min antes.' : erroDe(r));
         },
+        /* ---------- escrever, responder e encaminhar (Gmail com gmail.send; pedido só na primeira vez) ---------- */
+        igContasGmail(b) { return ((this.igUI(b).d || {}).contas || []).filter(c => c.tipo === 'gmail'); },
+        igContaEnvio(b) { const e = this.igUI(b).escrever; return e ? ((this.igUI(b).d || {}).contas || []).find(c => String(c.id) === String(e.conta)) || null : null; },
+        igEmailPermitir(b) {
+            const e = this.igUI(b).escrever, d = this.igUI(b).d || {};
+            if (e && e.permitir) return e.permitir;
+            return d.permitir_enviar && e ? d.permitir_enviar + '&conta=' + encodeURIComponent(e.conta) : '';
+        },
+        /** Abre o formulário: modo novo | responder | encaminhar (m = mensagem aberta). */
+        igEmailEscrever(b, modo, m) {
+            const ui = this.igUI(b), gmails = this.igContasGmail(b);
+            const daMsg = m && gmails.find(c => c.id === m.conta_id);
+            const conta = daMsg || gmails.find(c => c.pode_enviar) || gmails[0] || ((ui.d || {}).contas || [])[0];
+            const assunto = String((m && m.assunto) || '');
+            let texto = '';
+            if (modo === 'responder' && m) {
+                const citado = String(ui.corpo || m.trecho || '').slice(0, 20000).split('\n').map(l => '> ' + l).join('\n');
+                texto = `\n\nEm ${dataHora(m.data)}, ${this.igDe(m)} escreveu:\n${citado}`;
+            }
+            ui.escrever = {
+                modo, mensagem: m ? m.id : null, conta: conta ? String(conta.id) : '', cc: '', texto, msg: '', permitir: '',
+                para: modo === 'responder' && m ? (m.de_email || '') : '',
+                assunto: modo === 'responder' ? (/^re:/i.test(assunto) ? assunto : 'Re: ' + assunto) : modo === 'encaminhar' ? (/^(fwd?|enc):/i.test(assunto) ? assunto : 'Fwd: ' + assunto) : '',
+            };
+        },
+        async igEmailEnviar(b) {
+            const ui = this.igUI(b), e = ui.escrever;
+            if (!e) return;
+            if (!String(e.para || '').trim()) { e.msg = 'Escreva para quem vai o e-mail.'; return; }
+            e.msg = 'Enviando…'; e.permitir = '';
+            ui.ocupado = 'email';
+            // em base64: o mod_security da HostGator barra corpos com cara de código (e-mail com trecho de HTML, por exemplo)
+            const r = await pedir(URL_GMAIL + '/enviar', 'POST', { b64: base64(JSON.stringify({ conta: +e.conta, modo: e.modo, para: e.para, cc: e.cc || null,
+                assunto: e.assunto || '', texto: e.texto || '', mensagem: e.mensagem })) });
+            ui.ocupado = '';
+            if (!r.ok) { e.msg = erroDe(r); if (r.status === 409 && r.json.permitir) e.permitir = r.json.permitir; return; }
+            ui.escrever = null;
+            this.aviso(r.json.msg);
+        },
         async igEmailSincronizar(b) {
             const ui = this.igUI(b);
             ui.ocupado = 'sync';
@@ -323,7 +364,7 @@
             if (!x) { this.aviso('Escolha um cartão desta aba.'); return; }
             const f = arquivoDoCartao(x);
             ui.ocupado = 'enviar';
-            const r = await pedir(URL_DRIVE + '/arquivos', 'POST', { nome: f.nome, mime: f.mime, b64: base64(f.conteudo) });
+            const r = await pedir(URL_DRIVE + '/arquivos', 'POST', { nome: f.nome, mime: f.mime, b64: base64(f.conteudo), pasta: this.igDrivePasta(b) || null });
             ui.ocupado = '';
             this.aviso(r.ok ? r.json.msg : erroDe(r));
             if (r.ok) { ui.enviar = ''; this.igCarregar(b); }
@@ -344,6 +385,89 @@
             this.aviso(r.ok ? r.json.msg : erroDe(r));
             if (r.ok) this.igCarregar(b);
         },
+        /* ---------- navegar, criar, mover, lixeira e baixar (escopo drive.file: só o que o site criou ou abriu) ---------- */
+        igDrivePasta(b) { const p = this.igUI(b).pilha; return p.length ? p[p.length - 1].id : ''; },
+        igEhPasta(f) { return f && f.mime === PASTA; },
+        /** Clique num item: pasta abre dentro do cartão; arquivo não faz nada (tem os botões). */
+        igDriveAbrir(b, f) {
+            const ui = this.igUI(b);
+            if (!this.igEhPasta(f) || ui.lixeira) return;
+            ui.pilha.push({ id: f.id, nome: f.nome });
+            ui.q = ''; ui.mover = null;
+            this.igCarregar(b);
+        },
+        /** Volta para um nível do caminho (0 = pasta Work Flower). */
+        igDriveIr(b, nivel) {
+            const ui = this.igUI(b);
+            ui.pilha = ui.pilha.slice(0, nivel);
+            ui.q = ''; ui.mover = null;
+            this.igCarregar(b);
+        },
+        igDriveVerLixeira(b, ver) {
+            const ui = this.igUI(b);
+            ui.lixeira = ver; ui.q = ''; ui.mover = null;
+            this.igCarregar(b);
+        },
+        async igDriveNovo(b, tipo) {
+            if (!tipo) return;
+            const ROTULO = { pasta: 'Nome da pasta nova:', documento: 'Nome do Documento novo:', planilha: 'Nome da Planilha nova:', apresentacao: 'Nome da Apresentação nova:' };
+            const nome = prompt(ROTULO[tipo] || 'Nome:', '');
+            if (nome === null) return;
+            // abre a aba já no clique (depois do pedido o navegador barraria a janela nova)
+            const aba = tipo !== 'pasta' ? window.open('', '_blank') : null;
+            if (aba) { try { aba.opener = null; aba.document.title = 'Abrindo…'; } catch (_) { /* outra origem */ } }
+            const ui = this.igUI(b);
+            ui.ocupado = 'novo';
+            const r = await pedir(URL_DRIVE + '/novo', 'POST', { tipo, nome: nome.trim(), pasta: this.igDrivePasta(b) || null });
+            ui.ocupado = '';
+            if (!r.ok) { if (aba) aba.close(); this.aviso(erroDe(r)); return; }
+            if (aba && r.json.arquivo && r.json.arquivo.link) aba.location.href = r.json.arquivo.link; else if (aba) aba.close();
+            this.aviso(r.json.msg);
+            this.igCarregar(b);
+        },
+        async igDriveLixo(b, f, jogar) {
+            const r = await pedir(URL_DRIVE + '/arquivos/' + encodeURIComponent(f.id) + '/lixeira', 'PATCH', { lixeira: jogar });
+            this.aviso(r.ok ? r.json.msg : erroDe(r));
+            if (r.ok) this.igCarregar(b);
+        },
+        async igDriveApagar(b, f) {
+            if (!confirm('Apagar “' + f.nome + '” de vez do Google Drive? Isso não dá para desfazer.')) return;
+            const r = await pedir(URL_DRIVE + '/arquivos/' + encodeURIComponent(f.id), 'DELETE');
+            this.aviso(r.ok ? r.json.msg : erroDe(r));
+            if (r.ok) this.igCarregar(b);
+        },
+        async igDriveMoverAbrir(b, f) {
+            const ui = this.igUI(b);
+            ui.mover = { f, pastas: null, alvo: '' };
+            const r = await pedir(URL_DRIVE + '/pastas');
+            if (!ui.mover || ui.mover.f !== f) return;
+            if (!r.ok) { ui.mover = null; this.aviso(erroDe(r)); return; }
+            const atual = this.igDrivePasta(b) || r.json.raiz;
+            ui.mover.pastas = (r.json.pastas || []).filter(p => p.id !== f.id && p.id !== atual)
+                .map(p => ({ id: p.id, nome: p.id === r.json.raiz ? 'Work Flower (início)' : p.nome }));
+        },
+        async igDriveMover(b) {
+            const ui = this.igUI(b), m = ui.mover;
+            if (!m || !m.alvo) return;
+            const r = await pedir(URL_DRIVE + '/arquivos/' + encodeURIComponent(m.f.id) + '/mover', 'PATCH', { pasta: m.alvo });
+            this.aviso(r.ok ? r.json.msg : erroDe(r));
+            if (r.ok) { ui.mover = null; this.igCarregar(b); }
+        },
+        /** Baixa pelo site (Documentos/Planilhas/Apresentações saem em .docx/.xlsx/.pptx); erro vira aviso, não página de JSON. */
+        async igDriveBaixar(b, f) {
+            this.aviso('Baixando “' + f.nome + '”…');
+            try {
+                const r = await fetch(URL_DRIVE + '/arquivos/' + encodeURIComponent(f.id) + '/baixar', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+                if (!r.ok) { const j = await r.json().catch(() => ({})); this.aviso(erroDe({ status: r.status, json: j })); return; }
+                const cd = r.headers.get('Content-Disposition') || '';
+                const m = cd.match(/filename\*=UTF-8''([^;]+)/i);
+                const nome = m ? decodeURIComponent(m[1]) : f.nome;
+                const url = URL.createObjectURL(await r.blob());
+                const a = Object.assign(document.createElement('a'), { href: url, download: nome });
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 30000);
+            } catch (_) { this.aviso('Sem conexão com o servidor.'); }
+        },
         async igDriveDiario(b, ligado) {
             const r = await pedir(URL_DRIVE + '/diario', 'PATCH', { ligado });
             if (!r.ok) { this.aviso(erroDe(r)); return; }
@@ -357,7 +481,7 @@
         igYtMeu(b) { b.dados.canal = ''; this.igUI(b).canal = ''; this.igUI(b).pl = null; this.igCarregar(b); },
         async igYtPlaylist(b, p) {
             const ui = this.igUI(b);
-            ui.pl = { titulo: p.titulo, videos: [], carregando: true };
+            ui.pl = { id: p.id, titulo: p.titulo, videos: [], carregando: true };
             const r = await pedir(URL_YT + '/cartao?' + new URLSearchParams({ canal: b.dados.canal || '', playlist: p.id }));
             if (!ui.pl) return;
             ui.pl.carregando = false;
@@ -386,6 +510,68 @@
                 data: v.publicado || '', legenda: String(v.descricao || '').slice(0, 5000), tags: '', link });
             if (typeof this.agendar === 'function') this.agendar();
             this.aviso('Vídeo adicionado ao Criador de conteúdo desta aba (rede YouTube).');
+        },
+        /* ---------- editar o próprio canal (escopo youtube, pedido só em "Permitir editar") ---------- */
+        /** Vendo o próprio canal com login (não um canal público pelo @). */
+        igYtMeuCanal(b) { const d = this.igUI(b).d || {}; return !!d.conectado && !b.dados.canal; },
+        igYtPodeEditar(b) { return this.igYtMeuCanal(b) && !!(this.igUI(b).d || {}).pode_editar; },
+        igYtPermitir(b) { return (this.igUI(b).d || {}).permitir_editar || ''; },
+        igYtPrivNome(p) { return p === 'public' ? 'Público' : p === 'unlisted' ? 'Não listado' : 'Privado'; },
+        /** Resposta 409 sem o escopo: o cartão passa a mostrar "Permitir editar". */
+        igYtSemPermissao(b, r) {
+            if (r.status === 409 && r.json && r.json.permitir) { const d = this.igUI(b).d; if (d) { d.pode_editar = false; d.permitir_editar = r.json.permitir; } }
+        },
+        igYtEditarAbrir(b, v) {
+            this.igUI(b).ytEd = { id: v.id, titulo: v.titulo || '', descricao: v.descricao || '', privacidade: v.privacidade || 'private', msg: '' };
+        },
+        async igYtSalvarVideo(b) {
+            const ui = this.igUI(b), e = ui.ytEd;
+            if (!e) return;
+            if (!e.titulo.trim()) { e.msg = 'O vídeo precisa de um título.'; return; }
+            e.msg = 'Salvando no YouTube…';
+            const r = await pedir(URL_YT + '/videos/' + encodeURIComponent(e.id), 'PATCH', { b64: base64(JSON.stringify({ titulo: e.titulo.trim(), descricao: e.descricao, privacidade: e.privacidade })) });
+            if (!r.ok) { e.msg = erroDe(r); this.igYtSemPermissao(b, r); return; }
+            const v = r.json.video || {};
+            // atualiza o vídeo na lista, na playlist aberta e no vídeo aberto
+            const lista = [...((ui.d || {}).videos || []), ...(ui.pl ? ui.pl.videos : []), ui.aberto].filter(x => x && x.id === e.id);
+            lista.forEach(x => { x.titulo = v.titulo || e.titulo; x.descricao = v.descricao ?? e.descricao; x.privacidade = v.privacidade || e.privacidade; });
+            ui.ytEd = null;
+            this.aviso(r.json.msg);
+        },
+        async igYtCarregarPls(b) {
+            const ui = this.igUI(b);
+            ui.ytPls = { carregando: true, itens: [] };
+            const r = await pedir(URL_YT + '/playlists');
+            ui.ytPls = r.ok ? { carregando: false, itens: r.json.playlists || [] } : null;
+            if (!r.ok) this.aviso(erroDe(r));
+        },
+        async igYtPorNaPlaylist(b, v) {
+            const ui = this.igUI(b);
+            if (!ui.ytPl) { this.aviso('Escolha a playlist.'); return; }
+            const r = await pedir(URL_YT + '/playlists/' + encodeURIComponent(ui.ytPl) + '/videos', 'POST', { video: v.id });
+            this.aviso(r.ok ? r.json.msg : erroDe(r));
+            this.igYtSemPermissao(b, r);
+            if (r.ok) { const p = (ui.ytPls && ui.ytPls.itens || []).find(x => x.id === ui.ytPl); if (p) p.qtd++; ui.ytPl = ''; }
+        },
+        async igYtTirarDaPlaylist(b, v) {
+            const ui = this.igUI(b), pl = ui.pl;
+            if (!pl || !pl.id || !confirm('Tirar “' + v.titulo + '” da playlist “' + pl.titulo + '”? O vídeo continua no canal.')) return;
+            const r = await pedir(URL_YT + '/playlists/' + encodeURIComponent(pl.id) + '/videos/' + encodeURIComponent(v.id), 'DELETE');
+            this.aviso(r.ok ? r.json.msg : erroDe(r));
+            this.igYtSemPermissao(b, r);
+            if (r.ok && ui.pl === pl) pl.videos = pl.videos.filter(x => x.id !== v.id);
+        },
+        async igYtCriarPlaylist(b) {
+            const ui = this.igUI(b), n = ui.novaPl;
+            if (!n) return;
+            if (!n.titulo.trim()) { n.msg = 'Dê um nome à playlist.'; return; }
+            n.msg = 'Criando…';
+            const r = await pedir(URL_YT + '/playlists', 'POST', { b64: base64(JSON.stringify({ titulo: n.titulo.trim(), descricao: n.descricao || '', privacidade: n.privacidade })) });
+            if (!r.ok) { n.msg = erroDe(r); this.igYtSemPermissao(b, r); return; }
+            ui.novaPl = null;
+            if (ui.d) (ui.d.playlists ??= []).unshift(r.json.playlist);
+            if (ui.ytPls) ui.ytPls.itens.unshift(r.json.playlist);
+            this.aviso(r.json.msg);
         },
         async igYtSair(b) {
             if (!confirm('Desconectar o YouTube? O Work Flower deixa de ler o seu canal (dá para conectar de novo depois).')) return;

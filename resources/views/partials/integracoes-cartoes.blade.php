@@ -12,7 +12,7 @@
             <div class="ig-conectar">
                 <span class="ig-logo" style="--c:#1fa463" aria-hidden="true">▲</span>
                 <p class="font-semibold text-sm">Conecte o Google Drive</p>
-                <p class="texto-2">O Work Flower cria uma pasta “Work Flower” no seu Drive e só enxerga o que estiver nela: backups dos workflows e os cartões que você mandar para lá.</p>
+                <p class="texto-2">O Work Flower cria uma pasta “Work Flower” no seu Drive e só enxerga o que ele mesmo criou ali: backups, cartões que você mandar e as pastas, Documentos e Planilhas criados pelo cartão.</p>
                 <a class="btn !py-1" x-show="igUI(b).d.conectar" :href="igDriveConectar(b)">Entrar com Google</a>
                 <p class="texto-2" x-show="!igUI(b).d.conectar">O Google Drive não está disponível neste Work Flower agora.</p>
             </div>
@@ -29,28 +29,77 @@
                     <button type="button" class="btn-sec !py-0.5" title="Atualizar a lista" aria-label="Atualizar a lista" @click="igCarregar(b)">↻</button>
                 </div>
                 <label class="ig-linha-check"><input type="checkbox" :checked="igUI(b).d.backup_diario" @change="igDriveDiario(b, $event.target.checked)"> Backup automático todo dia (madrugada)</label>
+
+                {{-- caminho da pasta aberta, criar e lixeira --}}
+                <div class="ig-barra">
+                    <nav class="ig-caminho" x-show="!igUI(b).lixeira" aria-label="Pasta aberta">
+                        <button type="button" class="ig-migalha" @click="igDriveIr(b, 0)" title="Voltar para a pasta Work Flower">Work Flower</button>
+                        <template x-for="(p, i) in igUI(b).pilha" :key="p.id">
+                            <span class="ig-migalha-par"><span aria-hidden="true">›</span><button type="button" class="ig-migalha" @click="igDriveIr(b, i + 1)" x-text="p.nome"></button></span>
+                        </template>
+                    </nav>
+                    <p class="ig-caminho font-medium" x-show="igUI(b).lixeira">Lixeira do Drive</p>
+                    <select class="campo !py-0.5 !text-xs !w-auto" x-show="!igUI(b).lixeira" :disabled="!!igUI(b).ocupado" aria-label="Criar no Drive"
+                            @change="igDriveNovo(b, $event.target.value); $event.target.value = ''">
+                        <option value="">+ Novo</option>
+                        <option value="pasta">📁 Pasta</option>
+                        <option value="documento">📄 Documento</option>
+                        <option value="planilha">📊 Planilha</option>
+                        <option value="apresentacao">📽 Apresentação</option>
+                    </select>
+                    <button type="button" class="btn-sec !py-0.5" :class="igUI(b).lixeira && 'qz-on'" @click="igDriveVerLixeira(b, !igUI(b).lixeira)"
+                            :title="igUI(b).lixeira ? 'Voltar para os arquivos' : 'Ver a lixeira (restaurar ou apagar de vez)'" x-text="igUI(b).lixeira ? '← Arquivos' : '🗑 Lixeira'"></button>
+                </div>
+
+                {{-- mover um arquivo para outra pasta --}}
+                <template x-if="igUI(b).mover">
+                    <form class="ig-form" @submit.prevent="igDriveMover(b)">
+                        <p class="truncate">Mover “<span x-text="igUI(b).mover.f.nome"></span>” para:</p>
+                        <p class="texto-2" x-show="!igUI(b).mover.pastas">Lendo as pastas…</p>
+                        <div class="flex gap-1 items-center" x-show="igUI(b).mover.pastas && igUI(b).mover.pastas.length">
+                            <select class="campo !py-0.5 !text-xs flex-1 min-w-0" x-model="igUI(b).mover.alvo" aria-label="Pasta de destino">
+                                <option value="">Escolha a pasta…</option>
+                                <template x-for="p in igUI(b).mover.pastas || []" :key="p.id"><option :value="p.id" x-text="p.nome"></option></template>
+                            </select>
+                            <button class="btn !py-0.5" :disabled="!igUI(b).mover.alvo">Mover</button>
+                        </div>
+                        <p class="texto-2" x-show="igUI(b).mover.pastas && !igUI(b).mover.pastas.length">Não há outra pasta. Crie uma em “+ Novo”.</p>
+                        <button type="button" class="btn-sec !py-0.5 self-start" @click="igUI(b).mover = null">Cancelar</button>
+                    </form>
+                </template>
+
                 <form class="flex gap-1" @submit.prevent="igCarregar(b)">
-                    <input class="campo !py-0.5 text-xs flex-1" type="search" x-model="igUI(b).q" placeholder="Buscar na pasta Work Flower" aria-label="Buscar no Drive">
+                    <input class="campo !py-0.5 text-xs flex-1" type="search" x-model="igUI(b).q" :placeholder="igUI(b).lixeira ? 'Buscar na lixeira' : 'Buscar nesta pasta'" aria-label="Buscar no Drive">
                 </form>
                 <ul class="ig-lista">
                     <template x-for="f in igArquivos(b)" :key="f.id">
-                        <li class="ig-item" draggable="true" @dragstart="igArrastar($event, b, f)" :title="'Arraste para o quadro para virar cartão'">
+                        <li class="ig-item" :class="igEhPasta(f) && !igUI(b).lixeira && 'ig-clique'" draggable="true" @dragstart="igArrastar($event, b, f)"
+                            @click="igDriveAbrir(b, f)" @keydown.enter.self="igDriveAbrir(b, f)" :tabindex="igEhPasta(f) ? 0 : -1"
+                            :title="igEhPasta(f) && !igUI(b).lixeira ? 'Clique para abrir a pasta' : 'Arraste para o quadro para virar cartão'">
                             <img x-show="f.icone" :src="f.icone" alt="" class="ig-ico" loading="lazy" referrerpolicy="no-referrer">
                             <span x-show="!f.icone" class="ig-ico" aria-hidden="true" x-text="igIcone(f)"></span>
                             <div class="min-w-0 flex-1">
                                 <p class="truncate font-medium" x-text="f.nome"></p>
-                                <p class="texto-2 truncate" x-text="[igTam(f.tamanho), igData(f.modificado)].filter(Boolean).join(' · ')"></p>
+                                <p class="texto-2 truncate" x-text="igEhPasta(f) ? 'Pasta' : [igTam(f.tamanho), igData(f.modificado)].filter(Boolean).join(' · ')"></p>
                             </div>
-                            <div class="ig-acoes">
-                                <button type="button" class="mini-btn" title="Trazer para o quadro" aria-label="Trazer para o quadro" @click="igNoQuadro(b, f)">⇲</button>
-                                <button type="button" class="mini-btn" title="Renomear" aria-label="Renomear" @click="igDriveRenomear(b, f)">✎</button>
-                                <a class="mini-btn" x-show="f.link" :href="f.link" target="_blank" rel="noopener" title="Abrir no Google Drive" aria-label="Abrir no Google Drive">↗</a>
+                            <div class="ig-acoes" x-show="!igUI(b).lixeira">
+                                <button type="button" class="mini-btn" x-show="!igEhPasta(f)" title="Trazer para o quadro" aria-label="Trazer para o quadro" @click.stop="igNoQuadro(b, f)">⇲</button>
+                                <button type="button" class="mini-btn" title="Renomear" aria-label="Renomear" @click.stop="igDriveRenomear(b, f)">✎</button>
+                                <button type="button" class="mini-btn" x-show="!igEhPasta(f)" title="Baixar" aria-label="Baixar" @click.stop="igDriveBaixar(b, f)">⤓</button>
+                                <button type="button" class="mini-btn" title="Mover para outra pasta" aria-label="Mover para outra pasta" @click.stop="igDriveMoverAbrir(b, f)">⇄</button>
+                                <button type="button" class="mini-btn" title="Mandar para a lixeira" aria-label="Mandar para a lixeira" @click.stop="igDriveLixo(b, f, true)">🗑</button>
+                                <a class="mini-btn" x-show="f.link" :href="f.link" target="_blank" rel="noopener" title="Abrir no Google Drive" aria-label="Abrir no Google Drive" @click.stop>↗</a>
+                            </div>
+                            <div class="ig-acoes" x-show="igUI(b).lixeira">
+                                <button type="button" class="mini-btn" title="Restaurar" aria-label="Restaurar" @click.stop="igDriveLixo(b, f, false)">↺</button>
+                                <button type="button" class="mini-btn ig-perigo" title="Apagar de vez" aria-label="Apagar de vez" @click.stop="igDriveApagar(b, f)">✕</button>
                             </div>
                         </li>
                     </template>
-                    <li class="ig-vazio" x-show="!igArquivos(b).length && !igUI(b).carregando" x-text="igUI(b).q ? 'Nada com esse nome.' : 'A pasta está vazia. Faça um backup ou mande um cartão para cá.'"></li>
+                    <li class="ig-vazio" x-show="!igArquivos(b).length && !igUI(b).carregando"
+                        x-text="igUI(b).q ? 'Nada com esse nome.' : igUI(b).lixeira ? 'A lixeira está vazia.' : igUI(b).pilha.length ? 'Pasta vazia. Use “+ Novo” ou mande um cartão para cá.' : 'A pasta está vazia. Faça um backup ou mande um cartão para cá.'"></li>
                 </ul>
-                <div class="ig-rodape">
+                <div class="ig-rodape" x-show="!igUI(b).lixeira">
                     <select class="campo !py-0.5 !text-xs flex-1 min-w-0" x-model="igUI(b).enviar" aria-label="Cartão para mandar ao Drive">
                         <option value="">Mandar um cartão desta aba para o Drive…</option>
                         <template x-for="c in igCartoesDaAba(b)" :key="c.id"><option :value="c.id" x-text="c.nome"></option></template>
@@ -72,14 +121,17 @@
             <div class="ig-conectar">
                 <span class="ig-logo" style="--c:#ea4335" aria-hidden="true">✉</span>
                 <p class="font-semibold text-sm">Conecte sua caixa de e-mail</p>
-                <p class="texto-2">Entre com a conta Google para ver o Gmail aqui, sem senha de app. O Work Flower só lê: nada é apagado nem marcado como lido.</p>
+                <p class="texto-2">Entre com a conta Google para ver o Gmail aqui, sem senha de app. Ler não muda nada na caixa (nada é apagado nem marcado como lido); enviar e responder só depois que você permitir.</p>
                 <a class="btn !py-1" x-show="igUI(b).d.google" :href="igUI(b).d.google">Entrar com Google</a>
                 <a class="btn-sec !py-1" :href="igUI(b).d.pagina">Outra caixa (Titan, cPanel…)</a>
             </div>
         </template>
 
-        <template x-if="igUI(b).d && igUI(b).d.contas && igUI(b).d.contas.length && !igUI(b).aberto">
+        <template x-if="igUI(b).d && igUI(b).d.contas && igUI(b).d.contas.length && !igUI(b).aberto && !igUI(b).escrever">
             <div class="ig-corpo">
+                <div class="ig-barra">
+                    <button type="button" class="btn !py-0.5" @click="igEmailEscrever(b, 'novo')" title="Escrever um e-mail novo">✉ Escrever</button>
+                </div>
                 <form class="ig-barra" @submit.prevent="igCarregar(b)">
                     <input class="campo !py-0.5 text-xs flex-1 min-w-0" type="search" x-model="igUI(b).q" placeholder="Buscar remetente ou assunto" aria-label="Buscar e-mails">
                     <select class="campo !py-0.5 !text-xs !w-auto" x-model="b.dados.categoria" @change="igCarregar(b)" aria-label="Categoria">
@@ -113,11 +165,13 @@
             </div>
         </template>
 
-        <template x-if="igUI(b).aberto">
+        <template x-if="igUI(b).aberto && !igUI(b).escrever">
             <div class="ig-corpo">
                 <div class="ig-barra">
                     <button type="button" class="btn-sec !py-0.5" @click="igUI(b).aberto = null">← Voltar</button>
                     <span class="flex-1"></span>
+                    <button type="button" class="btn !py-0.5" title="Responder a quem mandou" @click="igEmailEscrever(b, 'responder', igUI(b).aberto)">↩ Responder</button>
+                    <button type="button" class="btn-sec !py-0.5" title="Encaminhar para outra pessoa" @click="igEmailEscrever(b, 'encaminhar', igUI(b).aberto)">↪ Encaminhar</button>
                     <button type="button" class="btn-sec !py-0.5" title="Virar cartão de texto" @click="igNoQuadro(b, igUI(b).aberto)">No quadro</button>
                     <button type="button" class="btn-sec !py-0.5" title="Criar uma tarefa nesta área" @click="igEmailTarefa(b, igUI(b).aberto)">Tarefa</button>
                     <button type="button" class="btn-sec !py-0.5" title="Evento amanhã às 9h no calendário" @click="igEmailEvento(b, igUI(b).aberto)">Evento</button>
@@ -129,6 +183,44 @@
                 <p class="ig-erro" x-show="igUI(b).corpoErro" x-text="igUI(b).corpoErro"></p>
                 <div class="ig-leitura" x-text="igUI(b).lendo && !igUI(b).corpo ? 'Abrindo…' : igUI(b).corpo"></div>
             </div>
+        </template>
+
+        {{-- escrever, responder e encaminhar (pelo Gmail; caixas IMAP só leem) --}}
+        <template x-if="igUI(b).escrever">
+            <form class="ig-corpo ig-form" @submit.prevent="igEmailEnviar(b)">
+                <div class="ig-barra">
+                    <button type="button" class="btn-sec !py-0.5" @click="igUI(b).escrever = null">← Cancelar</button>
+                    <p class="ig-titulo flex-1" x-text="{ novo: 'E-mail novo', responder: 'Responder', encaminhar: 'Encaminhar' }[igUI(b).escrever.modo]"></p>
+                </div>
+                <label class="ig-campo">De
+                    <select class="campo !py-0.5 !text-xs" x-model="igUI(b).escrever.conta" @change="igUI(b).escrever.permitir = ''; igUI(b).escrever.msg = ''">
+                        <template x-for="c in igUI(b).d.contas" :key="c.id"><option :value="String(c.id)" x-text="c.endereco + (c.tipo !== 'gmail' ? ' (só leitura)' : '')"></option></template>
+                    </select>
+                </label>
+                {{-- caixa sem permissão de envio: o Google pede a permissão uma vez só --}}
+                <template x-if="igContaEnvio(b) && igContaEnvio(b).tipo === 'gmail' && (!igContaEnvio(b).pode_enviar || igUI(b).escrever.permitir)">
+                    <div class="ig-status ig-espera">
+                        <p>Para enviar por <b x-text="igContaEnvio(b).endereco"></b>, o Google precisa da sua permissão (uma vez só). Ler continua igual.</p>
+                        <a class="btn !py-0.5 mt-1 inline-block" x-show="igEmailPermitir(b)" :href="igEmailPermitir(b)">Permitir enviar</a>
+                    </div>
+                </template>
+                <p class="ig-status ig-espera" x-show="igContaEnvio(b) && igContaEnvio(b).tipo !== 'gmail'">Esta caixa só lê por aqui. Para enviar, escolha uma caixa Gmail conectada pelo Google.</p>
+                <label class="ig-campo">Para
+                    <input class="campo !py-0.5 text-xs" x-model="igUI(b).escrever.para" maxlength="2000" placeholder="nome@site.com, outra@site.com" autocomplete="email">
+                </label>
+                <label class="ig-campo">Cc
+                    <input class="campo !py-0.5 text-xs" x-model="igUI(b).escrever.cc" maxlength="2000" placeholder="(opcional)">
+                </label>
+                <label class="ig-campo">Assunto
+                    <input class="campo !py-0.5 text-xs" x-model="igUI(b).escrever.assunto" maxlength="250">
+                </label>
+                <textarea class="campo text-xs ig-texto" x-model="igUI(b).escrever.texto" maxlength="50000" aria-label="Texto do e-mail"
+                          :placeholder="igUI(b).escrever.modo === 'encaminhar' ? 'Uma nota (opcional). A mensagem original vai embaixo, sem os anexos.' : 'Escreva aqui…'"></textarea>
+                <div class="flex gap-1 items-center">
+                    <button class="btn !py-0.5" :disabled="!!igUI(b).ocupado || !igContaEnvio(b) || !igContaEnvio(b).pode_enviar" x-text="igUI(b).ocupado === 'email' ? 'Enviando…' : 'Enviar'"></button>
+                    <span class="texto-2 flex-1" x-text="igUI(b).escrever.msg"></span>
+                </div>
+            </form>
         </template>
     </div>
 </template>
@@ -158,7 +250,7 @@
                     <div class="ig-conectar">
                         <span class="ig-logo" style="--c:#ff0033" aria-hidden="true">▶</span>
                         <p class="font-semibold text-sm">Seu canal do YouTube no quadro</p>
-                        <p class="texto-2">Entre com a conta Google para ver seus vídeos (inclusive os não listados) e playlists. Só leitura: nada é publicado.</p>
+                        <p class="texto-2">Entre com a conta Google para ver seus vídeos (inclusive os não listados) e playlists. Ver não muda nada no canal; editar playlists e vídeos só depois que você permitir.</p>
                         <a class="btn !py-1" x-show="igUI(b).d.conectar" :href="igUI(b).d.conectar">Entrar com Google</a>
                         <form class="flex gap-1 w-full" x-show="igUI(b).d.tem_chave" @submit.prevent="igYtBuscar(b)">
                             <input class="campo !py-0.5 text-xs flex-1" x-model="igUI(b).canal" maxlength="200" placeholder="ou veja um canal público: @canal" aria-label="Canal do YouTube">
@@ -179,11 +271,32 @@
                         </div>
                         <div class="ig-barra">
                             <button type="button" class="btn-sec !py-0.5" :class="!igUI(b).verPl && !igUI(b).pl && 'qz-on'" @click="igUI(b).verPl = false; igUI(b).pl = null">Vídeos</button>
-                            <button type="button" class="btn-sec !py-0.5" :class="(igUI(b).verPl || igUI(b).pl) && 'qz-on'" x-show="(igUI(b).d.playlists || []).length" @click="igUI(b).verPl = true; igUI(b).pl = null">Playlists</button>
+                            <button type="button" class="btn-sec !py-0.5" :class="(igUI(b).verPl || igUI(b).pl) && 'qz-on'" x-show="(igUI(b).d.playlists || []).length || igYtMeuCanal(b)" @click="igUI(b).verPl = true; igUI(b).pl = null">Playlists</button>
                             <span class="flex-1"></span>
                             <button type="button" class="btn-sec !py-0.5" x-show="b.dados.canal && igUI(b).d.conectado" @click="igYtMeu(b)">Meu canal</button>
                             <button type="button" class="btn-sec !py-0.5" x-show="igUI(b).d.conectado && !b.dados.canal" @click="igYtSair(b)">Sair</button>
                         </div>
+
+                        {{-- criar playlist (escopo youtube) ou pedir a permissão --}}
+                        <div class="ig-barra" x-show="igUI(b).verPl && !igUI(b).pl && igYtMeuCanal(b) && !igUI(b).novaPl">
+                            <button type="button" class="btn !py-0.5" x-show="igYtPodeEditar(b)" @click="igUI(b).novaPl = { titulo: '', descricao: '', privacidade: 'private', msg: '' }">+ Nova playlist</button>
+                            <a class="btn !py-0.5" x-show="!igYtPodeEditar(b) && igYtPermitir(b)" :href="igYtPermitir(b)" title="O Google pede uma vez para o Work Flower editar o seu canal">Permitir editar</a>
+                            <span class="texto-2 flex-1" x-show="!igYtPodeEditar(b)">Para criar playlists e editar vídeos, permita a edição do canal (uma vez só).</span>
+                        </div>
+                        <template x-if="igUI(b).verPl && !igUI(b).pl && igUI(b).novaPl">
+                            <form class="ig-form" @submit.prevent="igYtCriarPlaylist(b)">
+                                <input class="campo !py-0.5 text-xs" x-model="igUI(b).novaPl.titulo" maxlength="150" placeholder="Nome da playlist" aria-label="Nome da playlist">
+                                <input class="campo !py-0.5 text-xs" x-model="igUI(b).novaPl.descricao" maxlength="5000" placeholder="Descrição (opcional)" aria-label="Descrição da playlist">
+                                <div class="flex gap-1 items-center">
+                                    <select class="campo !py-0.5 !text-xs !w-auto" x-model="igUI(b).novaPl.privacidade" aria-label="Quem vê">
+                                        <option value="private">Privada</option><option value="unlisted">Não listada</option><option value="public">Pública</option>
+                                    </select>
+                                    <button class="btn !py-0.5">Criar</button>
+                                    <button type="button" class="btn-sec !py-0.5" @click="igUI(b).novaPl = null">Cancelar</button>
+                                    <span class="texto-2" x-text="igUI(b).novaPl.msg"></span>
+                                </div>
+                            </form>
+                        </template>
 
                         <ul class="ig-lista" x-show="igUI(b).verPl && !igUI(b).pl">
                             <template x-for="p in igUI(b).d.playlists || []" :key="p.id">
@@ -213,6 +326,8 @@
                                                 <p class="ig-2linhas font-medium" x-text="v.titulo"></p>
                                                 <p class="texto-2 truncate" x-text="igNum(v.views) + ' views · ' + igNum(v.curtidas) + ' curtidas · ' + (v.publicado || '').split('-').reverse().join('/') + (v.privacidade && v.privacidade !== 'public' ? ' · ' + (v.privacidade === 'unlisted' ? 'não listado' : 'privado') : '')"></p>
                                             </div>
+                                            <button type="button" class="mini-btn" x-show="igUI(b).pl && igYtPodeEditar(b)" title="Tirar da playlist" aria-label="Tirar da playlist"
+                                                    @click.stop="igYtTirarDaPlaylist(b, v)" @keydown.enter.stop>✕</button>
                                         </li>
                                     </template>
                                     <li class="ig-vazio" x-show="igUI(b).pl && igUI(b).pl.carregando">Abrindo a playlist…</li>
@@ -239,6 +354,40 @@
                             <button type="button" class="btn-sec !py-0.5" @click="igYtPost(b, igUI(b).aberto)" title="Adicionar ao Criador de conteúdo desta aba">Post no Criador</button>
                             <a class="btn-sec !py-0.5" :href="igYtLink(igUI(b).aberto.id)" target="_blank" rel="noopener">↗</a>
                         </div>
+
+                        {{-- editar o vídeo e pôr numa playlist (só no próprio canal, com o escopo youtube) --}}
+                        <div class="ig-barra" x-show="igYtMeuCanal(b) && !(igUI(b).ytEd && igUI(b).ytEd.id === igUI(b).aberto.id)">
+                            <template x-if="igYtPodeEditar(b)">
+                                <div class="ig-barra flex-1">
+                                    <button type="button" class="btn-sec !py-0.5" @click="igYtEditarAbrir(b, igUI(b).aberto)" title="Mudar título, descrição e quem vê">✎ Editar</button>
+                                    <select class="campo !py-0.5 !text-xs flex-1 min-w-0" x-model="igUI(b).ytPl" @focus="!igUI(b).ytPls && igYtCarregarPls(b)" @pointerdown="!igUI(b).ytPls && igYtCarregarPls(b)" aria-label="Playlist">
+                                        <option value="" x-text="igUI(b).ytPls && igUI(b).ytPls.carregando ? 'Lendo as playlists…' : 'Pôr numa playlist…'"></option>
+                                        <template x-for="p in (igUI(b).ytPls ? igUI(b).ytPls.itens : [])" :key="p.id"><option :value="p.id" x-text="p.titulo + ' (' + p.qtd + ')'"></option></template>
+                                    </select>
+                                    <button type="button" class="btn-sec !py-0.5" :disabled="!igUI(b).ytPl" @click="igYtPorNaPlaylist(b, igUI(b).aberto)">Pôr</button>
+                                </div>
+                            </template>
+                            <template x-if="!igYtPodeEditar(b) && igYtPermitir(b)">
+                                <div class="ig-barra flex-1">
+                                    <span class="texto-2 flex-1">Quer editar este vídeo ou pôr numa playlist?</span>
+                                    <a class="btn !py-0.5" :href="igYtPermitir(b)" title="O Google pede uma vez para o Work Flower editar o seu canal">Permitir editar</a>
+                                </div>
+                            </template>
+                        </div>
+                        <template x-if="igUI(b).ytEd && igUI(b).ytEd.id === igUI(b).aberto.id">
+                            <form class="ig-form" @submit.prevent="igYtSalvarVideo(b)">
+                                <input class="campo !py-0.5 text-xs" x-model="igUI(b).ytEd.titulo" maxlength="100" placeholder="Título" aria-label="Título do vídeo">
+                                <textarea class="campo text-xs ig-texto" x-model="igUI(b).ytEd.descricao" maxlength="5000" placeholder="Descrição" aria-label="Descrição do vídeo"></textarea>
+                                <div class="flex gap-1 items-center">
+                                    <select class="campo !py-0.5 !text-xs !w-auto" x-model="igUI(b).ytEd.privacidade" aria-label="Quem vê">
+                                        <option value="public">Público</option><option value="unlisted">Não listado</option><option value="private">Privado</option>
+                                    </select>
+                                    <button class="btn !py-0.5">Salvar no YouTube</button>
+                                    <button type="button" class="btn-sec !py-0.5" @click="igUI(b).ytEd = null">Cancelar</button>
+                                </div>
+                                <span class="texto-2" x-text="igUI(b).ytEd.msg"></span>
+                            </form>
+                        </template>
                     </div>
                 </template>
             </div>

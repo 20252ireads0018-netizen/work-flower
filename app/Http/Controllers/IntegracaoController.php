@@ -113,6 +113,35 @@ class IntegracaoController extends Controller
         return response()->json(['ok' => $ok, 'erro' => $ok ? null : $i->ultimo_erro], $ok ? 200 : 422);
     }
 
+    /**
+     * Mensagem escrita no bloco Discord do quadro (public/js/blocos-integracoes.js): título, texto e link opcional,
+     * enviada como embed pelo webhook da conta. A resposta não traz o webhook nem o token.
+     */
+    public function enviar(Request $request): JsonResponse
+    {
+        $this->decodificarCorpo($request);
+        $d = $request->validate([
+            'titulo' => ['required', 'string', 'max:250'],
+            'texto'  => ['nullable', 'string', 'max:3500'],
+            'link'   => ['nullable', 'string', 'max:500', 'regex:#^https?://[^\s<>"]+$#i'],
+        ], [
+            'titulo.required' => 'Escreva um título para a mensagem.',
+            'titulo.max'      => 'O título pode ter até 250 caracteres.',
+            'texto.max'       => 'O texto pode ter até 3.500 caracteres.',
+            'link.regex'      =>'O link precisa começar com http:// ou https://.',
+        ]);
+        $i = $this->minha($request);
+        abort_unless($i && $i->webhook_url, 409, 'Conecte o Discord em Negócios › Integrações primeiro.');
+
+        $ok = Discord::enviar($i, trim($d['titulo']), (string) ($d['texto'] ?? ''), ($d['link'] ?? null) ?: null, ['Por' => $request->user()->name]);
+
+        return response()->json([
+            'ok'           => $ok,
+            'erro'         => $ok ? null : $i->ultimo_erro,
+            'ultimo_envio' => $i->ultimo_envio_em?->toIso8601String(),
+        ], $ok ? 200 : 422);
+    }
+
     /** Canais de texto e de voz do servidor (precisa do bot). Os de voz viram opção de link nas Calls. */
     public function canais(Request $request): JsonResponse
     {

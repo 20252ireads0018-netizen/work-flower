@@ -191,7 +191,11 @@
 
     function salvar(nova) { WFPrefs.salvar({ trechos: limpar(nova) }); }
 
-    window.wfExpansor = { montar, achar, limpar, lerCsv, lista, ligado };
+    /** Liga/desliga a troca dos atalhos (a mesma chave do gerenciador e do agente do Windows). */
+    function ligar(v) { WFPrefs.salvar({ expansorLigado: !!v }); }
+
+    // também usado pelo bloco "Textos rápidos" do quadro (public/js/blocos-integracoes.js)
+    window.wfExpansor = { montar, achar, limpar, lerCsv, lista, ligado, salvar, ligar, LIMITE, MAX_ATALHO, MAX_TEXTO };
 
     /* ---------- gerenciador (aba Atalhos das configurações) ---------- */
     const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

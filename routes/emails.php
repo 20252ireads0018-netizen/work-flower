@@ -20,4 +20,6 @@ Route::middleware('auth')->prefix('/negocios/emails')->name('emails')->group(fun
     // cartão Gmail do quadro: lista filtrada e a mensagem inteira
     Route::get('/cartao', [EmailController::class, 'cartao'])->middleware('throttle:60,1,emails-cartao')->name('.cartao');
     Route::get('/mensagens/{mensagem}/corpo', [EmailController::class, 'corpo'])->whereNumber('mensagem')->middleware('throttle:30,1,emails-corpo')->name('.corpo');
+    // mandar, responder e encaminhar pelo Gmail (escopo gmail.send, pedido só na primeira vez)
+    Route::post('/enviar', [EmailController::class, 'enviar'])->middleware('throttle:10,1,emails-enviar')->name('.enviar');
 });

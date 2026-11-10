@@ -10,6 +10,9 @@ use RuntimeException;
 /**
  * YouTube pelo login do Google (cartão "YouTube" do quadro): o canal da própria pessoa, os vídeos (inclusive os
  * não listados) e as playlists. Escopo youtube.readonly: só leitura, nada é publicado ou mudado no canal.
+ * Editar (escopo "youtube": criar playlist, pôr/tirar vídeo de playlist, mudar título/descrição/privacidade de um
+ * vídeo da pessoa) é opcional e pedido só quando ela clica em "Permitir editar" (autorização incremental).
+ * Quem conectou antes continua só lendo. Os escopos liberados ficam em google_conexoes.dados.escopos.
  * Usa o mesmo app OAuth do Gmail (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET) e o mesmo repasse do GitHub Pages
  * (GOOGLE_RELAY_URL + "/youtube/"), porque o mod_security da HostGator barra o retorno direto do Google.
  * Sem login, o cartão ainda mostra canais públicos pela chave do site (YOUTUBE_API_KEY).
@@ -17,7 +20,9 @@ use RuntimeException;
 class Youtube
 {
     public const ESCOPO = 'https://www.googleapis.com/auth/youtube.readonly openid email';
+    public const ESCOPO_EDITAR = 'https://www.googleapis.com/auth/youtube';
     public const API = 'https://www.googleapis.com/youtube/v3/';
+    public const PRIVACIDADES = ['public', 'unlisted', 'private'];
 
     public static function configurado(): bool
     {
@@ -37,20 +42,29 @@ class Youtube
         return $relay !== '' ? $relay . '/youtube/' : route('youtube.google.retorno');
     }
 
-    public static function urlAutorizacao(string $estado): string
+    /** $editar pede também o escopo "youtube"; $email sugere a conta certa na tela do Google (login_hint). */
+    public static function urlAutorizacao(string $estado, bool $editar = false, ?string $email = null): string
     {
-        return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
-            'client_id'     => config('services.google.client_id'),
-            'redirect_uri'  => self::retorno(),
-            'response_type' => 'code',
-            'scope'         => self::ESCOPO,
-            'access_type'   => 'offline',
-            'prompt'        => 'consent',
-            'state'         => $estado,
-        ]);
+        return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query(array_filter([
+            'client_id'              => config('services.google.client_id'),
+            'redirect_uri'           => self::retorno(),
+            'response_type'          => 'code',
+            'scope'                  => self::ESCOPO . ($editar ? ' ' . self::ESCOPO_EDITAR : ''),
+            'access_type'            => 'offline',
+            'include_granted_scopes' => 'true',
+            'prompt'                 => 'consent',
+            'login_hint'             => $email,
+            'state'                  => $estado,
+        ], fn ($v) => $v !== null && $v !== ''));
     }
 
-    /** @return array{access_token: string, refresh_token: ?string, expira: int, email: ?string} */
+    /** A pessoa liberou editar o canal (escopo "youtube", não o readonly). */
+    public static function podeEditar(?GoogleConexao $c): bool
+    {
+        return $c && in_array(self::ESCOPO_EDITAR, preg_split('/\s+/', (string) ($c->dados['escopos'] ?? '')) ?: [], true);
+    }
+
+    /** @return array{access_token: string, refresh_token: ?string, expira: int, email: ?string, escopos: string} */
     public static function trocarCodigo(string $codigo): array
     {
         $r = Http::asForm()->timeout(20)->post('https://oauth2.googleapis.com/token', [
@@ -77,6 +91,7 @@ class Youtube
             'refresh_token' => $r->json('refresh_token'),
             'expira'        => (int) $r->json('expires_in', 3600),
             'email'         => $email,
+            'escopos'       => mb_substr((string) $r->json('scope', ''), 0, 1000),
         ];
     }
 
@@ -98,7 +113,12 @@ class Youtube
         if (! $r->successful() || ! $r->json('access_token')) {
             throw new RuntimeException('O Google cancelou o acesso ao YouTube (a permissão pode ter sido tirada). Conecte de novo.');
         }
-        $c->forceFill(['access_token' => $r->json('access_token'), 'expira_em' => now()->addSeconds((int) $r->json('expires_in', 3600))])->save();
+        $novo = ['access_token' => $r->json('access_token'), 'expira_em' => now()->addSeconds((int) $r->json('expires_in', 3600))];
+        if ($r->json('scope')) {
+            // a renovação diz quais escopos continuam valendo (a pessoa pode ter tirado a edição na conta Google)
+            $novo['dados'] = array_merge((array) $c->dados, ['escopos' => mb_substr((string) $r->json('scope'), 0, 1000)]);
+        }
+        $c->forceFill($novo)->save();
 
         return $c->access_token;
     }
@@ -185,6 +205,107 @@ class Youtube
             'curtidas'    => (int) ($v['statistics']['likeCount'] ?? 0),
             'comentarios' => (int) ($v['statistics']['commentCount'] ?? 0),
         ];
+    }
+
+    /* ------------------------------------------------------------------ edição (escopo youtube) */
+
+    /** Playlists da pessoa (inclusive privadas), para escolher onde pôr um vídeo. Funciona também só com o readonly. */
+    public static function minhasPlaylists(string $token): array
+    {
+        $r = self::get('playlists', ['part' => 'snippet,contentDetails,status', 'mine' => 'true', 'maxResults' => 50], $token);
+
+        return array_map(fn ($it) => [
+            'id'          => (string) $it['id'],
+            'titulo'      => mb_substr((string) ($it['snippet']['title'] ?? ''), 0, 120),
+            'qtd'         => (int) ($it['contentDetails']['itemCount'] ?? 0),
+            'privacidade' => $it['status']['privacyStatus'] ?? null,
+            'thumb'       => self::thumb($it['snippet']['thumbnails'] ?? []),
+        ], (array) ($r->json('items') ?? []));
+    }
+
+    public static function criarPlaylist(string $token, string $titulo, string $descricao, string $privacidade): array
+    {
+        $r = self::mudar('post', 'playlists', ['part' => 'snippet,status'], [
+            'snippet' => ['title' => $titulo, 'description' => $descricao],
+            'status'  => ['privacyStatus' => $privacidade],
+        ], $token);
+
+        return ['id' => (string) $r->json('id'), 'titulo' => (string) $r->json('snippet.title'), 'qtd' => 0, 'privacidade' => $privacidade, 'thumb' => null];
+    }
+
+    public static function adicionarVideo(string $token, string $playlist, string $video): void
+    {
+        self::mudar('post', 'playlistItems', ['part' => 'snippet'], [
+            'snippet' => ['playlistId' => $playlist, 'resourceId' => ['kind' => 'youtube#video', 'videoId' => $video]],
+        ], $token);
+    }
+
+    /** Tira o vídeo da playlist (todas as vezes que ele aparece nela). Devolve quantos itens saíram. */
+    public static function removerVideo(string $token, string $playlist, string $video): int
+    {
+        $itens = self::get('playlistItems', ['part' => 'id', 'playlistId' => $playlist, 'videoId' => $video, 'maxResults' => 50], $token)->json('items') ?? [];
+        foreach ($itens as $it) {
+            self::mudar('delete', 'playlistItems', ['id' => (string) $it['id']], null, $token);
+        }
+
+        return count($itens);
+    }
+
+    /**
+     * Muda título, descrição e privacidade de um vídeo da pessoa. A API troca o snippet e o status inteiros, então
+     * lê o vídeo antes e devolve os outros campos como estavam (categoria, tags, idioma, feito para crianças...).
+     */
+    public static function editarVideo(string $token, string $id, ?string $titulo, ?string $descricao, ?string $privacidade): array
+    {
+        $v = self::get('videos', ['part' => 'snippet,status', 'id' => $id], $token)->json('items.0');
+        if (! $v) {
+            throw new RuntimeException('Vídeo não encontrado no seu canal.');
+        }
+        $s = $v['snippet'] ?? [];
+        $snippet = array_filter([
+            'title'           => $titulo ?? ($s['title'] ?? ''),
+            'description'     => $descricao ?? ($s['description'] ?? ''),
+            'categoryId'      => $s['categoryId'] ?? '22',
+            'tags'            => $s['tags'] ?? null,
+            'defaultLanguage' => $s['defaultLanguage'] ?? null,
+        ], fn ($x) => $x !== null);
+        $st = $v['status'] ?? [];
+        $status = array_intersect_key($st, array_flip(['privacyStatus', 'embeddable', 'license', 'publicStatsViewable', 'selfDeclaredMadeForKids', 'publishAt', 'containsSyntheticMedia']));
+        if ($privacidade !== null) {
+            $status['privacyStatus'] = $privacidade;
+        }
+        if (($status['privacyStatus'] ?? '') !== 'private') {
+            unset($status['publishAt']); // agendamento só vale para vídeo privado
+        }
+
+        $r = self::mudar('put', 'videos', ['part' => 'snippet,status'], ['id' => $id, 'snippet' => $snippet, 'status' => $status], $token);
+
+        return ['id' => $id, 'titulo' => (string) $r->json('snippet.title'), 'descricao' => (string) $r->json('snippet.description'),
+            'privacidade' => $r->json('status.privacyStatus')];
+    }
+
+    /** POST/PUT/DELETE na API com o token da pessoa. Falta do escopo de edição vira SemPermissao. */
+    private static function mudar(string $metodo, string $rota, array $q, ?array $corpo, string $token): Response
+    {
+        $http = Http::timeout(20)->acceptJson()->withToken($token);
+        $url = self::API . $rota . '?' . http_build_query($q);
+        $r = $corpo === null ? $http->send(strtoupper($metodo), $url) : $http->{$metodo}($url, $corpo);
+        if ($r->successful()) {
+            return $r;
+        }
+
+        $motivo = (string) $r->json('error.errors.0.reason');
+        if ($r->status() === 403 && preg_match('/insufficient|scope/i', $motivo . ' ' . $r->json('error.message') . ' ' . $r->json('error.status'))) {
+            throw new SemPermissao('Falta permitir que o Work Flower edite o seu canal do YouTube.');
+        }
+        throw new RuntimeException(match (true) {
+            $r->status() === 401           => 'O acesso ao YouTube venceu. Conecte de novo.',
+            str_contains($motivo, 'quota') => 'O YouTube passou do limite diário deste site. Tente amanhã.',
+            $r->status() === 403           => 'O YouTube recusou a mudança (' . ($motivo ?: 'sem permissão') . '). Só dá para mexer em vídeos e playlists do seu canal.',
+            $r->status() === 404           => 'Não encontrei isso no YouTube.',
+            $r->status() === 400           => 'O YouTube recusou os dados (' . mb_substr((string) $r->json('error.message'), 0, 120) . ').',
+            default                        => 'O YouTube não respondeu agora. Tente de novo.',
+        });
     }
 
     /** "PT1H2M3S" → "1:02:03". */

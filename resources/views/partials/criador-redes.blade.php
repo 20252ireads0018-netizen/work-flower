@@ -15,9 +15,75 @@
             <a class="btn !py-0.5" x-show="crRdUI(b).conectar && (!crSnap(b) || crSnap(b).manual)" :href="crRdUI(b).conectar" x-text="'Conectar ' + crRedeNome(b)"></a>
             <button type="button" class="btn-sec !py-0.5" :class="crRdUI(b).importar && 'qz-on'" @click="crRdAbrirImportar(b)">Importar números</button>
             <button type="button" class="btn-sec !py-0.5" x-show="crSnap(b) && !crSnap(b).manual" @click="crRedeSair(b)">Desconectar</button>
+            <button type="button" class="btn-sec !py-0.5" x-show="crUI(b).ver === 'ig' && crPubTem()" :class="crPubUI(b).aberto && 'qz-on'" @click="crPubAbrir(b)">Publicar no Instagram</button>
         </div>
 
-        <p class="text-red-500 break-words" x-show="crRdUI(b).erro && !crRdUI(b).importar" x-text="crRdUI(b).erro"></p>
+        <p class="text-red-500 break-words" x-show="crRdUI(b).erro && !crRdUI(b).importar && !crPubUI(b).aberto" x-text="crRdUI(b).erro"></p>
+
+        {{-- publicar foto ou carrossel (InstagramPublicarController): a permissão de publicar só é pedida aqui --}}
+        <template x-if="crUI(b).ver === 'ig' && crPubUI(b).aberto">
+            <form class="qz-ed" style="gap:.4rem" @submit.prevent="crPubEnviar(b)">
+                <p class="font-semibold">Publicar no Instagram</p>
+                <p class="texto-2" x-show="crPubUI(b).carregando">Conferindo a conta…</p>
+                <template x-if="crPubUI(b).estado && !crPubUI(b).estado.conectado">
+                    <div class="flex flex-col gap-1.5">
+                        <p class="texto-2" x-text="crPubUI(b).estado.configurado ? 'Conecte a conta Profissional do Instagram (ligada a uma Página do Facebook) e permita publicar conteúdo.' : 'A publicação pelo Instagram ainda não foi ativada neste site.'"></p>
+                        <a class="btn !py-0.5 self-start" x-show="crPubConectar(b)" :href="crPubConectar(b)">Conectar e permitir publicar</a>
+                    </div>
+                </template>
+                <template x-if="crPubUI(b).estado && crPubUI(b).estado.conectado && !crPubUI(b).estado.pode">
+                    <div class="flex flex-col gap-1.5">
+                        <p class="texto-2">Para publicar daqui, o Facebook precisa de mais uma permissão: “publicar conteúdo” no Instagram<span x-show="crPubUI(b).estado.usuario" x-text="' @' + crPubUI(b).estado.usuario"></span>. As métricas continuam como estão.</p>
+                        <a class="btn !py-0.5 self-start" :href="crPubConectar(b)">Permitir publicar</a>
+                    </div>
+                </template>
+                <template x-if="crPubUI(b).estado && crPubUI(b).estado.pode">
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex flex-wrap gap-1.5">
+                            <template x-for="(x, i) in crPubUI(b).imagens" :key="x.url">
+                                <div class="cr-pub-img">
+                                    <img :src="x.url" :alt="'Imagem ' + (i + 1)">
+                                    <span class="cr-pub-n" x-text="i + 1"></span>
+                                    <span class="cr-pub-acoes">
+                                        <button type="button" class="mini-btn" title="Mais para a esquerda" aria-label="Mover para a esquerda" x-show="i > 0" @click="crPubMover(b, i, -1)">‹</button>
+                                        <button type="button" class="mini-btn" title="Tirar" aria-label="Tirar a imagem" @click="crPubTirar(b, i)">×</button>
+                                        <button type="button" class="mini-btn" title="Mais para a direita" aria-label="Mover para a direita" x-show="i < crPubUI(b).imagens.length - 1" @click="crPubMover(b, i, 1)">›</button>
+                                    </span>
+                                </div>
+                            </template>
+                            <label class="cr-pub-mais" x-show="crPubUI(b).imagens.length < 10" title="Escolher imagens">
+                                <span x-text="crPubUI(b).imagens.length ? '+' : '+ Imagens'"></span>
+                                <input type="file" class="sr-only" accept="image/jpeg,image/png,image/webp" multiple @change="crPubArquivos(b, $event)">
+                            </label>
+                        </div>
+                        <p class="texto-2">Uma imagem vira foto; de 2 a 10 viram carrossel, nesta ordem. JPG, PNG ou WebP até 8 MB, de 4:5 (retrato) a 1,91:1 (paisagem).</p>
+                        <select class="campo !py-0.5 !text-xs" x-show="crPubPosts(b).length" x-model="crPubUI(b).post" @change="crPubUsarPost(b)" aria-label="Usar a legenda de um post do Criador">
+                            <option value="">Usar a legenda de um post do Criador…</option>
+                            <template x-for="x in crPubPosts(b)" :key="x.id"><option :value="x.id" x-text="(x.titulo || 'Sem título') + ' · ' + x.etapa"></option></template>
+                        </select>
+                        <textarea class="campo text-xs" rows="4" x-model="crPubUI(b).legenda" maxlength="2200" placeholder="Legenda, hashtags e menções" aria-label="Legenda"></textarea>
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <button class="btn !py-0.5" :disabled="crPubUI(b).enviando || !crPubUI(b).imagens.length"
+                                    x-text="crPubUI(b).enviando ? 'Publicando…' : (crPubUI(b).imagens.length > 1 ? 'Publicar carrossel' : 'Publicar foto')"></button>
+                            <span class="texto-2" x-text="crPubUI(b).legenda.length + '/2200'"></span>
+                            <span class="texto-2 ml-auto" x-show="crPubUI(b).estado.usuario" x-text="'em @' + crPubUI(b).estado.usuario"></span>
+                        </div>
+                    </div>
+                </template>
+                <p class="text-red-500 break-words" x-show="crPubUI(b).erro" x-text="crPubUI(b).erro"></p>
+                <p x-show="crPubUI(b).feito">Publicado! <a class="link-prim" x-show="crPubUI(b).feito && crPubUI(b).feito.link" :href="crPubUI(b).feito ? crPubUI(b).feito.link : '#'" target="_blank" rel="noopener">Ver no Instagram ↗</a></p>
+                <p class="texto-2">Vídeos e Reels: publique pelo app por enquanto. TikTok: a publicação direta depende da aprovação da API de postagem do TikTok.</p>
+            </form>
+        </template>
+        <style>
+            .cr-pub-img { position: relative; width: 4.5rem; height: 4.5rem; border-radius: .5rem; overflow: hidden; border: 1px solid var(--linha); }
+            .cr-pub-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+            .cr-pub-n { position: absolute; left: .2rem; top: .2rem; font-size: .6rem; padding: 0 .3rem; border-radius: .3rem; background: rgba(0, 0, 0, .7); color: #fff; }
+            .cr-pub-acoes { position: absolute; inset: auto 0 0 0; display: flex; justify-content: center; gap: .1rem; background: rgba(0, 0, 0, .55); }
+            .cr-pub-acoes .mini-btn { color: #fff; }
+            .cr-pub-mais { width: 4.5rem; height: 4.5rem; border-radius: .5rem; border: 1px dashed var(--linha); display: grid; place-items: center; cursor: pointer; text-align: center; font-size: .7rem; }
+            .cr-pub-mais:hover { border-color: var(--prim); }
+        </style>
 
         {{-- importação manual: planilha exportada da rede ou números digitados --}}
         <form x-show="crRdUI(b).importar" class="qz-ed" style="gap:.4rem" @submit.prevent="crRdImportar(b)">

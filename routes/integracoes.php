@@ -12,6 +12,8 @@ Route::prefix('/integracoes/discord')->name('integracoes.discord')->group(functi
     Route::get('/', [IntegracaoController::class, 'show'])->middleware('throttle:60,1')->name('');
     Route::post('/', [IntegracaoController::class, 'salvar'])->middleware('throttle:20,1')->name('.salvar');
     Route::post('/testar', [IntegracaoController::class, 'testar'])->middleware('throttle:6,1')->name('.testar');
+    // mensagem do bloco Discord do quadro (public/js/blocos-integracoes.js)
+    Route::post('/enviar', [IntegracaoController::class, 'enviar'])->middleware('throttle:10,1,dc-enviar')->name('.enviar');
     Route::get('/canais', [IntegracaoController::class, 'canais'])->middleware('throttle:20,1')->name('.canais');
     Route::delete('/', [IntegracaoController::class, 'remover'])->middleware('throttle:20,1')->name('.remover');
 });

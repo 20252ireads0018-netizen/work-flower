@@ -61,6 +61,17 @@
     .ig-dia b { font-size: 1rem; }
     .ig-dia span { font-size: .6rem; text-transform: uppercase; }
     .ig-email { display: flex; align-items: center; gap: .2rem; cursor: pointer; white-space: nowrap; }
+    /* Drive: caminho da pasta aberta; Gmail/YouTube: formulários de enviar e editar */
+    .ig-caminho { flex: 1; min-width: 0; display: flex; align-items: center; gap: .2rem; overflow: hidden; white-space: nowrap; }
+    .ig-migalha-par { display: inline-flex; align-items: center; gap: .2rem; min-width: 0; }
+    .ig-migalha { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: .1rem .3rem; border-radius: .35rem; color: var(--prim); }
+    .ig-migalha:hover, .ig-migalha:focus-visible { background: color-mix(in srgb, var(--prim) 12%, transparent); outline: none; }
+    .ig-perigo { color: #dc2626; }
+    .ig-campo { display: grid; grid-template-columns: 4rem 1fr; align-items: center; gap: .35rem; color: var(--tinta-2); }
+    .ig-texto { flex: 1; min-height: 6rem; resize: vertical; line-height: 1.45; }
+    .ig-form { flex: none; }
+    form.ig-corpo.ig-form { flex: 1; overflow-y: auto; }
+    .ig-corpo:has(> .ig-player) { overflow-y: auto; }
     .ig-aviso-erro { position: fixed; z-index: 60; left: 50%; bottom: 1.2rem; transform: translateX(-50%); max-width: min(92vw, 34rem); padding: .7rem 1rem;
         border-radius: .8rem; background: #b91c1c; color: #fff; font-size: .85rem; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .5); cursor: pointer; }
 </style>

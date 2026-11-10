@@ -89,14 +89,15 @@ class GoogleDrive implements Destino
         ];
     }
 
-    public function enviar(string $caminho, string $conteudo, string $mime): string
+    /** $pai: subpasta de destino (cartão Google Drive); sem ela, a pasta "Work Flower". */
+    public function enviar(string $caminho, string $conteudo, string $mime, ?string $pai = null): string
     {
         if (strlen($conteudo) > self::SIMPLES) {
-            return $this->enviarEmPartes($caminho, $conteudo, $mime);
+            return $this->enviarEmPartes($caminho, $conteudo, $mime, $pai);
         }
 
         $limite = 'wf' . bin2hex(random_bytes(8));
-        $meta = json_encode(['name' => str_replace('/', '-', ltrim($caminho, '/')), 'parents' => [$this->pasta()]]);
+        $meta = json_encode(['name' => str_replace('/', '-', ltrim($caminho, '/')), 'parents' => [$pai ?: $this->pasta()]]);
         $corpo = "--{$limite}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{$meta}\r\n"
                . "--{$limite}\r\nContent-Type: {$mime}\r\n\r\n{$conteudo}\r\n--{$limite}--";
 
@@ -111,13 +112,13 @@ class GoogleDrive implements Destino
      * Envio "resumable" do Drive: abre uma sessão e manda pedaços de 8 MB (múltiplo de 256 KB, como a API pede).
      * O envio simples (multipart) do Drive só aceita até 5 MB.
      */
-    private function enviarEmPartes(string $caminho, string $conteudo, string $mime): string
+    private function enviarEmPartes(string $caminho, string $conteudo, string $mime, ?string $pai = null): string
     {
         $total = strlen($conteudo);
         $r = $this->http()->withHeaders(['X-Upload-Content-Type' => $mime, 'X-Upload-Content-Length' => (string) $total])
             ->post(self::UP . '?uploadType=resumable&fields=id', [
                 'name'    => str_replace('/', '-', ltrim($caminho, '/')),
-                'parents' => [$this->pasta()],
+                'parents' => [$pai ?: $this->pasta()],
             ]);
         $this->conferir($r, 'começar o envio em partes');
         $sessao = $r->header('Location');
@@ -168,19 +169,21 @@ class GoogleDrive implements Destino
      *
      * @return list<array{id: string, nome: string, mime: string, tamanho: ?int, modificado: ?string, link: ?string, icone: ?string, miniatura: ?string}>
      */
-    public function listar(string $busca = '', int $max = 200): array
+    public function listar(string $busca = '', int $max = 200, ?string $pasta = null, bool $lixeira = false): array
     {
-        $q = "'" . $this->pasta() . "' in parents and trashed = false";
+        // lixeira: tudo o que o site enxerga e está na lixeira (o drive.file já limita aos arquivos do site)
+        $q = $lixeira ? 'trashed = true' : "'" . self::aspas($pasta ?: $this->pasta()) . "' in parents and trashed = false";
         if ($busca !== '') {
-            $q .= " and name contains '" . str_replace(['\\', "'"], ['\\\\', "\\'"], mb_substr($busca, 0, 80)) . "'";
+            $q .= " and name contains '" . self::aspas(mb_substr($busca, 0, 80)) . "'";
         }
         $r = $this->http()->get(self::API, [
             'q'        => $q,
-            'orderBy'  => 'modifiedTime desc',
+            // pastas primeiro, depois os mais recentes
+            'orderBy'  => 'folder,modifiedTime desc',
             'pageSize' => min(200, $max),
             'fields'   => 'files(id,name,mimeType,size,modifiedTime,webViewLink,iconLink,thumbnailLink)',
         ]);
-        $this->conferir($r, 'listar a pasta Work Flower');
+        $this->conferir($r, $lixeira ? 'listar a lixeira' : 'listar a pasta Work Flower');
 
         return array_map(fn ($f) => [
             'id'         => (string) $f['id'],
@@ -197,7 +200,7 @@ class GoogleDrive implements Destino
     /** Nome, tipo, tamanho e link de um arquivo. */
     public function info(string $id): array
     {
-        $r = $this->http()->get(self::API . '/' . rawurlencode($id), ['fields' => 'id,name,mimeType,size,webViewLink,trashed']);
+        $r = $this->http()->get(self::API . '/' . rawurlencode($id), ['fields' => 'id,name,mimeType,size,webViewLink,trashed,parents']);
         $this->conferir($r, 'abrir o arquivo');
 
         return (array) $r->json();
@@ -217,6 +220,72 @@ class GoogleDrive implements Destino
     {
         $r = $this->http()->patch(self::API . '/' . rawurlencode($id) . '?fields=id', ['name' => $nome]);
         $this->conferir($r, 'renomear o arquivo');
+    }
+
+    /* ---------------- cartão Google Drive: pastas, arquivos novos do Google, mover e lixeira ---------------- */
+
+    public const PASTA = 'application/vnd.google-apps.folder';
+
+    /** Id da pasta "Work Flower" (raiz do cartão). */
+    public function raiz(): string
+    {
+        return $this->pasta();
+    }
+
+    /**
+     * Todas as pastas que o site enxerga (a "Work Flower" e as criadas dentro dela), para escolher o destino ao mover.
+     *
+     * @return list<array{id: string, nome: string, pai: ?string}>
+     */
+    public function pastas(): array
+    {
+        $r = $this->http()->get(self::API, [
+            'q'        => "mimeType = '" . self::PASTA . "' and trashed = false",
+            'orderBy'  => 'name',
+            'pageSize' => 200,
+            'fields'   => 'files(id,name,parents)',
+        ]);
+        $this->conferir($r, 'listar as pastas');
+
+        return array_map(fn ($f) => ['id' => (string) $f['id'], 'nome' => (string) ($f['name'] ?? ''), 'pai' => $f['parents'][0] ?? null],
+            (array) $r->json('files', []));
+    }
+
+    /** Pasta ou arquivo vazio do Google (Documento, Planilha, Apresentação) dentro de $pai. Devolve id, nome, mime e link. */
+    public function criar(string $nome, string $mime, ?string $pai = null): array
+    {
+        $r = $this->http()->post(self::API . '?fields=id,name,mimeType,webViewLink', [
+            'name'     => $nome,
+            'mimeType' => $mime,
+            'parents'  => [$pai ?: $this->pasta()],
+        ]);
+        $this->conferir($r, $mime === self::PASTA ? 'criar a pasta' : 'criar o arquivo');
+
+        return ['id' => (string) $r->json('id'), 'nome' => (string) $r->json('name'), 'mime' => (string) $r->json('mimeType'), 'link' => $r->json('webViewLink')];
+    }
+
+    /** Tira o arquivo das pastas atuais e põe em $para. */
+    public function mover(string $id, string $para): void
+    {
+        $r = $this->http()->get(self::API . '/' . rawurlencode($id), ['fields' => 'parents']);
+        $this->conferir($r, 'abrir o arquivo');
+        $antes = implode(',', (array) $r->json('parents', []));
+
+        $q = http_build_query(array_filter(['addParents' => $para, 'removeParents' => $antes, 'fields' => 'id']));
+        $r = $this->http()->withBody('{}', 'application/json')->patch(self::API . '/' . rawurlencode($id) . '?' . $q);
+        $this->conferir($r, 'mover o arquivo');
+    }
+
+    /** Manda para a lixeira do Drive (true) ou tira de lá (false). */
+    public function lixeira(string $id, bool $jogar): void
+    {
+        $r = $this->http()->patch(self::API . '/' . rawurlencode($id) . '?fields=id', ['trashed' => $jogar]);
+        $this->conferir($r, $jogar ? 'mandar para a lixeira' : 'restaurar o arquivo');
+    }
+
+    private static function aspas(string $s): string
+    {
+        return str_replace(['\\', "'"], ['\\\\', "\\'"], $s);
     }
 
     /** Tira a permissão do site no Google (ao desconectar). Falha aqui não impede desconectar. */

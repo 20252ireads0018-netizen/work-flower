@@ -16,6 +16,22 @@ Cartões novos no menu **+ Bloco** de todas as áreas (`public/js/integracoes-ca
 | **Lembretes por e-mail** | eventos do calendário com lembrete | ver os próximos, ligar/desligar o e-mail, criar lembrete (inclusive a partir de um cartão da aba), virar cartão, teste de envio. Configuração do servidor: `docs/lembretes-por-email.md` |
 
 Todo item de lista pode ser **arrastado para um espaço vazio do quadro** (vira cartão onde foi solto) ou mandado pelo botão "No quadro".
+
+### Mexer no Google pelo cartão (10/11/2026)
+
+| Cartão | O que mais dá para fazer | Escopo |
+|---|---|---|
+| **Google Drive** | entrar nas subpastas da "Work Flower" e voltar pelo caminho, **+ Novo** (pasta, Documento, Planilha, Apresentação do Google, já abre em outra aba), **mover** para outra pasta, **lixeira** (mandar, ver, restaurar, apagar de vez só de dentro da lixeira), **baixar** (Docs/Planilhas/Apresentações saem em .docx/.xlsx/.pptx, até 25 MB), mandar cartão para a pasta aberta | `drive.file` (o mesmo: nada novo) |
+| **Gmail** | **escrever, responder** (na mesma conversa do Gmail) e **encaminhar** (texto original citado; anexos não vão) | `gmail.send` (novo, opcional) |
+| **YouTube** | **criar playlist**, **pôr/tirar vídeo de playlist**, **editar título, descrição e privacidade** de um vídeo do próprio canal | `youtube` (novo, opcional) |
+
+Os escopos novos são **pedidos só quando a pessoa usa** (botões "Permitir enviar" / "Permitir editar", autorização incremental
+com `include_granted_scopes=true` e `login_hint` da conta já conectada). Quem conectou antes continua só lendo; os escopos
+liberados ficam em `email_contas.escopos` e `google_conexoes.dados.escopos`. Se a pessoa tirar a permissão na conta Google,
+o próximo envio/edição recebe 409 e o cartão volta a mostrar o botão de permitir.
+
+Ficou de fora: **marcar como lido/não lido e arquivar** no Gmail exigem `gmail.modify` (escopo restrito mais amplo, que também
+deixa apagar mensagens); não foi pedido. Caixas **IMAP** só leem: o Work Flower não guarda SMTP por caixa.
 O cartão Drive conecta pelo mesmo fluxo de Configurações › Armazenamento (com `?de=cartao`, volta para a página do quadro).
 
 ## Saiu do "Em breve"
@@ -31,7 +47,12 @@ linhas** (ou troque para `true`), senão só a administração consegue conectar
    - `.../auth/drive.file` (não sensível)
    - `.../auth/gmail.readonly` (restrito)
    - `.../auth/youtube.readonly` (sensível)
+   - `.../auth/gmail.send` (sensível) — enviar/responder/encaminhar pelo cartão Gmail
+   - `.../auth/youtube` (sensível) — playlists e edição de vídeos pelo cartão YouTube
    - `openid` e `.../auth/userinfo.email`
+
+   Escopo que não estiver nessa lista o Google recusa na tela de permissão (erro `invalid_scope` / "acesso bloqueado").
+   Na verificação do app, o vídeo precisa mostrar também o envio pelo cartão Gmail e a edição pelo cartão YouTube.
 3. **Clientes › (o cliente da Web) › URIs de redirecionamento autorizados**: os três endereços do repasse
    (o de YouTube é novo):
    ```
@@ -73,6 +94,14 @@ CREATE TABLE IF NOT EXISTS google_conexoes (
   CONSTRAINT google_conexoes_user_id_foreign FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 INSERT INTO migrations (migration, batch) SELECT '2026_11_10_000001_create_google_conexoes', COALESCE(MAX(batch), 0) + 1 FROM migrations;
+```
+
+`database/migrations/2026_11_10_000002_add_escopos_to_email_contas.php` (coluna `escopos` em `email_contas`, para saber se a
+caixa já liberou o `gmail.send`). SQL equivalente:
+
+```sql
+ALTER TABLE email_contas ADD COLUMN escopos VARCHAR(1000) NULL AFTER token_expira_em;
+INSERT INTO migrations (migration, batch) SELECT '2026_11_10_000002_add_escopos_to_email_contas', COALESCE(MAX(batch), 0) + 1 FROM migrations;
 ```
 
 ## Arquivos

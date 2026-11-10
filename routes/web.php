@@ -476,6 +476,8 @@ require __DIR__ . '/emails.php';
 require __DIR__ . '/armazenamento.php';
 // Cartões Google Drive, YouTube e Lembretes por e-mail do quadro
 require __DIR__ . '/integracoes-cartoes.php';
+// "Publicar no Instagram" do cartão Criador (foto ou carrossel; imagem por link assinado)
+require __DIR__ . '/instagram-publicar.php';
 // Meu Flower: mapa mental com todo o workflow da conta
 require __DIR__ . '/flower.php';
 // Negócios › Portfólio: editor em /negocios/portfolio e página pública em /p/{slug}

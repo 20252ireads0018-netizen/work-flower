@@ -199,8 +199,11 @@
 <script src="{{ asset('js/editor-pdf.js') }}?v={{ @filemtime(public_path('js/editor-pdf.js')) }}"></script>
 {{-- cartões Questões, Criador e RH (usa o wfNovoCartao do graficos.js) --}}
 <script src="{{ asset('js/cartoes-extra.js') }}?v={{ @filemtime(public_path('js/cartoes-extra.js')) }}" data-yt="{{ \Illuminate\Support\Facades\Route::has('youtube.canal') ? route('youtube.canal') : '' }}" data-banco="{{ $wfCartoesUrls['banco'] }}" data-cal="{{ $wfCartoesUrls['cal'] }}" data-tarefas="{{ $wfCartoesUrls['tarefas'] }}"></script>
-<script src="{{ asset('js/criador-redes.js') }}?v={{ @filemtime(public_path('js/criador-redes.js')) }}" data-redes="{{ \Illuminate\Support\Facades\Route::has('redes.metricas') ? url('/redes') : '' }}"></script>
+<script src="{{ asset('js/criador-redes.js') }}?v={{ @filemtime(public_path('js/criador-redes.js')) }}" data-redes="{{ \Illuminate\Support\Facades\Route::has('redes.metricas') ? url('/redes') : '' }}"
+        data-publicar="{{ \Illuminate\Support\Facades\Route::has('redes.instagram.publicar') ? route('redes.instagram.publicar') : '' }}"></script>
 {{-- cartão Cenas para escritores (js/cenas.js) --}}
 @include('partials.cenas')
 {{-- cartões Google Drive, Gmail, YouTube e Lembretes por e-mail (partials/integracoes-cartoes) --}}
 @include('partials.integracoes-cartoes-script')
+{{-- blocos Discord, Notion e Textos rápidos (partials/blocos-integracoes) --}}
+@include('partials.blocos-integracoes-script')

@@ -96,6 +96,9 @@ class YoutubeController extends Controller
             'pode_conectar' => Youtube::configurado(),
             'tem_chave'     => Youtube::temChave(),
             'conectar'      => Youtube::configurado() ? route('youtube.google') : null,
+            // edição do canal (escopo youtube): pedida só quando a pessoa clica em "Permitir editar"
+            'pode_editar'     => Youtube::podeEditar($con),
+            'permitir_editar' => $con && Youtube::configurado() ? route('youtube.google', ['editar' => 1]) : null,
         ];
 
         $publico = trim((string) $request->query('canal', ''));
@@ -139,23 +142,26 @@ class YoutubeController extends Controller
         }
 
         if ($con && $publico === '' && $playlist === '' && isset($dados['canal'])) {
-            $con->forceFill(['dados' => ['canal' => $dados['canal']['id'], 'nome' => $dados['canal']['nome']]])->save();
+            $con->forceFill(['dados' => array_merge((array) $con->dados, ['canal' => $dados['canal']['id'], 'nome' => $dados['canal']['nome']])])->save();
         }
 
         return response()->json(['ok' => true] + $base + $dados + ['em' => now()->toIso8601String()]);
     }
 
-    /** GET /youtube/google: vai para o login do Google (escopo youtube.readonly). */
+    /** GET /youtube/google[?editar=1]: vai para o login do Google (youtube.readonly; com editar=1, também o escopo youtube). */
     public function conectar(Request $request): RedirectResponse
     {
         if (! Youtube::configurado()) {
             return redirect()->route('painel')->with('erro', 'O login do Google ainda não foi configurado neste Work Flower.');
         }
+        $editar = $request->boolean('editar');
+        $con = $editar ? GoogleConexao::where('user_id', $request->user()->id)->where('servico', 'youtube')->first() : null;
         $estado = Str::random(40);
         $request->session()->put('youtube.estado', $estado);
+        $request->session()->put('youtube.editar', $editar);
         $request->session()->put('youtube.voltar', self::voltar($request));
 
-        return redirect()->away(Youtube::urlAutorizacao($estado));
+        return redirect()->away(Youtube::urlAutorizacao($estado, $editar, $con?->email));
     }
 
     /** GET /youtube/google/retorno (direto ou pela página de repasse docs/google/youtube). */
@@ -182,8 +188,16 @@ class YoutubeController extends Controller
             'access_token'  => $t['access_token'],
             'refresh_token' => $t['refresh_token'] ?: $con->refresh_token,
             'expira_em'     => now()->addSeconds($t['expira']),
+            'dados'         => array_merge((array) $con->dados, ['escopos' => $t['escopos']]),
         ])->save();
         Cache::forget('yt.meu.' . $request->user()->id . '.' . md5(''));
+
+        if ($request->session()->pull('youtube.editar')) {
+            // o Google deixa a pessoa desmarcar a edição na tela de consentimento
+            return Youtube::podeEditar($con)
+                ? redirect($voltar)->with('ok', 'Edição liberada: já dá para criar playlists e mudar título, descrição e privacidade dos seus vídeos pelo cartão YouTube.')
+                : redirect($voltar)->with('erro', 'O Google não liberou a edição do canal (a permissão ficou desmarcada). Tente de novo e marque a permissão.');
+        }
 
         return redirect($voltar)->with('ok', 'YouTube conectado' . ($t['email'] ? " ({$t['email']})" : '') . '. Seus vídeos aparecem no cartão YouTube.');
     }
@@ -199,6 +213,119 @@ class YoutubeController extends Controller
         Cache::forget('yt.meu.' . $request->user()->id . '.' . md5(''));
 
         return response()->json(['ok' => true]);
+    }
+
+    /* ------------------------------------------------------------------
+     * Editar o próprio canal pelo cartão (escopo youtube, opcional). Sem a permissão, 409 com "permitir".
+     * ------------------------------------------------------------------ */
+
+    /** GET /youtube/playlists: playlists da pessoa (inclusive privadas), para pôr um vídeo nelas. */
+    public function playlists(Request $request): JsonResponse
+    {
+        return $this->comCanal($request, false, fn (string $token) => ['playlists' => Youtube::minhasPlaylists($token)]);
+    }
+
+    /** POST /youtube/playlists { titulo, descricao?, privacidade } */
+    public function criarPlaylist(Request $request): JsonResponse
+    {
+        $d = $this->validarB64($request, [
+            'titulo'      => ['required', 'string', 'max:150'],
+            'descricao'   => ['nullable', 'string', 'max:5000'],
+            'privacidade' => ['required', 'in:' . implode(',', Youtube::PRIVACIDADES)],
+        ], ['titulo.required' => 'Dê um nome à playlist.']);
+
+        return $this->comCanal($request, true, function (string $token) use ($d, $request) {
+            $p = Youtube::criarPlaylist($token, trim($d['titulo']), (string) ($d['descricao'] ?? ''), $d['privacidade']);
+            Cache::forget('yt.meu.' . $request->user()->id . '.' . md5(''));
+
+            return ['playlist' => $p, 'msg' => 'Playlist “' . trim($d['titulo']) . '” criada no seu canal.'];
+        });
+    }
+
+    /** POST /youtube/playlists/{playlist}/videos { video } */
+    public function adicionarVideo(Request $request, string $playlist): JsonResponse
+    {
+        $d = $request->validate(['video' => ['required', 'string', 'regex:/^[A-Za-z0-9_-]{11}$/']], ['video.*' => 'Vídeo inválido.']);
+
+        return $this->comCanal($request, true, function (string $token) use ($playlist, $d, $request) {
+            Youtube::adicionarVideo($token, $playlist, $d['video']);
+            Cache::forget('yt.meu.' . $request->user()->id . '.' . md5($playlist));
+
+            return ['msg' => 'Vídeo adicionado à playlist.'];
+        });
+    }
+
+    /** DELETE /youtube/playlists/{playlist}/videos/{video} */
+    public function removerVideo(Request $request, string $playlist, string $video): JsonResponse
+    {
+        return $this->comCanal($request, true, function (string $token) use ($playlist, $video, $request) {
+            $n = Youtube::removerVideo($token, $playlist, $video);
+            Cache::forget('yt.meu.' . $request->user()->id . '.' . md5($playlist));
+
+            return ['removidos' => $n, 'msg' => $n ? 'Vídeo tirado da playlist.' : 'Esse vídeo já não estava na playlist.'];
+        });
+    }
+
+    /** PATCH /youtube/videos/{video} { titulo?, descricao?, privacidade? }: só vídeos do próprio canal (o YouTube confere). */
+    public function editarVideo(Request $request, string $video): JsonResponse
+    {
+        $d = $this->validarB64($request, [
+            'titulo'      => ['sometimes', 'required', 'string', 'max:100'],
+            'descricao'   => ['sometimes', 'nullable', 'string', 'max:5000'],
+            'privacidade' => ['sometimes', 'required', 'in:' . implode(',', Youtube::PRIVACIDADES)],
+        ], ['titulo.required' => 'O vídeo precisa de um título.', 'titulo.max' => 'Título comprido demais (o YouTube aceita até 100 caracteres).']);
+        foreach (['titulo', 'descricao'] as $k) {
+            if (isset($d[$k]) && preg_match('/[<>]/', (string) $d[$k])) {
+                return response()->json(['ok' => false, 'erro' => 'O YouTube não aceita < nem > no título e na descrição.'], 422);
+            }
+        }
+
+        return $this->comCanal($request, true, function (string $token) use ($video, $d, $request) {
+            $v = Youtube::editarVideo($token, $video, isset($d['titulo']) ? trim($d['titulo']) : null,
+                array_key_exists('descricao', $d) ? (string) $d['descricao'] : null, $d['privacidade'] ?? null);
+            Cache::forget('yt.meu.' . $request->user()->id . '.' . md5(''));
+
+            return ['video' => $v, 'msg' => 'Vídeo atualizado no YouTube.'];
+        });
+    }
+
+    /** Roda $fazer com o token da conexão; $editar exige o escopo youtube. Erros viram JSON com "erro". */
+    private function comCanal(Request $request, bool $editar, \Closure $fazer): JsonResponse
+    {
+        $con = GoogleConexao::where('user_id', $request->user()->id)->where('servico', 'youtube')->first();
+        if (! $con) {
+            return response()->json(['ok' => false, 'erro' => 'Entre com a conta Google no cartão YouTube primeiro.'], 409);
+        }
+        $permitir = Youtube::configurado() ? route('youtube.google', ['editar' => 1]) : null;
+        if ($editar && ! Youtube::podeEditar($con)) {
+            return response()->json(['ok' => false, 'erro' => 'Falta permitir que o Work Flower edite o seu canal.', 'permitir' => $permitir], 409);
+        }
+        try {
+            return response()->json(['ok' => true] + $fazer(Youtube::token($con)));
+        } catch (\App\Support\Google\SemPermissao $e) {
+            // a pessoa tirou a permissão na conta Google: some o "pode editar" até permitir de novo
+            $escopos = array_diff(preg_split('/\s+/', (string) ($con->dados['escopos'] ?? '')) ?: [], [Youtube::ESCOPO_EDITAR]);
+            $con->forceFill(['dados' => array_merge((array) $con->dados, ['escopos' => implode(' ', $escopos)])])->save();
+
+            return response()->json(['ok' => false, 'erro' => $e->getMessage(), 'permitir' => $permitir], 409);
+        } catch (RuntimeException $e) {
+            return response()->json(['ok' => false, 'erro' => $e->getMessage()], 422);
+        }
+    }
+
+    /** Valida o corpo, que pode vir como {"b64": base64(JSON)} (o mod_security da HostGator barra descrições com cara de código). */
+    private function validarB64(Request $request, array $regras, array $msgs = []): array
+    {
+        $b64 = $request->input('b64');
+        if (is_string($b64)) {
+            $dados = json_decode((string) base64_decode($b64, true), true);
+            abort_unless(is_array($dados), 422, 'Corpo inválido.');
+            $request->request->remove('b64');
+            $request->json()->remove('b64');
+            $request->merge($dados);
+        }
+
+        return $request->validate($regras, $msgs);
     }
 
     /** Página para onde voltar depois do Google: só endereços deste site (de onde a pessoa veio). */
