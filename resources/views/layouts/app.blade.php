@@ -380,6 +380,8 @@
 
     <script src="{{ asset('js/biblioteca.js') }}?v={{ @filemtime(public_path('js/biblioteca.js')) }}"></script>
     <script src="{{ asset('js/menu-contexto.js') }}?v={{ @filemtime(public_path('js/menu-contexto.js')) }}" defer></script>
+    {{-- mãozinha: arrastar para rolar mapas, diagramas e o que for maior que a área visível --}}
+    <script src="{{ asset('js/arrastar-mao.js') }}?v={{ @filemtime(public_path('js/arrastar-mao.js')) }}" defer></script>
     <script src="{{ asset('js/lixeira.js') }}?v={{ @filemtime(public_path('js/lixeira.js')) }}"></script>
       <script src="{{ asset('js/planos.js') }}?v={{ @filemtime(public_path('js/planos.js')) }}"></script>
       <script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
