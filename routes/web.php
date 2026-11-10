@@ -296,6 +296,10 @@ Route::middleware('auth')->group(function () {
     // Área criada pela conta (App\Support\AreasConta): a página do Diverso só com as abas dela
     Route::get('/areas/extra/{id}', [DiversoController::class, 'extra'])->where('id', 'x[a-z0-9]{8}')->name('areas.extra');
 
+    // Workflows prontos (painel): área temática com abas, cartões e ambiente em um clique
+    Route::post('/workflows-prontos/{tema}', [\App\Http\Controllers\WorkflowsProntosController::class, 'criar'])
+        ->where('tema', '[a-z]+')->middleware('throttle:10,1')->name('workflows.prontos.criar');
+
     // Áreas da conta: esconder, renomear, reordenar, criar/excluir e mover cartões entre áreas
     Route::prefix('/areas-config')->name('areas.config.')->controller(\App\Http\Controllers\AreasContaController::class)->group(function () {
         Route::get('/', 'index')->name('index');

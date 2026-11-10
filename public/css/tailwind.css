@@ -4,3 +4,7 @@
 .max-h-\[calc\(100vh-6rem\)\]{max-height:calc(100vh - 6rem)}
 .max-h-\[calc\(100dvh-6rem\)\]{max-height:calc(100dvh - 6rem)}
 @media (min-width:1024px){.lg\:hidden{display:none}}
+
+/* promoções vitalícias e workflows prontos */
+.mb-8{margin-bottom:2rem}
+@media (min-width:640px){.sm\:text-3xl{font-size:1.875rem;line-height:2.25rem}}

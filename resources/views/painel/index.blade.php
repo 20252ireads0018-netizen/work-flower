@@ -101,7 +101,8 @@
     <div class="order-1 lg:col-start-2 lg:row-start-1 min-w-0" style="display:flex;flex-direction:column;gap:1.5rem">
     @include('painel.partials.novos-usuarios')
     {{-- Áreas (ordem, nomes e quais aparecem: engrenagem › Áreas, App\Support\AreasConta) --}}
-    <div class="flex items-center justify-end" style="margin-bottom:-0.75rem">
+    <div class="flex flex-wrap items-center justify-end gap-4" style="margin-bottom:-0.75rem">
+        @include('painel.partials.workflows-prontos')
         <button type="button" class="link-prim text-sm" @click="$dispatch('abrir-areas')" x-data>Personalizar áreas</button>
     </div>
     <div class="grid gap-4 sm:grid-cols-2" data-atualiza="painel-areas">
