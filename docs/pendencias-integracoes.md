@@ -40,7 +40,7 @@ Projeto "My First Project" (ninth-sol-513721-a1), cliente OAuth "Work Flower sit
 - [x] Sandbox "Demo Work Flower" (7706514306800666645) com a conta jonas0.82 como testadora
 - [x] Vídeo de demonstração real (`demo-tiktok-work-flower.mp4`, 1min34, 5,9 MB) no lugar do provisório; rascunho salvo
 - [x] `.env` de volta com as chaves de PRODUÇÃO (a de Sandbox começa com "sb")
-- [ ] O usuário clica em "Submit for review" e espera a análise do TikTok
+- [x] Enviado para análise em 10/11/2026 (status "In review"). Aguardar o e-mail do TikTok; se recusarem, ler os "Review comments" na página do app.
 
 ## Shopee e Amazon — PULADAS (10/11/2026)
 O usuário não vende na Shopee nem na Amazon. Os cartões continuam com a importação manual (CSV/números colados). Se um dia vender:
