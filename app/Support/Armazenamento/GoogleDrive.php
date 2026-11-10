@@ -162,6 +162,63 @@ class GoogleDrive implements Destino
         return null; // o Drive exige o token: o site repassa o arquivo
     }
 
+    /**
+     * Arquivos da pasta "Work Flower" (cartão Google Drive do quadro). Com o escopo drive.file o site só enxerga o
+     * que ele mesmo criou ali: backups, cartões enviados e arquivos levados pelo Armazenamento.
+     *
+     * @return list<array{id: string, nome: string, mime: string, tamanho: ?int, modificado: ?string, link: ?string, icone: ?string, miniatura: ?string}>
+     */
+    public function listar(string $busca = '', int $max = 200): array
+    {
+        $q = "'" . $this->pasta() . "' in parents and trashed = false";
+        if ($busca !== '') {
+            $q .= " and name contains '" . str_replace(['\\', "'"], ['\\\\', "\\'"], mb_substr($busca, 0, 80)) . "'";
+        }
+        $r = $this->http()->get(self::API, [
+            'q'        => $q,
+            'orderBy'  => 'modifiedTime desc',
+            'pageSize' => min(200, $max),
+            'fields'   => 'files(id,name,mimeType,size,modifiedTime,webViewLink,iconLink,thumbnailLink)',
+        ]);
+        $this->conferir($r, 'listar a pasta Work Flower');
+
+        return array_map(fn ($f) => [
+            'id'         => (string) $f['id'],
+            'nome'       => (string) ($f['name'] ?? ''),
+            'mime'       => (string) ($f['mimeType'] ?? ''),
+            'tamanho'    => isset($f['size']) ? (int) $f['size'] : null,
+            'modificado' => $f['modifiedTime'] ?? null,
+            'link'       => $f['webViewLink'] ?? null,
+            'icone'      => $f['iconLink'] ?? null,
+            'miniatura'  => $f['thumbnailLink'] ?? null,
+        ], (array) $r->json('files', []));
+    }
+
+    /** Nome, tipo, tamanho e link de um arquivo. */
+    public function info(string $id): array
+    {
+        $r = $this->http()->get(self::API . '/' . rawurlencode($id), ['fields' => 'id,name,mimeType,size,webViewLink,trashed']);
+        $this->conferir($r, 'abrir o arquivo');
+
+        return (array) $r->json();
+    }
+
+    /** Documento/planilha/apresentação do Google convertido (text/plain, text/csv...). */
+    public function exportar(string $id, string $mime): string
+    {
+        $r = $this->http()->get(self::API . '/' . rawurlencode($id) . '/export', ['mimeType' => $mime]);
+        $this->conferir($r, 'converter o arquivo');
+
+        return $r->body();
+    }
+
+    /** Muda o nome de um arquivo da pasta. */
+    public function renomear(string $id, string $nome): void
+    {
+        $r = $this->http()->patch(self::API . '/' . rawurlencode($id) . '?fields=id', ['name' => $nome]);
+        $this->conferir($r, 'renomear o arquivo');
+    }
+
     /** Tira a permissão do site no Google (ao desconectar). Falha aqui não impede desconectar. */
     public function revogar(): void
     {

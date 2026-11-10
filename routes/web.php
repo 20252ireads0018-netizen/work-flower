@@ -441,6 +441,8 @@ require __DIR__ . '/tabletop-vivo.php';
 require __DIR__ . '/emails.php';
 // Configurações › Armazenamento (destinos próprios, backups e arquivos fora do banco)
 require __DIR__ . '/armazenamento.php';
+// Cartões Google Drive, YouTube e Lembretes por e-mail do quadro
+require __DIR__ . '/integracoes-cartoes.php';
 // Meu Flower: mapa mental com todo o workflow da conta
 require __DIR__ . '/flower.php';
 // Negócios › Portfólio: editor em /negocios/portfolio e página pública em /p/{slug}

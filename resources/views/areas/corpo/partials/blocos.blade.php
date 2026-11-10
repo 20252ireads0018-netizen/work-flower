@@ -49,6 +49,8 @@
             <template x-if="b.tipo === 'criador'">
                 @include('partials.criador-cartao')
             </template>
+            {{-- Google Drive, Gmail, YouTube e Lembretes por e-mail (partials/integracoes-cartoes; js/integracoes-cartoes.js) --}}
+            @include('partials.integracoes-cartoes')
             <template x-if="b.tipo === 'rh'">
                 @include('partials.rh-cartao')
             </template>

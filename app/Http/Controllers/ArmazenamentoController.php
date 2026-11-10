@@ -142,6 +142,8 @@ class ArmazenamentoController extends Controller
 
         $estado = Str::random(40);
         $request->session()->put('armazenamento.google_estado', $estado);
+        // veio do cartão Google Drive do quadro: volta para a mesma página depois do Google
+        $request->session()->put('armazenamento.google_voltar', $request->query('de') === 'cartao' ? YoutubeController::voltar($request) : null);
 
         return redirect()->away(GoogleDrive::urlAutorizacao($estado, GoogleDrive::retorno()));
     }
@@ -172,7 +174,9 @@ class ArmazenamentoController extends Controller
             return redirect()->route('armazenamento')->withErrors(['destino' => $e->getMessage()]);
         }
 
-        return redirect()->route('armazenamento')->with('ok', 'Google Drive conectado. Os arquivos ficam na pasta "Work Flower" do seu Drive.');
+        $voltar = $request->session()->pull('armazenamento.google_voltar');
+
+        return redirect($voltar ?: route('armazenamento'))->with('ok', 'Google Drive conectado. Os arquivos ficam na pasta "Work Flower" do seu Drive.');
     }
 
     // -------------------------------------------------------------- backups
