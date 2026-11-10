@@ -14,6 +14,14 @@
     const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
     const guardar = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* sem armazenamento */ } };
     const ler = k => { try { return localStorage.getItem(k); } catch { return null; } };
+    // onde a música parou (por fonte: "y:<id>" ou "a:<url>"), para atualizar a página sem voltar ao começo. Vale por 12 h.
+    const POS_VALIDA_MS = 12 * 3600 * 1000;
+    function posGuardada(chave) {
+        try {
+            const p = JSON.parse(ler('wf-amb-pos.' + chave) || 'null');
+            return p && Date.now() - p.em < POS_VALIDA_MS && p.t > 1 ? +p.t : 0;
+        } catch { return 0; }
+    }
     const PADRAO_SETOR = {
         fundo: { proprio: false, cor: null, ajuste: 'cover', escurecer: 55, desfoque: 0, imagem: false, versao: 0 },
         musica: { tipo: 'herdar', youtube: null, nome: null, volume: 40, auto: true, arquivo: false, versao: 0 },
@@ -111,6 +119,10 @@
                     if (m.auto && ler('wf-amb-pausa.' + this.area) !== '1') { this.querSom = true; if (this.atual && !this.tocando) this.tocar(); }
                 };
                 ['pointerdown', 'keydown'].forEach(t => document.addEventListener(t, primeira, true));
+                // guarda onde a música está (a cada 2 s e ao sair da página) para retomar dali ao recarregar
+                setInterval(() => this.guardarPos(), 2000);
+                window.addEventListener('pagehide', () => this.guardarPos());
+                document.addEventListener('visibilitychange', () => { if (document.hidden) this.guardarPos(); });
             },
 
             /* ---------- o que vale na aba aberta ---------- */
@@ -158,6 +170,14 @@
             ondeMusica() { return this.atual?.setor ? 'Música da aba ' + (this.setorAtual.nome || '') : 'Música de ' + this.nomeArea; },
 
             /* ---------- tocador ---------- */
+            /** Grava o ponto da música que está tocando (YouTube ou arquivo). */
+            guardarPos() {
+                const f = this.atual;
+                if (!f || !this.tocando) return;
+                let t = 0;
+                try { t = f.tipo === 'youtube' ? (this.ytPronto ? this._yt.getCurrentTime() : 0) : this.$refs.audio.currentTime; } catch { return; }
+                if (t > 0) guardar('wf-amb-pos.' + f.chave, JSON.stringify({ t: Math.round(t * 10) / 10, em: Date.now() }));
+            },
             volumeDe(fonte) {
                 const v = ler('wf-amb-vol.' + this.area + (fonte?.setor ? '.' + fonte.setor : ''));
                 return v !== null ? Math.max(0, Math.min(100, +v)) : (fonte?.volume ?? 40);
@@ -174,8 +194,9 @@
             },
             async prepararYoutube(id, tocarJa) {
                 this._ytId = id; this._querTocar = tocarJa;
+                const inicio = Math.floor(posGuardada('y:' + id));
                 if (this._yt && this.ytPronto) {
-                    tocarJa ? this._yt.loadVideoById(id) : this._yt.cueVideoById(id);
+                    tocarJa ? this._yt.loadVideoById({ videoId: id, startSeconds: inicio }) : this._yt.cueVideoById({ videoId: id, startSeconds: inicio });
                     this._yt.setVolume(this.volume);
                     return;
                 }
@@ -185,12 +206,12 @@
                 this._yt = new window.YT.Player(this.$refs.yt, {
                     host: 'https://www.youtube-nocookie.com',
                     width: 220, height: 124, videoId: this._ytId,
-                    playerVars: { controls: 1, playsinline: 1, modestbranding: 1, rel: 0 },
+                    playerVars: { controls: 1, playsinline: 1, modestbranding: 1, rel: 0, start: inicio },
                     events: {
                         onReady: () => {
                             this.ytPronto = true;
                             this._yt.setVolume(this.volume);
-                            if (this._ytId !== id) this._yt.cueVideoById(this._ytId);
+                            if (this._ytId !== id) this._yt.cueVideoById({ videoId: this._ytId, startSeconds: Math.floor(posGuardada('y:' + this._ytId)) });
                             if (this._querTocar && this.atual?.tipo === 'youtube') this._yt.playVideo();
                         },
                         onStateChange: e => {
@@ -213,11 +234,15 @@
                 if (!f) return;
                 if (f.tipo === 'youtube') {
                     if (!this.ytPronto) { this._querTocar = true; return; }
-                    if (this._ytId !== f.id) { this._ytId = f.id; this._yt.loadVideoById(f.id); } else this._yt.playVideo();
+                    if (this._ytId !== f.id) { this._ytId = f.id; this._yt.loadVideoById({ videoId: f.id, startSeconds: Math.floor(posGuardada(f.chave)) }); } else this._yt.playVideo();
                     return;
                 }
                 const a = this.$refs.audio;
-                if (a.dataset.src !== f.url) { a.src = f.url; a.dataset.src = f.url; }
+                if (a.dataset.src !== f.url) {
+                    a.src = f.url; a.dataset.src = f.url;
+                    const p = posGuardada(f.chave);
+                    if (p) a.addEventListener('loadedmetadata', () => { try { if (p < a.duration) a.currentTime = p; } catch { /* sem posição */ } }, { once: true });
+                }
                 a.volume = this.volume / 100;
                 a.play().then(() => { if (this.atual === f) this.tocando = true; }).catch(() => { this.tocando = false; });
             },
@@ -230,6 +255,7 @@
             pausar() {
                 this.querSom = false;
                 guardar('wf-amb-pausa.' + this.area, '1');
+                this.guardarPos();
                 this.pararTudo();
             },
             alternar() { this.tocando ? this.pausar() : this.tocar(); },

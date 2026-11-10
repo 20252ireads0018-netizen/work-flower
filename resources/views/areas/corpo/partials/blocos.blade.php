@@ -38,6 +38,10 @@
             <template x-if="b.tipo === 'habitos'">
                 @include('partials.habitos-cartao')
             </template>
+            {{-- Documento (vem da Mente; partials/documento-cartao, js/documento-cartao.js) --}}
+            <template x-if="b.tipo === 'documento'">
+                @include('partials.documento-cartao')
+            </template>
             {{-- Editor de PDF (partials/editor-pdf-cartao; editor em js/editor-pdf.js) --}}
             <template x-if="b.tipo === 'editorpdf'">
                 @include('partials.editor-pdf-cartao')

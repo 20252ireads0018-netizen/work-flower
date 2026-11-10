@@ -435,6 +435,8 @@
 <script src="{{ asset('js/quadro.js') }}?v={{ @filemtime(public_path('js/quadro.js')) }}"></script>
 {{-- cartões Gráfico e Hábitos (estende o quadro.js) --}}
 @include('partials.graficos')
+{{-- cartão Documento (vem da Mente quando cartões ou a área são levados para cá) --}}
+@include('partials.documento-estilo')
 <script src="{{ asset('js/diverso.js') }}?v={{ @filemtime(public_path('js/diverso.js')) }}&r=2"></script>
 <script src="{{ asset('js/tabletopVivo.js') }}?v={{ @filemtime(public_path('js/tabletopVivo.js')) }}"></script>
 {{-- Estende o diverso.js (editor de diagramas); precisa vir depois dele --}}
@@ -555,14 +557,7 @@
         <div class="flex flex-wrap items-center gap-2" x-show="aba" x-cloak>
             <button type="button" class="btn-sec" @click="$dispatch('abrir-biblioteca')">Biblioteca</button>
             <button type="button" class="btn-sec" @click="reorganizar()">Reorganizar</button>
-            <div class="relative" @click.outside="menuBloco = false" @keydown.escape.window="menuBloco = false">
-                <button type="button" class="btn" @click="menuBloco = !menuBloco" aria-haspopup="menu" :aria-expanded="menuBloco">+ Bloco</button>
-                <div x-show="menuBloco" x-cloak class="menu-pop absolute right-0 top-full mt-2 w-60 p-1.5 z-40" role="menu">
-                    <template x-for="t in tiposBloco" :key="t.id">
-                        <button type="button" class="menu-item" role="menuitem" @click="novoBloco(aba, t.id)" x-text="t.nome"></button>
-                    </template>
-                </div>
-            </div>
+            @include('partials.menu-bloco')
         </div>
     </div>
 

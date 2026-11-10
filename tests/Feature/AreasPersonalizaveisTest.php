@@ -259,7 +259,7 @@ class AreasPersonalizaveisTest extends TestCase
         $this->assertFalse(Storage::disk('local')->exists("editorpdf/{$u->id}/corpo/arq1.pdf"));
     }
 
-    public function test_cartao_que_o_destino_nao_mostra_fica_na_origem(): void
+    public function test_documento_da_mente_vai_junto_e_o_destino_passa_a_criar(): void
     {
         $u = User::factory()->create();
         $this->gravar(CorpoDado::class, $u->id, 'mente.estado', ['layout' => [], 'blocos' => [
@@ -267,11 +267,40 @@ class AreasPersonalizaveisTest extends TestCase
             ['id' => 't1', 'secao' => 'livre', 'tipo' => 'texto', 'titulo' => 'Nota'],
         ]]);
         $r = $this->actingAs($u)->postJson('/areas-config/mover', ['de' => 'mente', 'aba' => 'livre', 'para' => 'carteira'])->assertOk();
-        $this->assertSame(1, $r->json('movidos'));
-        $this->assertSame('Resumo', $r->json('ficaram.0.titulo'));
-        $this->assertSame(['d1'], array_column($this->estado(CorpoDado::class, $u->id, 'mente.estado')['blocos'], 'id'));
+        $this->assertSame(2, $r->json('movidos'));
+        $this->assertSame([], $r->json('ficaram'));
+        $this->assertSame([], $this->estado(CorpoDado::class, $u->id, 'mente.estado')['blocos']);
         $cart = $this->estado(CarteiraDado::class, $u->id);
-        $this->assertSame([['id' => 't1', 'secao' => 'livre', 'tipo' => 'texto', 'titulo' => 'Nota']], $cart['blocos']);
+        $this->assertSame(['d1', 't1'], array_column($cart['blocos'], 'id'));
+        $this->assertSame(['documento'], $cart['tiposTrazidos']);
+        $this->actingAs($u)->get('/areas/carteira')->assertOk()->assertSee('js/documento-cartao.js', false);
+    }
+
+    public function test_levar_a_mente_inteira_leva_os_documentos(): void
+    {
+        $u = User::factory()->create();
+        $this->gravar(CorpoDado::class, $u->id, 'mente.estado', ['layout' => [], 'blocos' => [
+            ['id' => 'd1', 'secao' => 'estudos', 'tipo' => 'documento', 'titulo' => 'Currículo', 'links' => [], 'dados' => ['secoes' => [['id' => 's', 't' => 'Nome', 'texto' => 'Ana']]]],
+        ]]);
+        $this->actingAs($u)->get('/areas/diverso')->assertOk(); // grava o Diverso no formato novo
+        $r = $this->actingAs($u)->postJson('/areas-config/mover-tudo', ['de' => 'mente', 'para' => 'diverso'])->assertOk();
+        $this->assertSame(1, $r->json('movidos'));
+        $this->assertSame([], $r->json('ficaram'));
+        $d = $this->estado(DiversoDado::class, $u->id);
+        $doc = collect($d['blocos'])->firstWhere('tipo', 'documento');
+        $this->assertSame('Ana', $doc['dados']['secoes'][0]['texto']);
+        $this->assertSame(['documento'], $d['tiposTrazidos']);
+    }
+
+    public function test_cartao_que_o_destino_nao_mostra_fica_na_origem(): void
+    {
+        $u = User::factory()->create();
+        $this->gravar(DiversoDado::class, $u->id, 'estado', ['v' => 2, 'abas' => [], 'layout' => [], 'blocos' => [
+            ['id' => 'c1', 'secao' => 'quadro', 'tipo' => 'codigo', 'titulo' => 'Repo'],
+        ]]);
+        $r = $this->actingAs($u)->postJson('/areas-config/mover', ['de' => 'diverso', 'aba' => 'quadro', 'ids' => ['c1'], 'para' => 'carteira'])->assertOk();
+        $this->assertSame(0, $r->json('movidos'));
+        $this->assertSame('Repo', $r->json('ficaram.0.titulo'));
     }
 
     public function test_mover_so_alguns_cartoes_e_destino_invalido(): void

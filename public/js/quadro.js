@@ -426,7 +426,7 @@
     const metaWF = n => document.querySelector(`meta[name="${n}"]`)?.content || '';
 
     /* ---------- encaixe dos cartões (organização automática) ---------- */
-    const ORG_VERSAO = 2;            // sobe quando o algoritmo muda: layouts automáticos antigos são refeitos uma vez
+    const ORG_VERSAO = 3;            // sobe quando o algoritmo muda: layouts automáticos antigos são refeitos uma vez
     const ORG_CHAVE = 'wf-organizar-auto';
     const ORG_FOLGA = 16, ORG_INF = 1e7;
 
@@ -460,15 +460,31 @@
     }
 
     /**
-     * Encaixa os cartões na ordem dada ("retângulos livres"): cada um vai para o espaço livre mais alto,
-     * inclusive buracos entre cartões já colocados. Se o cartão for um pouco mais largo que o buraco,
-     * ele pode estreitar até a largura mínima dele para caber ali, em vez de cair para baixo de tudo.
+     * Encaixa os cartões na ordem dada ("retângulos livres"): cada um vai para um espaço livre, inclusive buracos
+     * entre cartões já colocados. Se o cartão for um pouco mais largo que o buraco, ele pode estreitar até a largura
+     * mínima dele para caber ali, em vez de cair para baixo de tudo. O jeito de escolher o espaço (modo):
+     * - 'topo': o mais alto;
+     * - 'ajuste': alto, mas preferindo onde o cartão ocupa a largura toda do espaço (não sobram tiras inúteis);
+     * - 'contato': alto, mas preferindo encostar em mais vizinhos e nas bordas (o conjunto fica compacto).
      */
-    function encaixar(lista, W) {
+    function encaixar(lista, W, modo = 'topo') {
         const G = ORG_FOLGA;
         let livres = [{ x: 0, y: 0, w: W + G, h: ORG_INF }];
         const pos = [];
         let H = 0, cortes = 0;
+        // quanto da borda do retângulo (x, y, w, h) encosta em cartões já colocados ou nas bordas do quadro
+        const contato = (x, y, w, h) => {
+            let c = 0;
+            if (x === 0) c += h;
+            if (x + w >= W - 1) c += h;
+            if (y === 0) c += w;
+            for (const o of pos) {
+                const vy = Math.min(y + h, o.y + o.h) - Math.max(y, o.y), vx = Math.min(x + w, o.x + o.w) - Math.max(x, o.x);
+                if (vy > 0 && (Math.abs(o.x + o.w + G - x) < 2 || Math.abs(x + w + G - o.x) < 2)) c += vy;
+                if (vx > 0 && (Math.abs(o.y + o.h + G - y) < 2 || Math.abs(y + h + G - o.y) < 2)) c += vx;
+            }
+            return c;
+        };
         for (const it of lista) {
             let m = null;
             for (const f of livres) {
@@ -480,7 +496,14 @@
                 const h = it.alturaPara ? it.alturaPara(w) : it.h;
                 if (f.h < h + G) continue;
                 // subir vale muito mais que estreitar: estreitar 1 px "custa" 1,5 px de altura
-                const custo = f.y + (it.w - w) * 1.5 + f.x * 0.001;
+                let custo = f.y + (it.w - w) * 1.5 + f.x * 0.001;
+                if (modo === 'ajuste') {
+                    // sobra de largura estreita demais para outro cartão (menos de 136 px) é desperdício
+                    const sobra = f.w - (w + G);
+                    if (sobra > 0 && sobra < 136 + G) custo += sobra * 0.6;
+                } else if (modo === 'contato') {
+                    custo -= contato(f.x, f.y, w, h) * 0.12;
+                }
                 if (!m || custo < m.custo) m = { x: f.x, y: f.y, w, h, custo };
             }
             if (!m) m = { x: 0, y: H ? H + G : 0, w: it.w, h: it.h };
@@ -489,7 +512,9 @@
             pos.push({ it, x: m.x, y: m.y, w: m.w, h: m.h });
             H = Math.max(H, m.y + m.h);
         }
-        return { pos, H, cortes };
+        // espaço que sobra vazio no retângulo do quadro (desempate: menos buracos)
+        const vazio = Math.max(0, W * H - pos.reduce((s, p) => s + p.w * p.h, 0));
+        return { pos, H, cortes, vazio };
     }
 
     /** Fecha as sobras: alarga cartões até o vizinho (ou a borda) e estica as colunas até o fim do quadro. */
@@ -502,6 +527,14 @@
             const ext = lim - (p.x + p.w);
             if (ext > 0 && ext <= p.w * 0.5) p.w += ext;
         });
+        // tira estreita à esquerda (entre a borda ou o vizinho e o cartão): o cartão encosta e alarga
+        pos.slice().sort((a, b) => a.x - b.x).forEach(p => {
+            if (p.it.fixo || p.x === 0) return;
+            let lim = 0;
+            pos.forEach(o => { if (o !== p && o.x + o.w <= p.x && o.y < p.y + p.h + G && p.y < o.y + o.h + G) lim = Math.max(lim, o.x + o.w + G); });
+            const ext = p.x - lim;
+            if (ext > 0 && ext < 136 + G && ext <= p.w * 0.5) { p.x -= ext; p.w += ext; }
+        });
         pos.slice().sort((a, b) => (b.y + b.h) - (a.y + a.h)).forEach(p => {
             if (p.it.fixo) return;
             let lim = H;
@@ -511,31 +544,84 @@
         });
     }
 
+    /** Gerador pseudoaleatório com semente (a mesma aba dá sempre a mesma arrumação). */
+    function sorteador(semente) {
+        let s = (semente >>> 0) || 1;
+        return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+    }
+    const agoraMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
+    /** Melhor de dois resultados: quadro mais baixo; empatado, menos cartões estreitados, a ordem atual e menos buracos. */
+    function melhorQue(r, m) {
+        if (!m) return true;
+        if (r.H < m.H - 24) return true;
+        if (r.H > m.H + 24) return false;
+        if (r.cortes !== m.cortes) return r.cortes < m.cortes;
+        if (r.estavel !== m.estavel) return r.estavel ? r.H <= m.H + 8 : m.H > r.H + 8;
+        return r.H < m.H || (r.H === m.H && r.vazio < m.vazio);
+    }
+
     /**
-     * Testa várias ordens (mais altos, maior área, mais largos, maior lado e a ordem atual da tela)
-     * e fica com o quadro mais baixo; em empate, o que estreita menos cartões e o que mantém a ordem atual.
+     * Testa várias ordens (mais altos, maior área, mais largos, maior lado, maior perímetro, agrupados por tipo e cor,
+     * e a ordem atual da tela) com os três modos de encaixe; depois tenta melhorar a vencedora trocando cartões de
+     * lugar na fila (busca local curta, até 25 ms). Fica com o quadro mais baixo (ver melhorQue).
      */
     function planejar(itens, W) {
+        const grupo = it => (it.tipo || '') + '|' + (it.cor || '');
         const ordens = [
             (a, b) => (b.h - a.h) || (b.w - a.w),
             (a, b) => (b.w * b.h - a.w * a.h) || (b.h - a.h),
             (a, b) => (b.w - a.w) || (b.h - a.h),
             (a, b) => (Math.max(b.w, b.h) - Math.max(a.w, a.h)) || (b.h - a.h),
+            (a, b) => ((b.w + b.h) - (a.w + a.h)) || (b.h - a.h),
+            (a, b) => grupo(a).localeCompare(grupo(b)) || (b.h - a.h) || (b.w - a.w),
             (a, b) => a.ordem - b.ordem,
         ];
+        const modos = ['topo', 'ajuste', 'contato'];
         let melhor = null;
         ordens.forEach((cmp, k) => {
             const lista = itens.slice().sort((a, b) => cmp(a, b) || String(a.id).localeCompare(String(b.id)));
-            const r = encaixar(lista, W);
-            r.estavel = k === ordens.length - 1;
-            const ganha = !melhor
-                || r.H < melhor.H - 24
-                || (Math.abs(r.H - melhor.H) <= 24 && (r.cortes < melhor.cortes || (r.cortes === melhor.cortes && r.estavel && r.H <= melhor.H + 8)));
-            if (ganha) melhor = r;
+            modos.forEach(modo => {
+                const r = encaixar(lista, W, modo);
+                r.estavel = k === ordens.length - 1;
+                r.lista = lista; r.modo = modo;
+                if (melhorQue(r, melhor)) melhor = r;
+            });
         });
+        // busca local: troca dois cartões na fila e fica com a troca se o quadro baixar
+        if (itens.length > 2) {
+            const sorte = sorteador(itens.length * 7919 + Math.round(W));
+            const fim = agoraMs() + 25;
+            let atual = melhor;
+            for (let i = 0; i < 200 && agoraMs() < fim; i++) {
+                const a = Math.floor(sorte() * itens.length), b = Math.floor(sorte() * itens.length);
+                if (a === b) continue;
+                const nova = atual.lista.slice();
+                [nova[a], nova[b]] = [nova[b], nova[a]];
+                const r = encaixar(nova, W, atual.modo);
+                if (r.H < atual.H - 8 || (r.H <= atual.H && r.cortes < atual.cortes)) {
+                    r.estavel = false; r.lista = nova; r.modo = atual.modo;
+                    atual = r;
+                }
+            }
+            if (atual !== melhor && atual.H < melhor.H - 24) melhor = atual;
+        }
         esticar(melhor.pos, W, melhor.H);
         return melhor;
     }
+
+    /* Setores do menu "+ Bloco" (tipo => setor). Tipo que não está aqui cai em "Outros". */
+    const SETORES = [
+        ['Básicos', ['texto', 'tabela', 'lista', 'imagem', 'pasta']],
+        ['Mapas e diagramas', ['mapa']],
+        ['Documentos e arquivos', ['documento', 'editorpdf', 'banco']],
+        ['Estudos', ['flashcards', 'pomodoro', 'planoestudo', 'matematica', 'questoes']],
+        ['Hábitos e números', ['habitos', 'grafico']],
+        ['Mídia e criação', ['editorimg', 'editorvid', 'musica', 'criador', 'tabletop']],
+        ['Trabalho e equipe', ['rh', 'codigo']],
+        ['Inteligência artificial', ['claude']],
+    ];
+    const SETOR_DE = Object.fromEntries(SETORES.flatMap(([s, ids], i) => ids.map(id => [id, i])));
 
     /** Propriedades de interface que o motor precisa no componente Alpine. */
     function estadoUI() {
@@ -549,6 +635,8 @@
             claudeUI: {}, claudeTemChave: false,
             // cartão "Estúdio de música" que está tocando a prévia (só um por vez)
             musicaTocando: null,
+            // menu "+ Bloco": o que se digita na busca
+            buscaBloco: '',
         };
     }
 
@@ -557,6 +645,23 @@
         return {
             /* ---------- avisos e salvamento ---------- */
             aviso(txt) { this.msg = txt; clearTimeout(this._m); this._m = setTimeout(() => { this.msg = ''; }, 2600); },
+            /** Menu "+ Bloco": tipos da página por setor (setores na ordem de SETORES, tipos em ordem alfabética), filtrados pela busca. */
+            blocosPorSetor() {
+                const q = norm(this.buscaBloco), grupos = new Map();
+                (this.tiposBloco || []).forEach(t => {
+                    const i = SETOR_DE[t.id] ?? SETORES.length;
+                    const setor = i < SETORES.length ? SETORES[i][0] : "Outros";
+                    if (q && !norm(t.nome + " " + setor).includes(q)) return;
+                    if (!grupos.has(i)) grupos.set(i, { setor, tipos: [] });
+                    grupos.get(i).tipos.push(t);
+                });
+                return [...grupos.entries()].sort((a, b) => a[0] - b[0]).map(([, g]) => ({ ...g, tipos: g.tipos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")) }));
+            },
+            /** Enter na busca do "+ Bloco": cria o primeiro tipo da lista filtrada. */
+            blocoDaBusca(sec) {
+                const g = this.blocosPorSetor()[0];
+                if (g && g.tipos[0]) { this.novoBloco(sec, g.tipos[0].id); this.buscaBloco = ""; }
+            },
             ir(sec) { this.aba = sec; },
             rotuloSalvo() {
                 return { ok: 'Tudo salvo', pendente: 'Alterações…', salvando: 'Salvando…', erro: 'Erro ao salvar. Tentando de novo' }[this.salvo];
@@ -981,7 +1086,7 @@
                     const bl = this.estado.blocos.find(x => x.id === id);
                     const img = !!bl && bl.tipo === 'imagem';
                     const prop = img && this.imagens[id] ? Number(bl.dados.prop) || 0 : 0;
-                    const it = { id, w, h, cor: l.cor, z: l.z, ordem: (Number(l.y) || 0) * 10000 + (Number(l.x) || 0), fixo: img };
+                    const it = { id, w, h, cor: l.cor, z: l.z, tipo: bl ? bl.tipo : '', ordem: (Number(l.y) || 0) * 10000 + (Number(l.x) || 0), fixo: img };
                     if (prop) {
                         // imagem: a proporção fica travada, então a altura acompanha a largura
                         const topo = this.alturaTopo(id);

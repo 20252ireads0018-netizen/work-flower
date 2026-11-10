@@ -380,6 +380,8 @@
 
     <script src="{{ asset('js/biblioteca.js') }}?v={{ @filemtime(public_path('js/biblioteca.js')) }}"></script>
     <script src="{{ asset('js/menu-contexto.js') }}?v={{ @filemtime(public_path('js/menu-contexto.js')) }}" defer></script>
+    {{-- mãozinha: arrastar para rolar mapas, diagramas e o que for maior que a área visível --}}
+    <script src="{{ asset('js/arrastar-mao.js') }}?v={{ @filemtime(public_path('js/arrastar-mao.js')) }}" defer></script>
     <script src="{{ asset('js/lixeira.js') }}?v={{ @filemtime(public_path('js/lixeira.js')) }}"></script>
       <script src="{{ asset('js/planos.js') }}?v={{ @filemtime(public_path('js/planos.js')) }}"></script>
       <script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
@@ -676,6 +678,11 @@
         }
         .menu-item:hover, .menu-item:focus-visible { background: var(--prim-suave); color: var(--prim-forte); }
         .menu-sep { height: 1px; margin: .3rem .25rem; background: var(--linha); }
+        /* "+ Bloco" das áreas (partials/menu-bloco): busca e setores, rolando por dentro */
+        .wf-menu-bloco-lista { max-height: min(60vh, 26rem); overflow-y: auto; overscroll-behavior: contain; }
+        .wf-menu-bloco-setor { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+                               color: var(--tinta-2); padding: .45rem .65rem .15rem; }
+        .wf-menu-bloco .menu-item { padding-block: .4rem; }
 
 
         /* Selects: valem para a página inteira e seguem as cores do tema */
