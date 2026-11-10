@@ -16,8 +16,10 @@ use Illuminate\Validation\ValidationException;
  * - Só os dados da própria conta (nada de workflow de outra pessoa).
  * - Cartões fixos das áreas (Treinos, Contas, Livros...) não saem do lugar: são parte da página da área.
  *   Continuam guardados lá mesmo com a área escondida.
- * - Tipo de cartão que a área de destino não sabe mostrar (ex.: "Documento" só existe na Mente; "Banco de dados",
- *   "GitHub / VS Code" e "Tabletop" só no Diverso) fica onde está e aparece na resposta como "ficaram".
+ * - Tipos que nasceram numa área só e viajam (TIPOS_QUE_VIAJAM, ex.: "Documento" da Mente) vão junto: a área de destino
+ *   passa a mostrá-los (partials/documento-cartao) e a criá-los no "+ Bloco" (estado.tiposTrazidos).
+ * - Tipo de cartão que a área de destino não sabe mostrar ("Banco de dados", "GitHub / VS Code" e "Tabletop" só
+ *   no Diverso) fica onde está e aparece na resposta como "ficaram".
  * - Diverso e as áreas criadas (AreasConta) são o mesmo estado: as abas de uma área criada têm "grupo".
  *
  * Os estados são lidos como objetos (stdClass) para {} continuar {} ao gravar (ver AbasRetiradas).
@@ -34,6 +36,9 @@ class MoverCartoes
         'diverso' => ['banco', 'codigo', 'tabletop'],
         'mente'   => ['documento'],
     ];
+
+    /** Tipos exclusivos de uma área que as outras sabem mostrar quando chegam (e passam a criar). */
+    public const TIPOS_QUE_VIAJAM = ['documento'];
 
     /**
      * Abas com quadro de cartões de cada área do sistema (as mesmas de corpo.js, mente.js e carteira.js).
@@ -151,7 +156,7 @@ class MoverCartoes
 
     private function tiposAceitos(string $storage): array
     {
-        return array_merge(self::TIPOS_COMUNS, self::TIPOS_SO_DA_AREA[$storage] ?? []);
+        return array_values(array_unique(array_merge(self::TIPOS_COMUNS, self::TIPOS_QUE_VIAJAM, self::TIPOS_SO_DA_AREA[$storage] ?? [])));
     }
 
     /** Destinos para a janela "Mover para outra área": todas as áreas da conta com as abas de cada uma. */
@@ -444,6 +449,16 @@ class MoverCartoes
         }
         $E1->layout->$deAba = $layDe;
         $E2->layout->$paraAba = $layPara;
+        // tipos que só a área de origem criava: o destino passa a oferecê-los no "+ Bloco"
+        if (! $mesmo) {
+            $proprios = self::TIPOS_SO_DA_AREA[$sPara] ?? [];
+            $trazidos = is_array($E2->tiposTrazidos ?? null) ? $E2->tiposTrazidos : [];
+            foreach ($vao as $b) {
+                $t = (string) ($b->tipo ?? '');
+                if (in_array($t, self::TIPOS_QUE_VIAJAM, true) && ! in_array($t, $proprios, true) && ! in_array($t, $trazidos, true)) $trazidos[] = $t;
+            }
+            if ($trazidos) $E2->tiposTrazidos = array_values($trazidos);
+        }
         $this->mudou[$sDe] = true;
         $this->mudou[$sPara] = true;
 

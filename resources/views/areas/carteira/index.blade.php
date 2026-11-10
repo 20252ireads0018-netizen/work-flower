@@ -156,6 +156,8 @@
 <script src="{{ asset('js/quadro.js') }}?v={{ @filemtime(public_path('js/quadro.js')) }}"></script>
 {{-- cartões Gráfico e Hábitos (estende o quadro.js) --}}
 @include('partials.graficos')
+{{-- cartão Documento (vem da Mente quando cartões ou a área são levados para cá) --}}
+@include('partials.documento-estilo')
 <script src="{{ asset('js/documentos.js') }}?v={{ @filemtime(public_path('js/documentos.js')) }}"></script>
 <script src="{{ asset('js/carteira.js') }}?v={{ @filemtime(public_path('js/carteira.js')) }}"></script>
 <script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
