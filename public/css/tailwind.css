@@ -4,3 +4,4 @@
 .max-h-\[calc\(100vh-6rem\)\]{max-height:calc(100vh - 6rem)}
 .max-h-\[calc\(100dvh-6rem\)\]{max-height:calc(100dvh - 6rem)}
 @media (min-width:1024px){.lg\:hidden{display:none}}
+.w-72{width:18rem}
