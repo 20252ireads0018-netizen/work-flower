@@ -1,6 +1,6 @@
 # Banco de questões do cartão "Questões de concurso"
 
-São **4.244 questões** de múltipla escolha (ou certo/errado) com gabarito, em três tipos de arquivo:
+São **4.053 questões** de múltipla escolha (ou certo/errado) com gabarito, em três tipos de arquivo:
 
 | Arquivo | O que tem | Questões |
 |---|---|---|
