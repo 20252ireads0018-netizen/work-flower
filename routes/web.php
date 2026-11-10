@@ -105,6 +105,9 @@ Route::middleware('auth')->group(function () {
     // Pagamento dos planos: Pix direto na chave da administração, confirmado à mão em /admin/pix
     Route::get('/assinar/{slug}', [AssinaturaController::class, 'assinar'])
         ->where('slug', '[a-z0-9-]+')->middleware('throttle:20,1')->name('assinar');
+    // "Pague uma vez, receba para sempre": Pix da oferta vitalícia valendo agora (Promocao com vitalicio)
+    Route::get('/assinar-vitalicio/{promocao}', [AssinaturaController::class, 'vitalicio'])
+        ->whereNumber('promocao')->middleware('throttle:20,1')->name('assinar.vitalicio');
     Route::get('/pagamento/pix/{pix}', [AssinaturaController::class, 'ver'])->whereNumber('pix')->name('pix.ver');
     Route::post('/pagamento/pix/{pix}/paguei', [AssinaturaController::class, 'paguei'])
         ->whereNumber('pix')->middleware('throttle:20,1')->name('pix.paguei');
@@ -138,6 +141,10 @@ Route::middleware('auth')->group(function () {
             ->middleware('throttle:30,1')->name('promocoes.admin.criar');
         Route::post('/admin/promocoes/{promocao}/encerrar', [\App\Http\Controllers\PromocaoAdminController::class, 'encerrar'])
             ->whereNumber('promocao')->middleware('throttle:30,1')->name('promocoes.admin.encerrar');
+        Route::post('/admin/promocoes/{promocao}/editar', [\App\Http\Controllers\PromocaoAdminController::class, 'editar'])
+            ->whereNumber('promocao')->middleware('throttle:30,1')->name('promocoes.admin.editar');
+        Route::post('/admin/promocoes/{promocao}/alternar', [\App\Http\Controllers\PromocaoAdminController::class, 'alternar'])
+            ->whereNumber('promocao')->middleware('throttle:30,1')->name('promocoes.admin.alternar');
     });
     Route::post('/sair', [AuthController::class, 'logout'])->name('logout');
 
@@ -296,6 +303,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/areas/diverso', [DiversoController::class, 'show'])->name('areas.diverso');
     // Área criada pela conta (App\Support\AreasConta): a página do Diverso só com as abas dela
     Route::get('/areas/extra/{id}', [DiversoController::class, 'extra'])->where('id', 'x[a-z0-9]{8}')->name('areas.extra');
+
+    // Workflows prontos (painel): área temática com abas, cartões e ambiente em um clique
+    Route::post('/workflows-prontos/{tema}', [\App\Http\Controllers\WorkflowsProntosController::class, 'criar'])
+        ->where('tema', '[a-z]+')->middleware('throttle:10,1')->name('workflows.prontos.criar');
 
     // Áreas da conta: esconder, renomear, reordenar, criar/excluir e mover cartões entre áreas
     Route::prefix('/areas-config')->name('areas.config.')->controller(\App\Http\Controllers\AreasContaController::class)->group(function () {

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+  <!-- Identidade "Trilha ao amanhecer": montanhas em camadas verdes, sol nascendo e caminho subindo -->
+  <defs>
+    <linearGradient id="ceu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd9a0"/><stop offset=".6" stop-color="#ffb38a"/><stop offset="1" stop-color="#f59e8b"/></linearGradient>
+    <radialGradient id="halo" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff3c4" stop-opacity=".9"/><stop offset="1" stop-color="#fff3c4" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#ceu)"/>
+  <circle cx="820" cy="470" r="260" fill="url(#halo)"/>
+  <circle cx="820" cy="470" r="110" fill="#fff1c1"/>
+  <path d="M0,520 L180,380 L340,480 L560,300 L760,470 L960,330 L1180,480 L1380,340 L1600,470 L1600,1000 L0,1000 Z" fill="#8fb996"/>
+  <path d="M560,300 L620,352 L590,350 L560,330 L530,356 L500,350 Z M1380,340 L1430,384 L1404,380 L1380,364 L1356,384 L1330,382 Z" fill="#f4f1e6"/>
+  <path d="M0,640 L240,500 L420,610 L640,460 L860,620 L1080,480 L1300,620 L1600,500 L1600,1000 L0,1000 Z" fill="#5d9471"/>
+  <path d="M0,780 C200,700 420,760 620,700 C820,640 1040,740 1240,690 C1400,650 1520,690 1600,680 L1600,1000 L0,1000 Z" fill="#2f6b4f"/>
+  <path d="M0,900 C260,840 520,900 800,860 C1080,820 1320,880 1600,850 L1600,1000 L0,1000 Z" fill="#1d4a37"/>
+  <!-- trilha -->
+  <path d="M760,1000 C800,920 700,880 780,820 C850,770 980,770 950,720 C930,690 860,700 880,660" fill="none" stroke="#f4e3c2" stroke-width="18" stroke-linecap="round" stroke-dasharray="1 28"/>
+  <!-- pinheiros -->
+  <g fill="#173d2d">
+    <path d="M150,860 L190,760 L230,860 Z M160,800 L190,720 L220,800 Z"/>
+    <path d="M300,880 L346,770 L392,880 Z M312,816 L346,734 L380,816 Z"/>
+    <path d="M1250,860 L1290,760 L1330,860 Z M1260,800 L1290,720 L1320,800 Z"/>
+    <path d="M1420,890 L1466,780 L1512,890 Z M1432,826 L1466,744 L1500,826 Z"/>
+  </g>
+  <!-- pássaros -->
+  <g fill="none" stroke="#5b3a3a" stroke-width="4" stroke-linecap="round"><path d="M500,200 q15,-14 30,0 q15,-14 30,0"/><path d="M590,250 q12,-11 24,0 q12,-11 24,0"/><path d="M1040,190 q15,-14 30,0 q15,-14 30,0"/></g>
+</svg>

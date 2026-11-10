@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+  <!-- Identidade "Estudo noturno lo-fi": janela com lua, luminária acesa, livros e planta -->
+  <defs>
+    <linearGradient id="parede" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d2340"/><stop offset="1" stop-color="#2c2f55"/></linearGradient>
+    <linearGradient id="noite" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#27346b"/><stop offset="1" stop-color="#6b5aa6"/></linearGradient>
+    <radialGradient id="luz" cx=".5" cy=".2" r=".8"><stop offset="0" stop-color="#ffd58a" stop-opacity=".75"/><stop offset="1" stop-color="#ffd58a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="mesa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5a3c"/><stop offset="1" stop-color="#5e3b27"/></linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#parede)"/>
+  <!-- janela -->
+  <rect x="860" y="110" width="560" height="520" rx="18" fill="url(#noite)"/>
+  <g fill="#fff">
+    <circle cx="940" cy="190" r="2.5"/><circle cx="1010" cy="260" r="1.8"/><circle cx="1110" cy="170" r="2.2"/><circle cx="1210" cy="230" r="1.6"/>
+    <circle cx="1350" cy="180" r="2.4"/><circle cx="1380" cy="320" r="1.6"/><circle cx="960" cy="360" r="1.8"/><circle cx="1060" cy="420" r="1.4"/>
+  </g>
+  <circle cx="1290" cy="270" r="62" fill="#fdf2c9"/><circle cx="1316" cy="252" r="58" fill="#3a4682"/>
+  <path d="M860,560 C960,520 1060,540 1140,500 C1220,460 1330,500 1420,470 L1420,630 L860,630 Z" fill="#1b2147" opacity=".9"/>
+  <g fill="#ffcf7a" opacity=".85"><rect x="930" y="560" width="10" height="14"/><rect x="1010" y="548" width="10" height="14"/><rect x="1180" y="520" width="10" height="14"/><rect x="1300" y="540" width="10" height="14"/></g>
+  <rect x="860" y="110" width="560" height="520" rx="18" fill="none" stroke="#11152c" stroke-width="22"/>
+  <path d="M1140,110 V630 M860,370 H1420" stroke="#11152c" stroke-width="14"/>
+  <!-- luz da luminária -->
+  <path d="M420,250 L180,800 H780 Z" fill="url(#luz)"/>
+  <!-- mesa -->
+  <rect x="0" y="780" width="1600" height="220" fill="url(#mesa)"/>
+  <rect x="0" y="770" width="1600" height="18" fill="#a06c48"/>
+  <!-- luminária -->
+  <g fill="#e8b04b"><path d="M330,230 Q420,180 510,230 L470,270 H370 Z"/><rect x="412" y="270" width="16" height="430"/><ellipse cx="420" cy="772" rx="90" ry="16"/></g>
+  <circle cx="420" cy="272" r="14" fill="#fff4cf"/>
+  <!-- livros -->
+  <g>
+    <rect x="1000" y="640" width="60" height="132" rx="4" fill="#d9634f"/><rect x="1064" y="664" width="48" height="108" rx="4" fill="#f2c14e"/>
+    <rect x="1116" y="630" width="56" height="142" rx="4" fill="#5b8bd9"/><rect x="1176" y="676" width="40" height="96" rx="4" fill="#78c3a3"/>
+    <rect x="1230" y="700" width="200" height="34" rx="4" fill="#c98bd9"/><rect x="1245" y="734" width="180" height="38" rx="4" fill="#e7e2d1"/>
+  </g>
+  <g stroke="#fff" stroke-opacity=".35" stroke-width="4"><path d="M1000,670 H1060 M1064,690 H1112 M1116,660 H1172"/></g>
+  <!-- caneca -->
+  <rect x="620" y="680" width="80" height="92" rx="12" fill="#f4efe6"/><path d="M700,700 C740,700 740,750 700,750" fill="none" stroke="#f4efe6" stroke-width="12"/>
+  <path d="M640,660 C630,630 660,620 650,590 M670,660 C660,630 690,620 680,590" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="5" stroke-linecap="round"/>
+  <!-- planta -->
+  <path d="M120,772 L140,690 H220 L240,772 Z" fill="#c76b4a"/>
+  <g fill="#5fa777"><path d="M180,690 C120,640 110,580 130,540 C170,580 190,630 180,690Z"/><path d="M180,690 C230,630 270,610 300,600 C290,650 240,690 180,690Z"/><path d="M180,690 C170,610 190,560 220,520 C230,580 210,640 180,690Z"/></g>
+  <!-- caderno -->
+  <path d="M480,790 L760,760 L800,850 L500,880 Z" fill="#fbf6ea"/><path d="M520,800 L740,778 M528,820 L748,798 M536,840 L756,818" stroke="#9fb3d9" stroke-width="3"/>
+</svg>

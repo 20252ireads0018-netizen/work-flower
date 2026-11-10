@@ -788,6 +788,13 @@
     @if ($wfAmb)
         @include('partials.ambiente', ['amb' => $wfAmb, 'ambUrls' => $wfAmbUrls, 'ambArea' => $wfArea, 'ambEdita' => ! $wfDono, 'ambExtra' => $wfAmbExtra])
     @endif
+    {{-- Promoção nova (admin em /admin/promocoes): aviso uma vez por pessoa, na primeira página depois que ela começou --}}
+    @unless (request()->routeIs('promocoes.admin*', 'pix.*', 'assinar*'))
+        @php $wfPromoAviso = \App\Models\Promocao::avisoPara(auth()->user()); @endphp
+        @if ($wfPromoAviso)
+            @include('partials.aviso-promocao', ['promo' => $wfPromoAviso])
+        @endif
+    @endunless
 
     <header class="cab-bg sticky top-0 z-30" x-data="{ menu: false }">
         <div class="max-w-6xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4">

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+  <!-- Identidade "Outono aconchegante": colinas em camadas, árvores, folhas caindo e um chalé com a luz acesa -->
+  <defs>
+    <linearGradient id="ceu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6d6a8"/><stop offset="1" stop-color="#f2b880"/></linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#ceu)"/>
+  <circle cx="1220" cy="260" r="110" fill="#fbe7c2"/>
+  <path d="M0,560 C200,500 380,560 560,520 C760,476 960,540 1160,500 C1340,466 1480,510 1600,490 L1600,1000 L0,1000 Z" fill="#e3995b"/>
+  <path d="M0,660 C220,610 420,690 640,640 C860,590 1060,670 1280,630 C1420,606 1520,630 1600,620 L1600,1000 L0,1000 Z" fill="#c9733f"/>
+  <path d="M0,780 C240,730 480,810 720,770 C960,730 1200,800 1600,750 L1600,1000 L0,1000 Z" fill="#9c4f2a"/>
+  <path d="M0,900 C300,860 600,920 900,890 C1200,860 1400,900 1600,880 L1600,1000 L0,1000 Z" fill="#6e3420"/>
+  <!-- árvores -->
+  <g>
+    <rect x="186" y="540" width="14" height="110" fill="#5a2c1a"/><circle cx="193" cy="520" r="62" fill="#d9572b"/><circle cx="160" cy="560" r="40" fill="#e67a35"/><circle cx="230" cy="555" r="44" fill="#c94a24"/>
+    <rect x="356" y="600" width="12" height="90" fill="#5a2c1a"/><circle cx="362" cy="585" r="48" fill="#f0a23b"/><circle cx="392" cy="610" r="32" fill="#e67a35"/>
+    <rect x="1416" y="560" width="14" height="110" fill="#5a2c1a"/><circle cx="1423" cy="540" r="58" fill="#e8892f"/><circle cx="1460" cy="576" r="40" fill="#d9572b"/><circle cx="1388" cy="580" r="36" fill="#f0a23b"/>
+  </g>
+  <!-- chalé -->
+  <g transform="translate(980,600)">
+    <rect x="0" y="40" width="200" height="130" fill="#f3e3c7"/>
+    <path d="M-20,50 L100,-40 L220,50 Z" fill="#7b3a24"/>
+    <rect x="150" y="-30" width="26" height="50" fill="#7b3a24"/>
+    <rect x="30" y="80" width="46" height="46" fill="#ffd27a"/><path d="M53,80 V126 M30,103 H76" stroke="#7b3a24" stroke-width="4"/>
+    <rect x="120" y="96" width="44" height="74" fill="#7b3a24"/>
+    <path d="M163,-40 C150,-70 180,-80 168,-110 M176,-44 C190,-70 170,-90 186,-120" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <!-- folhas caindo -->
+  <g>
+    <path d="M520,200 c18,-14 40,-6 40,14 c-20,10 -34,4 -40,-14z" fill="#d9572b"/>
+    <path d="M700,320 c18,-14 40,-6 40,14 c-20,10 -34,4 -40,-14z" fill="#f0a23b" transform="rotate(30 720 320)"/>
+    <path d="M880,160 c18,-14 40,-6 40,14 c-20,10 -34,4 -40,-14z" fill="#c94a24" transform="rotate(-20 900 160)"/>
+    <path d="M300,330 c18,-14 40,-6 40,14 c-20,10 -34,4 -40,-14z" fill="#e67a35" transform="rotate(60 320 330)"/>
+    <path d="M1000,400 c18,-14 40,-6 40,14 c-20,10 -34,4 -40,-14z" fill="#d9572b" transform="rotate(10 1020 400)"/>
+    <path d="M1500,300 c18,-14 40,-6 40,14 c-20,10 -34,4 -40,-14z" fill="#f0a23b" transform="rotate(-40 1520 300)"/>
+    <path d="M620,460 c14,-10 30,-4 30,10 c-16,8 -26,4 -30,-10z" fill="#c94a24"/>
+  </g>
+</svg>

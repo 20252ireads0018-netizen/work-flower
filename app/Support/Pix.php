@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
  *   Pix::config()                  -> ['tipo', 'chave', 'nome', 'cidade'] (gravados em /admin/pix; .env PIX_* como reserva)
  *   Pix::pronto()                  -> true quando há chave e nome para montar o QR Code
  *   Pix::copiaECola($valor, $txid) -> código "Pix copia e cola" (BR Code do Banco Central, com CRC16)
- *   Pix::liberar($pagamento)       -> confirma o pagamento e libera o plano por um mês
+ *   Pix::liberar($pagamento)       -> confirma o pagamento e libera o plano por um mês (ou para sempre, se vitalício: devolve true)
  */
 class Pix
 {
@@ -168,7 +168,7 @@ class Pix
      * Confirma o pagamento e libera o plano por um mês. Se a pessoa já tem o mesmo plano pago
      * até mais tarde (renovação antecipada), o mês é somado ao fim do período atual.
      */
-    public static function liberar(PixPagamento $p): ?Carbon
+    public static function liberar(PixPagamento $p): Carbon|bool|null
     {
         return DB::transaction(function () use ($p) {
             // trava o pedido e confere de novo: dois cliques em "Confirmar" não somam dois meses
@@ -178,6 +178,32 @@ class Pix
             }
 
             $usuario = DB::table('users')->where('id', $p->user_id)->lockForUpdate()->first();
+
+            // "Pague uma vez, receba para sempre": plano sem data de fim
+            if ($p->vitalicio) {
+                DB::table('users')->where('id', $p->user_id)->update([
+                    'plano_slug'      => $p->plano_slug,
+                    'plano_expira_em' => null,
+                    'plano_vitalicio' => true,
+                ]);
+                $p->status        = 'confirmado';
+                $p->confirmado_em = now();
+                $p->liberado_ate  = null;
+                $p->save();
+
+                return true;
+            }
+
+            // quem já tem um plano vitalício igual ou maior não perde o "para sempre" por um Pix mensal antigo
+            $ordem = array_flip(Planos::slugs());
+            if ($usuario && ! empty($usuario->plano_vitalicio)
+                && ($ordem[$usuario->plano_slug ?? ''] ?? 0) >= ($ordem[$p->plano_slug] ?? 0)) {
+                $p->status        = 'confirmado';
+                $p->confirmado_em = now();
+                $p->save();
+
+                return true;
+            }
 
             $base = now();
             if ($usuario && ($usuario->plano_slug ?? null) === $p->plano_slug && ! empty($usuario->plano_expira_em)) {
