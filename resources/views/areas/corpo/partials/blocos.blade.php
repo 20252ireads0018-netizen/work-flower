@@ -52,6 +52,9 @@
             <template x-if="b.tipo === 'rh'">
                 @include('partials.rh-cartao')
             </template>
+            <template x-if="b.tipo === 'cenas'">
+                @include('partials.cenas-cartao')
+            </template>
             {{-- Conversa com o Claude, que muda os cartões pedindo permissão (partials/claude-cartao; js/claude.js) --}}
             <template x-if="b.tipo === 'claude'">
                 @include('partials.claude-cartao')

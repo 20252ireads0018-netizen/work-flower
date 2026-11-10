@@ -150,6 +150,9 @@
             <template x-if="b.tipo === 'rh'">
                 @include('partials.rh-cartao')
             </template>
+            <template x-if="b.tipo === 'cenas'">
+                @include('partials.cenas-cartao')
+            </template>
             {{-- Estudo: Flashcards, Pomodoro, Plano de estudos e Matemática (partials/*-cartao; js/estudo.js) --}}
             <template x-if="b.tipo === 'flashcards'">
                 @include('partials.flashcards-cartao')

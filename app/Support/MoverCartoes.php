@@ -27,7 +27,7 @@ class MoverCartoes
     /** Tipos de bloco que todas as áreas mostram (partials de cartão incluídos em todos os blocos.blade.php). */
     public const TIPOS_COMUNS = [
         'texto', 'tabela', 'lista', 'imagem', 'mapa', 'pasta', 'vivo', 'claude', 'criador', 'editorimg',
-        'editorpdf', 'editorvid', 'grafico', 'habitos', 'musica', 'questoes', 'rh',
+        'editorpdf', 'editorvid', 'grafico', 'habitos', 'musica', 'questoes', 'rh', 'cenas',
     ];
 
     public const TIPOS_SO_DA_AREA = [
