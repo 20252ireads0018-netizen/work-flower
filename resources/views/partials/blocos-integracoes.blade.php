@@ -165,7 +165,7 @@
                         <span class="sr-only" x-text="biTxLigado() ? 'Ligado' : 'Desligado'"></span></button>
                 </div>
                 <p class="texto-2">Digite o atalho (ex.: <kbd>;ass</kbd>) em qualquer campo do site e ele vira o texto salvo; <kbd>Ctrl</kbd> + <kbd>Z</kbd> desfaz.
-                    <span x-show="biTxInstalador()">No Windows inteiro (e-mail, Word, WhatsApp): <a class="link-prim" :href="biTxInstalador()" download>instale o app com os textos rápidos</a>.</span></p>
+                    <span x-show="biTxInstalador()">Em todo o Windows (e-mail, Word, WhatsApp): <a class="link-prim" :href="biTxInstalador()">Ativar no Windows</a> e abra o arquivo baixado.</span></p>
 
                 <template x-if="!biUI(b).editando">
                     <div class="bi-corpo">

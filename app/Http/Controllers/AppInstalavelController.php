@@ -162,6 +162,18 @@ class AppInstalavelController extends Controller
         return $this->cmd($ps, 'Instalar o agente de automacoes do Work Flower', 'Instalando o agente de automacoes do Work Flower neste computador...', 'Instalar agente Work Flower.cmd');
     }
 
+    /**
+     * Só os textos rápidos no Windows inteiro (Configurações › Atalhos e bloco Textos rápidos): o mesmo agente pequeno
+     * do instalador de Automações, já com os textos rápidos ligados, sem reinstalar o app. Um clique, código de uso único.
+     */
+    public function instaladorTextos(\Illuminate\Http\Request $request): Response
+    {
+        $codigo = \App\Http\Controllers\Api\AgenteCodigoController::gerar($request->user()->id, '');
+        $ps = "\$ErrorActionPreference = 'Stop'\n" . $this->scriptAgente(rtrim(url('/'), '/'), $codigo, true, 'textos');
+
+        return $this->cmd($ps, 'Textos rapidos do Work Flower no Windows', 'Ligando os textos rapidos do Work Flower em todo o Windows...', 'Ativar textos rapidos no Windows.cmd');
+    }
+
     /** .cmd que escreve o PowerShell em base64 num arquivo temporário e roda (o cmd.exe não aceita linhas de 8191+). */
     private function cmd(string $ps, string $titulo, string $mensagem, string $arquivo): Response
     {
@@ -197,12 +209,22 @@ class AppInstalavelController extends Controller
     }
 
     /** Parte do instalador completo que instala o agente com os textos rápidos (público para os testes). */
-    public function scriptAgente(string $site, string $codigo, bool $sozinho = false): string
+    public function scriptAgente(string $site, string $codigo, bool $sozinho = false, string $para = 'automacoes'): string
     {
         $site = str_replace("'", "''", $site);
         $codigo = preg_replace('/[^A-Za-z0-9_]/', '', $codigo);
 
         if ($sozinho) {
+            // mensagens finais: Automações (padrão) ou só os textos rápidos
+            $ok1 = $para === 'textos'
+                ? "Write-Host '  Pronto! Os textos rapidos ja funcionam em qualquer programa deste computador.' -ForegroundColor Green"
+                : "Write-Host \"  Pronto! Este computador ja aparece como '\$(\$par.dispositivo)' no site.\" -ForegroundColor Green";
+            $ok2 = $para === 'textos'
+                ? "Write-Host '  Teste: abra o Bloco de Notas e digite um dos seus atalhos. Atalhos novos chegam em ate 2 minutos.'"
+                : "Write-Host '  Volte para a pagina Automacoes: ela confirma sozinha e libera o botao Testar.'";
+            $denovo = $para === 'textos'
+                ? 'Baixe o arquivo outra vez em Configuracoes > Atalhos (cada arquivo vale 30 minutos e uma vez so).'
+                : 'Baixe o instalador outra vez na pagina Automacoes (cada arquivo vale 30 minutos e uma vez so).';
             // só o agente (página Automações): erro sai com código 1 para o .cmd pausar e mostrar a mensagem
             return <<<PS
 try {
@@ -219,15 +241,15 @@ try {
   Remove-Item -LiteralPath \$tmp -Recurse -Force -ErrorAction SilentlyContinue
   if (\$codigoSaida) { throw "o instalador do agente terminou com erro (\$codigoSaida)" }
   Write-Host ''
-  Write-Host "  Pronto! Este computador ja aparece como '\$(\$par.dispositivo)' no site." -ForegroundColor Green
-  Write-Host '  Volte para a pagina Automacoes: ela confirma sozinha e libera o botao Testar.'
-  Start-Sleep -Seconds 5
+  {$ok1}
+  {$ok2}
+  Start-Sleep -Seconds 8
 } catch {
   \$msg = \$_.Exception.Message
   try { \$j = \$_.ErrorDetails.Message | ConvertFrom-Json; if (\$j.erro) { \$msg = \$j.erro } } catch { }
   Write-Host ''
   Write-Host "  Nao deu certo: \$msg" -ForegroundColor Yellow
-  Write-Host '  Baixe o instalador outra vez na pagina Automacoes (cada arquivo vale 30 minutos e uma vez so).'
+  Write-Host '  {$denovo}'
   exit 1
 }
 PS;

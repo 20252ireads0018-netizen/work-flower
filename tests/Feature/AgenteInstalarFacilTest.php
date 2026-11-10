@@ -44,6 +44,30 @@ class AgenteInstalarFacilTest extends TestCase
     public function test_instalador_exige_login(): void
     {
         $this->get('/automacoes/agente/instalar')->assertRedirect();
+        $this->get('/textos-rapidos/instalar-windows')->assertRedirect();
+    }
+
+    public function test_instalador_so_dos_textos_rapidos_liga_o_expansor_sem_reinstalar_o_app(): void
+    {
+        $u = User::factory()->create();
+        $r = $this->actingAs($u)->get('/textos-rapidos/instalar-windows')->assertOk();
+        $this->assertStringContainsString('Ativar textos rapidos no Windows.cmd', $r->headers->get('Content-Disposition'));
+
+        $ps = $this->powershell($r->getContent());
+        $this->assertStringContainsString('-Expansor', $ps);
+        $this->assertStringContainsString('textos rapidos ja funcionam', $ps);
+        $this->assertStringNotContainsString('--app=', $ps);            // não instala o app de novo
+        $this->assertStringNotContainsString('pagina Automacoes', $ps);  // mensagens próprias dos textos rápidos
+        preg_match("/codigo = '(wfc_[A-Za-z0-9]{32})'/", $ps, $c);
+        $this->postJson('/api/agente-codigo', ['codigo' => $c[1], 'computador' => 'NOTE'])->assertOk();
+    }
+
+    public function test_configuracoes_mostram_o_botao_ativar_no_windows(): void
+    {
+        $u = User::factory()->create();
+        $html = $this->actingAs($u)->get('/painel')->assertOk()->getContent();
+        $this->assertStringContainsString('Ativar no Windows', $html);
+        $this->assertStringContainsString('/textos-rapidos/instalar-windows', $html);
     }
 
     public function test_lista_de_computadores_e_testar(): void

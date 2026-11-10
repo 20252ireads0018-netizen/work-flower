@@ -16,7 +16,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$VERSAO = '1.1.0'
+$VERSAO = '1.2.0'
 $PASTA = Split-Path -Parent $Config
 $LOG = Join-Path $PASTA 'agente.log'
 $SCRIPTS = Join-Path $PASTA 'scripts'
@@ -312,6 +312,52 @@ function Alternar-Expansor {
 }
 Aplicar-Expansor
 
+# ------------------------------------------------------------------ atualização sozinha
+# O site diz a "versão" do pacote (/api/agente/versao: sha256 de agente.ps1, expansor.cs e desinstalar.ps1, cada um
+# seguido de um byte zero; igual a App\Support\PacoteAgente::versao). Se mudou, baixa o pacote, confere e reinicia.
+$ARQUIVOS_VERSAO = @('agente.ps1', 'expansor.cs', 'desinstalar.ps1')
+$script:atuProxima = Get-Date
+$script:reiniciar = $false
+
+function Versao-Pasta([string]$pasta) {
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $ms = New-Object IO.MemoryStream
+        foreach ($f in $ARQUIVOS_VERSAO) {
+            $p = Join-Path $pasta $f
+            if (-not (Test-Path -LiteralPath $p)) { return '' }
+            $b = [IO.File]::ReadAllBytes($p)
+            $ms.Write($b, 0, $b.Length); $ms.WriteByte(0)
+        }
+        return (($sha.ComputeHash($ms.ToArray()) | ForEach-Object { $_.ToString('x2') }) -join '')
+    } finally { $sha.Dispose() }
+}
+
+function Conferir-Atualizacao {
+    $script:atuProxima = (Get-Date).AddHours(6)
+    $r = Chamar-Api 'GET' 'versao'
+    $nova = [string]$r.pacote
+    if (-not $nova -or $nova -eq (Versao-Pasta $PSScriptRoot)) { return }
+
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) ("wf-agente-" + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+    try {
+        $zip = Join-Path $tmp 'pacote.zip'
+        Invoke-WebRequest -Uri "$SITE/api/agente/pacote" -UseBasicParsing -TimeoutSec 60 -OutFile $zip `
+            -Headers @{ Authorization = "Bearer $TOKEN"; 'X-Agente-Versao' = $VERSAO }
+        Expand-Archive -LiteralPath $zip -DestinationPath $tmp -Force
+        $orig = Join-Path $tmp 'work-flower-agente'
+        if ((Versao-Pasta $orig) -ne $nova) { Escrever-Log 'Atualização: o pacote baixado não confere; fica a versão atual.'; return }
+        foreach ($f in ($ARQUIVOS_VERSAO + @('README.md'))) {
+            $p = Join-Path $orig $f
+            if (Test-Path -LiteralPath $p) { Copy-Item -LiteralPath $p -Destination $PSScriptRoot -Force }
+        }
+        Escrever-Log 'Atualização: arquivos novos do site instalados; reiniciando o agente.'
+        $script:reiniciar = $true
+        $script:sair = $true
+    } finally { Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
 # ------------------------------------------------------------------ laço principal
 Escrever-Log "Agente $VERSAO iniciado ($SITE, a cada $INTERVALO s)."
 try {
@@ -322,6 +368,10 @@ try {
 $falhas = 0
 try {
     do {
+        if ((Get-Date) -ge $script:atuProxima -and -not $UmaVez) {
+            try { Conferir-Atualizacao } catch { Escrever-Log "Atualização: falhou ($($_.Exception.Message))." }
+            if ($script:sair) { break }
+        }
         if ((Get-Date) -ge $script:expProxima -and -not $UmaVez) {
             try { Atualizar-Trechos } catch { Escrever-Log "Textos rápidos: falha ao atualizar ($($_.Exception.Message))." }
         }
@@ -349,4 +399,9 @@ try {
     $icone.Visible = $false
     $icone.Dispose()
     Escrever-Log 'Agente encerrado.'
+    if ($script:reiniciar) {
+        # solta a trava de cópia única e abre o agente novo (já com os arquivos atualizados)
+        try { $mutex.ReleaseMutex() } catch { }
+        Start-Process powershell.exe -WindowStyle Hidden -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$PSCommandPath`"", '-Config', "`"$Config`"")
+    }
 }

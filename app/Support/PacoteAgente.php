@@ -8,6 +8,28 @@ namespace App\Support;
  */
 class PacoteAgente
 {
+    /** Arquivos que o agente instalado compara para saber se precisa se atualizar (mesma ordem no agente.ps1). */
+    public const ARQUIVOS_VERSAO = ['agente.ps1', 'expansor.cs', 'desinstalar.ps1'];
+
+    /**
+     * "Versão" do agente: sha256 dos bytes de ARQUIVOS_VERSAO, cada um seguido de um byte zero (o agente.ps1 calcula
+     * igual sobre os arquivos instalados). Vazio se os arquivos não estão no servidor.
+     */
+    public static function versao(): string
+    {
+        $pasta = base_path('agente');
+        $ctx = hash_init('sha256');
+        foreach (self::ARQUIVOS_VERSAO as $f) {
+            if (! is_file($pasta . '/' . $f)) {
+                return '';
+            }
+            hash_update($ctx, (string) file_get_contents($pasta . '/' . $f));
+            hash_update($ctx, "\0");
+        }
+
+        return hash_final($ctx);
+    }
+
     /** Conteúdo do .zip, ou null se os arquivos do agente não estão no servidor. */
     public static function gerar(): ?string
     {

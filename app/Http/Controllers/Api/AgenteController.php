@@ -133,6 +133,12 @@ class AgenteController extends Controller
         ]);
     }
 
+    /** Versão do pacote do agente no site: o agente instalado compara com a dele e se atualiza sozinho. */
+    public function versao(): JsonResponse
+    {
+        return response()->json(['pacote' => \App\Support\PacoteAgente::versao()]);
+    }
+
     /** Pacote do agente (.zip) para o instalador do app (Windows) instalar sem a pessoa baixar nada à parte. */
     public function pacote(): \Illuminate\Http\Response|JsonResponse
     {

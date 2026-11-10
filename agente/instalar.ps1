@@ -61,6 +61,11 @@ try {
 }
 
 # ---------------------------------------------------------------- arquivos
+# fecha o agente que já estiver rodando: senão o novo sai na hora ("já está rodando") e fica valendo a configuração antiga
+Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -like "*$Destino\agente.ps1*" -and $_.ProcessId -ne $PID } |
+    ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop } catch { } }
+Start-Sleep -Milliseconds 500
 New-Item -ItemType Directory -Path $Destino -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $Destino 'scripts') -Force | Out-Null
 foreach ($f in @('agente.ps1', 'expansor.cs', 'desinstalar.ps1', 'README.md')) {

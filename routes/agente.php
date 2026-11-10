@@ -11,3 +11,5 @@ Route::post('/execucoes/{execucao}', [AgenteController::class, 'resultado'])->wh
 // textos rápidos da conta para o expansor no Windows inteiro, e o pacote do agente para o instalador do app
 Route::get('/trechos', [AgenteController::class, 'trechos'])->name('trechos');
 Route::get('/pacote', [AgenteController::class, 'pacote'])->name('pacote');
+// versão do pacote: o agente instalado compara com a dele e se atualiza sozinho quando o site muda
+Route::get('/versao', [AgenteController::class, 'versao'])->name('versao');

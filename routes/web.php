@@ -52,6 +52,9 @@ Route::withoutMiddleware([
 // instalador completo (app + agente com os textos rápidos no Windows inteiro): só logado, leva um código de uso único
 Route::get('/app/instalar-windows-completo', [\App\Http\Controllers\AppInstalavelController::class, 'instaladorWindowsCompleto'])
     ->middleware(['auth', 'throttle:6,1'])->name('app.windows.completo');
+// só os textos rápidos no Windows inteiro (sem reinstalar o app): .cmd pequeno com código de uso único
+Route::get('/textos-rapidos/instalar-windows', [\App\Http\Controllers\AppInstalavelController::class, 'instaladorTextos'])
+    ->middleware(['auth', 'throttle:10,1'])->name('textos.windows');
 
 // Animação de apresentação (rolagem), aberta pela tela de login. Pública, para visitantes.
 Route::view('/conheca', 'conheca')->name('demo');

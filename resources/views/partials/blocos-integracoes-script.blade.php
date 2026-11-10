@@ -6,7 +6,8 @@
         'notion'     => \Illuminate\Support\Facades\Route::has('integracoes.notion.paginas') ? url('/integracoes/notion') : '',
         'negocios'   => \Illuminate\Support\Facades\Route::has('areas.negocios') ? route('areas.negocios') : '',
         'tarefas'    => \Illuminate\Support\Facades\Route::has('cartoes.tarefas') ? url('/cartoes/tarefas') : '',
-        'instalador' => \Illuminate\Support\Facades\Route::has('app.windows.completo') ? route('app.windows.completo') : '',
+        // só os textos rápidos no Windows (arquivo pequeno, sem reinstalar o app)
+        'instalador' => \Illuminate\Support\Facades\Route::has('textos.windows') ? route('textos.windows') : '',
         // os textos rápidos moram nas preferências da conta (public/js/expansor.js, carregado pelo layout para quem está logado)
         'textos'     => auth()->check() ? '1' : '',
     ];

@@ -63,6 +63,22 @@ class AgenteTextosRapidosTest extends TestCase
         $this->assertStringNotContainsString('config.json', $zip);
     }
 
+    public function test_versao_do_pacote_para_o_agente_se_atualizar(): void
+    {
+        $u = User::factory()->create();
+        [, $token] = AutomacaoDispositivo::parear($u->id, 'PC');
+        $this->getJson('/api/agente/versao')->assertStatus(401);
+
+        $v = $this->api($token)->getJson('/api/agente/versao')->assertOk()->json('pacote');
+        // mesma conta que o agente.ps1 faz (Versao-Pasta): sha256 dos arquivos, cada um seguido de um byte zero
+        $esperado = hash('sha256', implode('', array_map(fn ($f) => file_get_contents(base_path('agente/' . $f)) . "\0", \App\Support\PacoteAgente::ARQUIVOS_VERSAO)));
+        $this->assertSame($esperado, $v);
+
+        $agente = file_get_contents(base_path('agente/agente.ps1'));
+        $this->assertStringContainsString("Chamar-Api 'GET' 'versao'", $agente);
+        $this->assertStringContainsString("@('agente.ps1', 'expansor.cs', 'desinstalar.ps1')", $agente, 'mesma lista de PacoteAgente::ARQUIVOS_VERSAO');
+    }
+
     public function test_codigo_de_pareamento_vale_uma_vez(): void
     {
         $u = User::factory()->create();

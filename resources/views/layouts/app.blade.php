@@ -1308,13 +1308,23 @@
 
             {{-- textos rápidos (atalho que vira texto ao digitar): desenhado por public/js/expansor.js --}}
             <div id="wf-expansor-painel" class="space-y-3" style="border-top: 1px solid var(--linha); padding-top: 1rem"></div>
-            {{-- os mesmos textos rápidos em qualquer programa do Windows: agente (agente/expansor.cs) pelo instalador do app --}}
-            <p class="text-xs texto-2 mt-3">
-                <b>No Windows inteiro:</b> instale o app com os textos rápidos
-                (<a href="{{ route('app.windows.completo') }}" download class="link-prim">baixar o instalador</a>)
-                e os mesmos atalhos funcionam no e-mail, no Word, no WhatsApp e em qualquer programa. Liga e desliga no
-                ícone do Work Flower perto do relógio. Quem já usa o agente de Automações: menu do ícone › <b>Textos rápidos no Windows</b>.
-            </p>
+            {{-- os mesmos textos rápidos em qualquer programa do Windows: agente pequeno (agente/expansor.cs), sem reinstalar o app --}}
+            <div class="mt-3 text-xs texto-2" style="border: 1px solid var(--linha); border-radius: .6rem; padding: .75rem"
+                 x-data="{ pcs: null, async ver() { try { const r = await fetch('{{ route('automacoes.computadores') }}', { headers: { Accept: 'application/json' } }); this.pcs = r.ok ? await r.json() : []; } catch (e) { this.pcs = []; } } }"
+                 x-init="ver()">
+                <p class="font-semibold" style="color: var(--tinta)">Usar os atalhos em todo o Windows (e-mail, Word, WhatsApp…)</p>
+                <ol class="mt-1" style="list-style: decimal; padding-left: 1.1rem; line-height: 1.6">
+                    <li>Clique em <b>Ativar no Windows</b>: baixa um arquivo pequeno.</li>
+                    <li>Abra o arquivo baixado. Se o Windows avisar, clique em <b>Mais informações › Executar assim mesmo</b>.</li>
+                    <li>Pronto: digite um atalho em qualquer programa.</li>
+                </ol>
+                <div class="mt-2 flex flex-wrap items-center gap-2">
+                    <a href="{{ route('textos.windows') }}" class="btn !py-1 !px-3" @click="setTimeout(() => ver(), 20000)">⤓ Ativar no Windows</a>
+                    <span x-show="pcs && pcs.some(p => p.online)" x-cloak style="color: var(--verde, #2dd4bf)">✓ Ligado em <span x-text="pcs && pcs.filter(p => p.online).map(p => p.nome).join(', ')"></span></span>
+                    <span x-show="pcs && !pcs.some(p => p.online)" x-cloak>Nenhum computador ligado ainda.</span>
+                </div>
+                <p class="mt-2">Atalhos novos chegam ao Windows em até 2 minutos. Para desligar: ícone do Work Flower perto do relógio › <b>Textos rápidos no Windows</b>. Programas abertos como administrador não recebem a troca.</p>
+            </div>
         </section>
 
         </div>
