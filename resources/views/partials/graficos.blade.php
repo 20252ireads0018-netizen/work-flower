@@ -200,3 +200,5 @@
 {{-- cartões Questões, Criador e RH (usa o wfNovoCartao do graficos.js) --}}
 <script src="{{ asset('js/cartoes-extra.js') }}?v={{ @filemtime(public_path('js/cartoes-extra.js')) }}" data-yt="{{ \Illuminate\Support\Facades\Route::has('youtube.canal') ? route('youtube.canal') : '' }}" data-banco="{{ $wfCartoesUrls['banco'] }}" data-cal="{{ $wfCartoesUrls['cal'] }}" data-tarefas="{{ $wfCartoesUrls['tarefas'] }}"></script>
 <script src="{{ asset('js/criador-redes.js') }}?v={{ @filemtime(public_path('js/criador-redes.js')) }}" data-redes="{{ \Illuminate\Support\Facades\Route::has('redes.metricas') ? url('/redes') : '' }}"></script>
+{{-- cartão Cenas para escritores (js/cenas.js) --}}
+@include('partials.cenas')

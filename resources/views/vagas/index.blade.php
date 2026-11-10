@@ -64,6 +64,8 @@
   .brand svg { width: 30px; height: 30px; }
   .open-pill { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 13px; color: var(--muted); }
   .open-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--leaf); }
+  .more-jobs { color: var(--fg); text-decoration: none; border-color: var(--accent); }
+  .more-jobs:hover { background: var(--surface-2); }
 
   /* vaga */
   .job { display: grid; gap: 22px; padding-block: 8px 4px; }
@@ -210,6 +212,8 @@
       Work Flower
     </div>
     <span class="open-pill"><i></i> Vaga aberta</span>
+    {{-- vagas de outras empresas, em cartões para deslizar (fica dentro do app: precisa da conta logada) --}}
+    <a class="open-pill more-jobs" href="{{ rtrim((string) config('app.url'), '/') }}/vagas/cartoes">Mais vagas: deslize e candidate-se com seu portfólio →</a>
   </header>
 
   <section class="job" aria-labelledby="vaga-titulo">

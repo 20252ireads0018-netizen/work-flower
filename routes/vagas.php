@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CandidaturaController;
+use App\Http\Controllers\VagasCartoesController;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Support\Facades\Route;
 
@@ -22,4 +23,17 @@ Route::prefix('vagas')->name('vagas.')->group(function () {
         ->withoutMiddleware(ValidateCsrfToken::class)->middleware('throttle:10,1')->name('curso.paguei');
     Route::get('/curso', [CandidaturaController::class, 'curso'])->name('curso');
     Route::get('/admin', [CandidaturaController::class, 'admin'])->middleware('throttle:30,1')->name('admin');
+});
+
+// Vagas em cartões (deslizar para a direita = candidatar com o portfólio /p/{slug}; esquerda = descartar).
+// Precisa da conta logada: no ar, use o endereço dentro do app (APP_URL/vagas/cartoes), onde o cookie de sessão vale.
+Route::middleware('auth')->prefix('vagas/cartoes')->name('vagas.cartoes')->controller(VagasCartoesController::class)->group(function () {
+    Route::get('/', 'index')->name('');
+    Route::post('/publicar', 'publicar')->middleware('throttle:20,1')->name('.publicar');
+    Route::post('/rever', 'rever')->middleware('throttle:10,1')->name('.rever');
+    Route::post('/{vaga}/responder', 'responder')->whereNumber('vaga')->middleware('throttle:120,1')->name('.responder');
+    Route::post('/{vaga}/desfazer', 'desfazer')->whereNumber('vaga')->middleware('throttle:60,1')->name('.desfazer');
+    Route::post('/{vaga}/alternar', 'alternar')->whereNumber('vaga')->middleware('throttle:30,1')->name('.alternar');
+    Route::delete('/{vaga}', 'excluir')->whereNumber('vaga')->middleware('throttle:30,1')->name('.excluir');
+    Route::post('/respostas/{resposta}/status', 'status')->whereNumber('resposta')->middleware('throttle:120,1')->name('.status');
 });
