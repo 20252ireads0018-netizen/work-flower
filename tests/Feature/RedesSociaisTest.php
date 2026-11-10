@@ -29,14 +29,15 @@ class RedesSociaisTest extends TestCase
         return $q['state'];
     }
 
-    public function test_sem_chaves_avisa_o_que_falta(): void
+    public function test_sem_chaves_oferece_a_importacao_manual(): void
     {
         $u = User::factory()->create();
         config(['services.meta.id' => '', 'services.meta.secret' => '', 'services.tiktok.key' => '', 'services.tiktok.secret' => '']);
 
-        $this->actingAs($u)->getJson('/redes/instagram/metricas')->assertStatus(503)
-            ->assertJson(['ok' => false, 'configurado' => false])->assertJsonFragment(['erro' => 'O Instagram chega em breve ao Work Flower.']);
-        $this->actingAs($u)->getJson('/redes/tiktok/metricas')->assertStatus(503);
+        $j = $this->actingAs($u)->getJson('/redes/instagram/metricas')->assertStatus(409)
+            ->assertJson(['ok' => false, 'configurado' => false, 'importar' => true, 'conectar' => null])->json();
+        $this->assertStringNotContainsString('em breve', $j['erro']);
+        $this->actingAs($u)->getJson('/redes/tiktok/metricas')->assertStatus(409)->assertJson(['importar' => true]);
         $this->actingAs($u)->get('/redes/tiktok/conectar')->assertRedirect()->assertSessionHas('ok');
         $this->actingAs($u)->getJson('/redes/facebook/metricas')->assertNotFound();
     }

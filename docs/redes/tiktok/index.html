@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Voltando para o Work Flower</title>
+<style>body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;display:grid;place-items:center;min-height:100vh;margin:0}a{color:#93c5fd}</style>
+</head>
+<body>
+<p id="msg">Voltando para o Work Flower…</p>
+<script>
+// Repasse do retorno do TikTok (Login Kit) (mesmo esquema do docs/google). O firewall da hospedagem (mod_security) pode recusar
+// com 406 parâmetros que a rede acrescenta; aqui só passam os parâmetros conhecidos e o destino é fixo.
+// Se o site mudar de endereço, troque o DESTINO e publique de novo (passo a passo em docs/integracoes.md).
+(function () {
+  var DESTINO = 'https://websight.com.br/work-flower/redes/tiktok/retorno';
+  var de = new URLSearchParams(location.search), para = new URLSearchParams();
+  ['code', 'state', 'scopes', 'error', 'error_description'].forEach(function (k) { if (de.has(k)) para.set(k, de.get(k).slice(0, 2000)); });
+  var url = DESTINO + '?' + para.toString();
+  document.getElementById('msg').innerHTML = 'Voltando para o Work Flower… <a href="' + url.replace(/"/g, '&quot;') + '">continuar</a>';
+  location.replace(url);
+})();
+</script>
+</body>
+</html>

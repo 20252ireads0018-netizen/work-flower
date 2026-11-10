@@ -45,7 +45,8 @@
             dados: { canais: [], contas: [], produtos: [], anuncios: [], pedidos: [], dias_pedidos: 30, limite: 1, contas_reais: 0, plano: '' },
             carregado: false, ocupado: false, progresso: '', ok: cfg.ok || '', erro: cfg.erro || '',
             abas: [
-                { id: 'resumo', nome: 'Resumo' }, { id: 'contas', nome: 'Contas' }, { id: 'anuncios', nome: 'Anúncios' },
+                { id: 'resumo', nome: 'Resumo' }, { id: 'shopee', nome: 'Shopee' }, { id: 'amazon', nome: 'Amazon' },
+                { id: 'contas', nome: 'Contas' }, { id: 'anuncios', nome: 'Anúncios' },
                 { id: 'produtos', nome: 'Produtos e custos' }, { id: 'pedidos', nome: 'Pedidos' },
             ],
             aba: 'resumo',
@@ -55,6 +56,8 @@
             acao: { tipo: 'preco_pct', valor: '' },
             regras: { comissao_pct: '', taxa_fixa: '', taxa_fixa_abaixo_de: '', frete: '', imposto_pct: '' }, regrasAberto: false,
             importarAberto: false, textoImportar: '', custoMassa: '',
+            // abas por canal (Shopee, Amazon): importação de planilha e elementos para o quadro
+            plan: { canal: '', texto: '', tipo: 'auto', arquivo: '' },
             calc: { onde: 'canal:mercadolivre', custo: 30, frete: '', preco: 99.9, margem: 20 },
             _salvarProdutos: null,
 
@@ -300,7 +303,7 @@
                 const status = t === 'ativo' || t === 'pausado';
                 const valor = status ? t : numBR(this.acao.valor);
                 if (valor === null) { this.erro = 'Preencha o valor.'; return; }
-                const reais = ids.filter(id => { const a = this.anuncios.find(x => x.id === id); return a && !this.conta(a.conta_id)?.demo; }).length;
+                const reais = ids.filter(id => { const a = this.anuncios.find(x => x.id === id); const c = a && this.conta(a.conta_id); return c && !c.demo && !c.manual; }).length;
                 if (reais && !confirm(`Isso altera ${reais} ${reais === 1 ? 'anúncio' : 'anúncios'} direto no marketplace. Continuar?`)) return;
 
                 await this.tarefa(async () => {
@@ -324,6 +327,96 @@
                     await this.recarregar();
                 });
             },
+
+            /* ---------- abas por canal (Shopee, Amazon) ---------- */
+            infoCanal(cn) { return this.dados.canais.find(c => c.canal === cn) || { canal: cn, nome: cn, configurado: false }; },
+            contasDo(cn) { return this.contas.filter(c => c.canal === cn); },
+            tipoConta(c) { return c.demo ? 'demonstração' : (c.manual ? 'planilha' : 'conectada'); },
+            /** Números do canal: vendas por dia, mais vendidos, anúncios com pior margem. */
+            det(cn) {
+                const ids = new Set(this.contasDo(cn).map(c => c.id));
+                const dias = this.dados.dias_pedidos || 30, hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+                const porDia = {}, top = {};
+                for (let i = dias - 1; i >= 0; i--) { const d = new Date(hoje); d.setDate(d.getDate() - i); porDia[d.toISOString().slice(0, 10)] = 0; }
+                let faturamento = 0, pedidos = 0, itens = 0;
+                for (const p of this.dados.pedidos) {
+                    if (!ids.has(p.conta_id) || CANCELADO.test(p.status || '')) continue;
+                    pedidos++; faturamento += p.total;
+                    const dia = new Date(p.data); dia.setHours(0, 0, 0, 0);
+                    const k = new Date(dia.getTime() - dia.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+                    if (k in porDia) porDia[k] += p.total;
+                    for (const i of p.itens) {
+                        itens += i.qtd;
+                        const t = top[i.sku || i.titulo || i.externo_id] ??= { nome: i.titulo || i.sku || 'Item', sku: i.sku || '', qtd: 0, receita: 0 };
+                        t.qtd += i.qtd; t.receita += i.preco * i.qtd;
+                    }
+                }
+                const anuncios = this.anuncios.filter(a => ids.has(a.conta_id));
+                const pc = this.resumo.porCanal.find(c => c.canal === cn) || { ativos: 0, tarifas: 0, margem: null };
+                return {
+                    contas: this.contasDo(cn), anuncios, faturamento, pedidos, itens, tarifas: pc.tarifas, ativos: pc.ativos, margem: pc.margem,
+                    ticket: pedidos ? faturamento / pedidos : null,
+                    dias: Object.entries(porDia),
+                    top: Object.values(top).sort((a, b) => b.receita - a.receita).slice(0, 8),
+                    piores: anuncios.filter(a => a.status === 'ativo' && a.margem !== null).sort((a, b) => a.margem - b.margem).slice(0, 8),
+                    semCusto: anuncios.filter(a => a.status === 'ativo' && a.margem === null).length,
+                };
+            },
+            graficoVendas(cn) {
+                const d = this.det(cn).dias, I = window.WFIntegra;
+                return I ? I.barras(d.map(([k]) => k.slice(8, 10) + '/' + k.slice(5, 7)), d.map(([, v]) => v), { cor: CORES[cn], nome: 'Vendas por dia', largura: 900, altura: 220 }) : '';
+            },
+            abrirPlanilha(cn) { this.plan = { canal: this.plan.canal === cn ? '' : cn, texto: '', tipo: 'auto', arquivo: '' }; },
+            lerPlanilha(ev) {
+                const f = ev.target.files && ev.target.files[0];
+                if (!f) return;
+                if (f.size > 2 * 1024 * 1024) { this.erro = 'A planilha passa de 2 MB. Exporte um período menor ou divida em partes.'; ev.target.value = ''; return; }
+                const leitor = new FileReader();
+                leitor.onload = () => { this.plan.texto = String(leitor.result || ''); this.plan.arquivo = f.name; };
+                leitor.readAsText(f, 'utf-8');
+                ev.target.value = '';
+            },
+            async importarPlanilha() {
+                if (!this.plan.texto.trim()) { this.erro = 'Cole a planilha ou escolha o arquivo.'; return; }
+                await this.tarefa(async () => {
+                    const j = await this.pedir('POST', '/importar', { canal: this.plan.canal, texto: this.plan.texto, tipo: this.plan.tipo });
+                    this.ok = j.message; this.plan = { canal: '', texto: '', tipo: 'auto', arquivo: '' };
+                    await this.recarregar();
+                });
+            },
+            /* elementos para o quadro (nesta página vão para a Biblioteca; cole em qualquer área) */
+            porNoQuadro(bloco) {
+                if (!window.WFIntegra) { this.erro = 'Recarregue a página e tente de novo.'; return; }
+                this.ok = ''; this.erro = '';
+                window.WFIntegra.porNoQuadro(bloco, null, null, (msg, falhou) => { if (falhou) this.erro = msg; else this.ok = msg; });
+            },
+            blocoResumo(cn) {
+                const d = this.det(cn), nome = this.infoCanal(cn).nome;
+                return { tipo: 'tabela', titulo: `${nome} · resumo (${this.dados.dias_pedidos} dias)`, w: 420, h: 300, dados: { cab: ['Indicador', 'Valor'], linhas: [
+                    ['Vendas', this.dinheiro(d.faturamento)], ['Pedidos', String(d.pedidos)], ['Ticket médio', this.dinheiro(d.ticket)],
+                    ['Tarifas', this.dinheiro(d.tarifas)], ['Anúncios ativos', String(d.ativos)], ['Margem média', this.pct(d.margem)],
+                ] } };
+            },
+            blocoVendas(cn) {
+                const d = this.det(cn), nome = this.infoCanal(cn).nome, I = window.WFIntegra;
+                const cab = ['Dia', 'Vendas (R$)'], linhas = d.dias.map(([k, v]) => [k.slice(8, 10) + '/' + k.slice(5, 7), String(Math.round(v * 100) / 100)]);
+                return { tipo: 'grafico', titulo: `${nome} · vendas por dia`, w: 520, h: 360, dados: I ? I.grafico('barras', cab, linhas, 'Dia', 'R$') : { cab, linhas } };
+            },
+            blocoTop(cn) {
+                const d = this.det(cn);
+                return { tipo: 'tabela', titulo: `${this.infoCanal(cn).nome} · mais vendidos`, w: 520, h: 320, dados: { cab: ['Produto', 'SKU', 'Unidades', 'Receita'],
+                    linhas: d.top.map(t => [t.nome, t.sku, String(t.qtd), this.dinheiro(t.receita)]) } };
+            },
+            blocoAnuncios(cn) {
+                const d = this.det(cn);
+                return { tipo: 'tabela', titulo: `${this.infoCanal(cn).nome} · anúncios`, w: 680, h: 400, dados: { cab: ['Título', 'SKU', 'Preço', 'Estoque', 'Margem', 'Status'],
+                    linhas: d.anuncios.slice(0, 200).map(a => [a.titulo || '', a.sku || '', this.dinheiro(a.preco), String(a.estoque), this.pct(a.margem), a.status]) } };
+            },
+            blocoAnuncio(a) {
+                return { tipo: 'texto', titulo: (a.titulo || a.sku || 'Anúncio').slice(0, 120), w: 340, h: 200, dados: { tam: 'm', texto:
+                    `${a.titulo || ''}\nSKU ${a.sku || '—'} · ${this.dinheiro(a.preco)} · estoque ${a.estoque}\nMargem ${this.pct(a.margem)}${a.lucro != null ? ' (' + this.dinheiro(a.lucro) + ' por venda)' : ''}${a.link ? '\n' + a.link : ''}` } };
+            },
+            arrastar(ev, bloco) { if (window.WFIntegra) window.WFIntegra.arrastar(ev, bloco); },
 
             /* ---------- produtos ---------- */
             novoProduto() { this.dados.produtos.unshift({ id: null, sku: '', nome: '', custo: '', custo_extra: '', anuncios: 0 }); },

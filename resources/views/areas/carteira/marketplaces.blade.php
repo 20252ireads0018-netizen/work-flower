@@ -127,6 +127,9 @@
         </div>
     </section>
 
+    {{-- ===================== Shopee e Amazon (uma aba para cada canal) ===================== --}}
+    @include('areas.carteira.partials.mkt-canal')
+
     {{-- ===================== Contas ===================== --}}
     <section x-show="aba === 'contas'" class="space-y-4">
         <p class="text-sm" x-text="textoLimite()"></p>
@@ -135,11 +138,13 @@
                 <div class="card p-4 space-y-2">
                     <span class="mk-canal" :style="'--c:' + cor(c.canal)" x-text="c.nome"></span>
                     <p class="text-xs texto-2" x-show="c.configurado">Você vai para o site do marketplace autorizar o Work Flower a ler e alterar seus anúncios e pedidos.</p>
-                    <p class="text-xs texto-2" x-show="!c.configurado">A conexão com este marketplace chega em breve. Enquanto isso, experimente a demonstração.</p>
+                    <p class="text-xs texto-2" x-show="!c.configurado">A conexão automática ainda não foi ativada neste site. Importe a planilha de anúncios ou de pedidos exportada da sua loja, ou experimente a demonstração.</p>
                     <div class="flex flex-wrap gap-2">
                         <a class="btn !py-1.5 !px-3 text-sm" x-show="c.configurado" :href="urlConectar(c.canal)" :class="{ 'opacity-50 pointer-events-none': cheio }" @click="if (cheio) { $event.preventDefault(); avisarLimite(); }">Conectar conta</a>
+                        <button type="button" class="btn-sec !py-1.5 !px-3 text-sm" @click="abrirPlanilha(c.canal); if (['shopee', 'amazon'].includes(c.canal)) irPara(c.canal)" :disabled="ocupado">Importar planilha</button>
                         <button type="button" class="btn-sec !py-1.5 !px-3 text-sm" @click="criarDemo(c.canal)" :disabled="ocupado">Demonstração</button>
                     </div>
+                    @include('areas.carteira.partials.mkt-planilha', ['cond' => "plan.canal === c.canal && !['shopee', 'amazon'].includes(c.canal)"])
                 </div>
             </template>
         </div>
@@ -158,6 +163,7 @@
                             <td>
                                 <button type="button" class="font-semibold text-left hover:underline" @click="renomear(c)" x-text="c.nome" title="Renomear"></button>
                                 <span class="mk-st ml-1" x-show="c.demo">demonstração</span>
+                                <span class="mk-st ml-1" x-show="c.manual">planilha</span>
                                 <span class="mk-st pausado ml-1" x-show="!c.ativa">pausada</span>
                                 <div class="erro !mt-1 text-xs" x-show="c.erro" x-text="c.erro"></div>
                             </td>
@@ -350,5 +356,6 @@
     </section>
 </div>
 
+<script src="{{ asset('js/integracoes-quadro.js') }}?v={{ @filemtime(public_path('js/integracoes-quadro.js')) }}"></script>
 <script src="{{ asset('js/marketplaces.js') }}?v={{ @filemtime(public_path('js/marketplaces.js')) }}"></script>
 @endsection

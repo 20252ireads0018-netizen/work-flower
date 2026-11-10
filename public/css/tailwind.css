@@ -5,3 +5,9 @@
 .max-h-\[calc\(100dvh-6rem\)\]{max-height:calc(100dvh - 6rem)}
 @media (min-width:1024px){.lg\:hidden{display:none}}
 .w-72{width:18rem}
+
+/* integrações (Instagram, TikTok, Shopee, Amazon): classes usadas pelas telas novas */
+.border-b{border-bottom-width:1px}
+.border-\[var\(--linha\)\]{border-color:var(--linha)}
+.\!py-0{padding-top:0!important;padding-bottom:0!important}
+.\!text-sm{font-size:.875rem!important;line-height:1.25rem!important}

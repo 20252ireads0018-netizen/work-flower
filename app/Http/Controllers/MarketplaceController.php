@@ -8,6 +8,7 @@ use App\Models\MktPedido;
 use App\Models\MktProduto;
 use App\Models\User;
 use App\Support\Compartilhar;
+use App\Support\Integracoes\Planilha;
 use App\Support\Marketplaces\Demo;
 use App\Support\Marketplaces\MarketplaceErro;
 use App\Support\Marketplaces\Marketplaces;
@@ -42,7 +43,7 @@ class MarketplaceController extends Controller
     private function cabeMaisUma(int $donoId): bool
     {
         $dono = User::findOrFail($donoId);
-        $reais = MktConta::where(['user_id' => $donoId, 'demo' => false])->count();
+        $reais = MktConta::where(['user_id' => $donoId, 'demo' => false, 'manual' => false])->count();
 
         return ! Planos::excede(Planos::slugDe($dono), 'marketplaces', $reais + 1);
     }
@@ -96,7 +97,7 @@ class MarketplaceController extends Controller
             ])->values(),
             'contas' => $contas->map(fn ($c) => [
                 'id' => $c->id, 'canal' => $c->canal, 'canal_nome' => Marketplaces::nomeCanal($c->canal),
-                'nome' => $c->nome, 'externo_id' => $c->externo_id, 'demo' => $c->demo, 'ativa' => $c->ativa,
+                'nome' => $c->nome, 'externo_id' => $c->externo_id, 'demo' => $c->demo, 'manual' => (bool) $c->manual, 'ativa' => $c->ativa,
                 'erro' => $c->erro, 'sincronizado_em' => $c->sincronizado_em?->toIso8601String(),
                 'regras' => (object) ($c->regras ?? []), 'regras_efetivas' => $regras[$c->id],
                 'anuncios' => $porConta[$c->id] ?? 0,
@@ -109,7 +110,7 @@ class MarketplaceController extends Controller
             'pedidos' => $pedidos->values(),
             'dias_pedidos' => (int) config('marketplaces.dias_pedidos', 30),
             'limite' => $limite,
-            'contas_reais' => $contas->where('demo', false)->count(),
+            'contas_reais' => $contas->where('demo', false)->where('manual', false)->count(),
             'plano' => $dono ? Planos::nome(Planos::slugDe($dono)) : '',
         ]);
     }
@@ -124,7 +125,7 @@ class MarketplaceController extends Controller
         $conector = Marketplaces::conector($canal);
 
         if (! $conector->configurado()) {
-            return redirect($voltar)->with('mkt_erro', Marketplaces::nomeCanal($canal) . ' ainda não está configurado neste Work Flower (faltam as chaves do app de desenvolvedor). Use a conta de demonstração por enquanto.');
+            return redirect($voltar)->with('mkt_erro', 'A conexão automática com ' . Marketplaces::nomeCanal($canal) . ' ainda não foi ativada neste site. Use “Importar planilha” na aba ' . Marketplaces::nomeCanal($canal) . ' (relatório exportado da sua loja).');
         }
         if (! $this->cabeMaisUma($donoId)) {
             $plano = Planos::nome(Planos::slugDe(User::find($donoId)));
@@ -207,6 +208,135 @@ class MarketplaceController extends Controller
         $r = Marketplaces::sincronizar($conta);
 
         return response()->json(['ok' => true, 'message' => "Conta de demonstração criada com {$r['anuncios']} anúncios."]);
+    }
+
+    /** Colunas reconhecidas nas planilhas exportadas (Shopee, Amazon, Mercado Livre ou feitas à mão). */
+    private const COLUNAS = [
+        'pedido'  => ['pedido', 'id do pedido', 'n do pedido', 'numero do pedido', 'order id', 'order sn', 'order number', 'amazon order id', 'venda', 'n de venda', 'id da venda'],
+        'data'    => ['data', 'data do pedido', 'data de criacao do pedido', 'data da venda', 'date', 'order date', 'order creation date', 'purchase date', 'created'],
+        'status'  => ['status', 'status do pedido', 'situacao', 'estado', 'order status', 'item status'],
+        'id'      => ['id', 'id do anuncio', 'id do produto', 'item id', 'product id', 'listing id', 'asin', 'asin1', 'mlb', 'codigo do anuncio'],
+        'sku'     => ['sku', 'seller sku', 'sku do vendedor', 'sku de referencia', 'numero de referencia sku', 'n de referencia do sku principal', 'sku principal', 'parent sku', 'codigo', 'codigo do produto'],
+        'titulo'  => ['titulo', 'nome', 'nome do produto', 'produto', 'anuncio', 'title', 'item name', 'product name', 'descricao'],
+        'preco'   => ['preco', 'preco de venda', 'preco unitario', 'preco acordado', 'preco original', 'price', 'item price', 'your price', 'valor unitario'],
+        'qtd'     => ['quantidade', 'qtd', 'unidades', 'quantity', 'quantity purchased', 'qty'],
+        'estoque' => ['estoque', 'stock', 'quantidade em estoque', 'estoque disponivel', 'available', 'quantity available'],
+        'total'   => ['total', 'valor total', 'total do pedido', 'total global', 'receita', 'order total', 'faturamento', 'valor'],
+        'tarifa'  => ['tarifas', 'tarifa', 'tarifa de venda', 'taxa', 'taxas', 'taxa de comissao', 'comissao', 'fee', 'fees', 'commission'],
+        'tarifa2' => ['taxa de servico', 'service fee', 'taxa de transacao', 'transaction fee'],
+        'custo'   => ['custo', 'custo unitario', 'cost', 'unit cost'],
+        'link'    => ['link', 'url', 'link do anuncio', 'permalink'],
+    ];
+
+    /**
+     * POST /carteira/marketplaces/importar { canal, texto, tipo?: auto|anuncios|pedidos }: planilha de anúncios ou de
+     * pedidos exportada da loja (CSV ou colada). Vai para a conta "planilha" do canal, que não conta no limite do plano.
+     */
+    public function importar(Request $request): JsonResponse
+    {
+        $donoId = $this->dono($request);
+        $d = $request->validate([
+            'canal' => ['required', Rule::in(Marketplaces::canais())],
+            'texto' => ['required', 'string', 'max:' . (int) config('integracoes.max_bytes', 2097152)],
+            'tipo'  => ['nullable', Rule::in(['auto', 'anuncios', 'pedidos'])],
+        ]);
+        $linhas = Planilha::linhas($d['texto'], self::COLUNAS);
+        if (! $linhas) {
+            return response()->json(['message' => 'Não reconheci as colunas. A primeira linha precisa ter os nomes (ex.: SKU; Título; Preço; Estoque, ou Pedido; Data; SKU; Quantidade; Preço; Tarifas).'], 422);
+        }
+        $tipo = $d['tipo'] ?? 'auto';
+        if ($tipo === 'auto') {
+            $tipo = array_key_exists('pedido', $linhas[0]) ? 'pedidos' : 'anuncios';
+        }
+        if ($tipo === 'pedidos' && ! array_key_exists('pedido', $linhas[0])) {
+            return response()->json(['message' => 'A planilha de pedidos precisa de uma coluna com o número do pedido (ex.: "Pedido" ou "ID do pedido").'], 422);
+        }
+
+        $canal = $d['canal'];
+        $conta = MktConta::firstOrCreate(
+            ['user_id' => $donoId, 'canal' => $canal, 'manual' => true, 'demo' => false],
+            ['nome' => Marketplaces::nomeCanal($canal) . ' (planilha)', 'externo_id' => 'planilha-' . $canal, 'ativa' => true],
+        );
+
+        $custos = [];
+        $n = 0;
+        if ($tipo === 'anuncios') {
+            foreach ($linhas as $l) {
+                $sku = mb_substr(trim((string) ($l['sku'] ?? '')), 0, 80);
+                $titulo = mb_substr(trim((string) ($l['titulo'] ?? '')), 0, 255);
+                $ext = mb_substr(trim((string) (($l['id'] ?? '') ?: $sku ?: ($titulo !== '' ? 'imp-' . substr(md5(Str::lower($titulo)), 0, 12) : ''))), 0, 80);
+                if ($ext === '') continue;
+                $campos = array_filter([
+                    'sku'     => $sku ?: $ext,
+                    'titulo'  => $titulo ?: null,
+                    'preco'   => Planilha::numero($l['preco'] ?? null),
+                    'estoque' => ($e = Planilha::inteiro($l['estoque'] ?? ($l['qtd'] ?? null))) === null ? null : max(0, $e),
+                    'status'  => self::statusAnuncio($l['status'] ?? ''),
+                    'link'    => preg_match('#^https?://\S+$#i', $l['link'] ?? '') ? mb_substr($l['link'], 0, 500) : null,
+                ], fn ($v) => $v !== null);
+                MktAnuncio::updateOrCreate(['conta_id' => $conta->id, 'externo_id' => $ext], $campos + ['user_id' => $donoId, 'sincronizado_em' => now()]);
+                if (($c = Planilha::numero($l['custo'] ?? null)) !== null) $custos[$campos['sku']] = [$titulo, $c];
+                $n++;
+            }
+        } else {
+            $grupos = [];
+            $eua = Planilha::formatoEua(array_column($linhas, 'data'));
+            foreach ($linhas as $l) {
+                $id = mb_substr(trim((string) ($l['pedido'] ?? '')), 0, 80);
+                if ($id !== '') $grupos[$id][] = $l;
+            }
+            foreach ($grupos as $id => $ls) {
+                $itens = [];
+                foreach ($ls as $l) {
+                    $qtd = max(1, (int) (Planilha::inteiro($l['qtd'] ?? null) ?? 1));
+                    $sku = mb_substr(trim((string) ($l['sku'] ?? '')), 0, 80);
+                    $preco = Planilha::numero($l['preco'] ?? null);
+                    if ($preco === null && ($t = Planilha::numero($l['total'] ?? null)) !== null && count($ls) === 1) $preco = round($t / $qtd, 2);
+                    $itens[] = ['externo_id' => (string) ($l['id'] ?? ''), 'sku' => $sku ?: null, 'titulo' => mb_substr((string) ($l['titulo'] ?? ''), 0, 200) ?: null, 'qtd' => $qtd, 'preco' => (float) ($preco ?? 0)];
+                    if ($sku !== '' && ($c = Planilha::numero($l['custo'] ?? null)) !== null) $custos[$sku] = [$l['titulo'] ?? '', $c];
+                }
+                $total = self::porPedido($ls, 'total') ?? round(array_sum(array_map(fn ($i) => $i['preco'] * $i['qtd'], $itens)), 2);
+                $t1 = self::porPedido($ls, 'tarifa');
+                $t2 = self::porPedido($ls, 'tarifa2');
+                MktPedido::updateOrCreate(['conta_id' => $conta->id, 'externo_id' => $id], [
+                    'user_id' => $donoId,
+                    'data'    => Planilha::data($ls[0]['data'] ?? '', $eua) ?? now(),
+                    'status'  => mb_substr(trim((string) ($ls[0]['status'] ?? '')), 0, 40) ?: 'pago',
+                    'total'   => $total,
+                    'tarifas' => $t1 === null && $t2 === null ? null : round(abs((float) $t1) + abs((float) $t2), 2),
+                    'itens'   => $itens,
+                ]);
+                $n++;
+            }
+        }
+        // custo informado na planilha: entra no catálogo (só o que veio preenchido)
+        foreach ($custos as $sku => [$nome, $custo]) {
+            MktProduto::updateOrCreate(['user_id' => $donoId, 'sku' => $sku], array_filter(['nome' => mb_substr((string) $nome, 0, 200) ?: null, 'custo' => $custo], fn ($v) => $v !== null));
+        }
+        $conta->update(['sincronizado_em' => now(), 'erro' => null]);
+
+        return response()->json(['ok' => true, 'tipo' => $tipo, 'importados' => $n, 'conta_id' => $conta->id,
+            'message' => $n . ($tipo === 'anuncios' ? ($n === 1 ? ' anúncio importado' : ' anúncios importados') : ($n === 1 ? ' pedido importado' : ' pedidos importados'))
+                . ' em ' . $conta->nome . '.' . ($custos ? ' Custos de ' . count($custos) . ' SKUs atualizados.' : '')]);
+    }
+
+    private static function statusAnuncio(string $s): ?string
+    {
+        $s = Planilha::normalizar($s);
+        if ($s === '') return null;
+        if (preg_match('/paus|inativ|inactive|unlist|suspens|desativ|paused|incomplete/', $s)) return 'pausado';
+        if (preg_match('/encerr|exclu|delet|closed|finaliz|banned|removid/', $s)) return 'encerrado';
+
+        return 'ativo';
+    }
+
+    /** Valor por pedido quando a planilha tem uma linha por item: o mesmo número repetido vale uma vez; diferentes, somam. */
+    private static function porPedido(array $linhas, string $campo): ?float
+    {
+        $v = array_values(array_filter(array_map(fn ($l) => Planilha::numero($l[$campo] ?? null), $linhas), fn ($x) => $x !== null));
+        if (! $v) return null;
+
+        return count(array_unique($v)) === 1 ? $v[0] : round(array_sum($v), 2);
     }
 
     private function contasSelecionadas(Request $request, int $donoId, int $max = 200)

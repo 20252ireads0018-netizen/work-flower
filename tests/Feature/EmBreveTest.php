@@ -30,7 +30,7 @@ class EmBreveTest extends TestCase
         $html = $this->actingAs(User::factory()->create())->get('/painel')->assertOk()->getContent();
 
         $this->assertStringContainsString('Em breve no Work Flower', $html);
-        foreach (['Google Drive', 'Instagram', 'TikTok', 'Shopee', 'Amazon', 'Lembretes por e-mail'] as $nome) {
+        foreach (['Google Drive', 'Lembretes por e-mail'] as $nome) {
             $this->assertStringContainsString($nome, $html);
         }
         foreach (['.env', 'META_APP', 'TIKTOK_CLIENT', 'GOOGLE_', 'chave'] as $tecnico) {
@@ -41,9 +41,18 @@ class EmBreveTest extends TestCase
     public function test_item_some_quando_fica_pronto_e_secao_some_sem_itens(): void
     {
         $this->semNada();
-        $this->assertContains('instagram', array_column(EmBreve::itens(), 'chave'));
-        config(['services.meta.id' => 'x', 'services.meta.secret' => 'y']);
-        $this->assertNotContains('instagram', array_column(EmBreve::itens(), 'chave'));
+        $this->assertContains('lembretes', array_column(EmBreve::itens(), 'chave'));
+        config(['mail.default' => 'smtp', 'mail.mailers.smtp.password' => 'senha-de-verdade']);
+        $this->assertNotContains('lembretes', array_column(EmBreve::itens(), 'chave'));
+    }
+
+    public function test_instagram_tiktok_shopee_e_amazon_sairam_do_em_breve(): void
+    {
+        $this->semNada(); // mesmo sem nenhuma chave: funcionam com a importação manual
+        $chaves = array_column(EmBreve::itens(), 'chave');
+        foreach (['instagram', 'tiktok', 'shopee', 'amazon'] as $c) {
+            $this->assertNotContains($c, $chaves);
+        }
     }
 
     public function test_drive_so_para_admin_enquanto_o_app_do_google_esta_em_teste(): void

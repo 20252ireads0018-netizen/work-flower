@@ -12,7 +12,7 @@ class MktConta extends Model
 
     protected $fillable = [
         'user_id', 'canal', 'nome', 'externo_id', 'access_token', 'refresh_token', 'expira_em',
-        'extra', 'regras', 'demo', 'ativa', 'erro', 'sincronizado_em',
+        'extra', 'regras', 'demo', 'manual', 'ativa', 'erro', 'sincronizado_em',
     ];
 
     protected $hidden = ['access_token', 'refresh_token'];
@@ -27,6 +27,7 @@ class MktConta extends Model
             'extra'           => 'array',
             'regras'          => 'array',
             'demo'            => 'boolean',
+            'manual'          => 'boolean',
             'ativa'           => 'boolean',
         ];
     }
