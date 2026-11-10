@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+  <!-- Identidade "Estúdio neon": disco de vinil, barras de equalizador e ondas sonoras em magenta e laranja -->
+  <defs>
+    <radialGradient id="fundo" cx=".7" cy=".4" r=".9"><stop offset="0" stop-color="#3a0d3c"/><stop offset="1" stop-color="#0e0a14"/></radialGradient>
+    <linearGradient id="barra" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff3d8b"/><stop offset="1" stop-color="#ffb84d"/></linearGradient>
+    <radialGradient id="disco" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#2a2a2e"/><stop offset="1" stop-color="#0b0b0d"/></radialGradient>
+    <filter id="brilho"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#fundo)"/>
+  <!-- vinil -->
+  <g transform="translate(1130,420)">
+    <circle r="330" fill="url(#disco)"/>
+    <g fill="none" stroke="#3b3b42" stroke-width="2"><circle r="300"/><circle r="270"/><circle r="240"/><circle r="210"/><circle r="180"/><circle r="150"/></g>
+    <path d="M-250,-200 A320,320 0 0 1 120,-300" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="30"/>
+    <circle r="100" fill="#ff8a3d"/><circle r="100" fill="none" stroke="#ff3d8b" stroke-width="10"/><circle r="12" fill="#0e0a14"/>
+  </g>
+  <!-- braço -->
+  <path d="M1500,110 L1500,170 L1360,430" fill="none" stroke="#c9c9d1" stroke-width="12" stroke-linecap="round"/><circle cx="1500" cy="110" r="30" fill="#c9c9d1"/><rect x="1338" y="420" width="40" height="26" rx="4" fill="#c9c9d1" transform="rotate(-60 1358 433)"/>
+  <!-- equalizador -->
+  <g fill="url(#barra)" filter="url(#brilho)">
+    <rect x="80" y="700" width="34" height="220" rx="6"/><rect x="130" y="620" width="34" height="300" rx="6"/><rect x="180" y="760" width="34" height="160" rx="6"/>
+    <rect x="230" y="560" width="34" height="360" rx="6"/><rect x="280" y="680" width="34" height="240" rx="6"/><rect x="330" y="600" width="34" height="320" rx="6"/>
+    <rect x="380" y="740" width="34" height="180" rx="6"/><rect x="430" y="650" width="34" height="270" rx="6"/><rect x="480" y="790" width="34" height="130" rx="6"/>
+    <rect x="530" y="700" width="34" height="220" rx="6"/><rect x="580" y="820" width="34" height="100" rx="6"/>
+  </g>
+  <!-- ondas sonoras -->
+  <g fill="none" stroke-width="4" filter="url(#brilho)">
+    <path d="M0,330 C80,250 160,410 240,330 S400,250 480,330 S640,410 720,330" stroke="#ff3d8b"/>
+    <path d="M0,380 C80,320 160,440 240,380 S400,320 480,380 S640,440 720,380" stroke="#ffb84d" opacity=".8"/>
+    <path d="M0,430 C80,390 160,470 240,430 S400,390 480,430 S640,470 720,430" stroke="#47e5ff" opacity=".6"/>
+  </g>
+  <!-- notas -->
+  <g fill="#ffb84d" opacity=".85"><circle cx="760" cy="200" r="16"/><rect x="772" y="120" width="5" height="82"/><path d="M777,120 q30,10 30,40" stroke="#ffb84d" stroke-width="5" fill="none"/></g>
+</svg>

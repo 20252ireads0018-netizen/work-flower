@@ -25,9 +25,14 @@
                         <button type="submit" class="wf-prontos-cartao" :disabled="criando !== null"
                                 aria-label="Criar o workflow {{ $t['nome'] }}">
                             <span class="wf-prontos-capa" style="background: linear-gradient(135deg, {{ $t['cores'][0] }}, {{ $t['cores'][1] }} 55%, {{ $t['cores'][2] }}); height: {{ [150, 190, 130, 170][$i % 4] }}px">
-                                <span class="wf-prontos-emoji" aria-hidden="true">{{ $t['emoji'] }}</span>
+                                @if ($t['capa'])
+                                    <img src="{{ $t['capa'] }}" alt="" loading="lazy">
+                                @else
+                                    <span class="wf-prontos-emoji" aria-hidden="true">{{ $t['emoji'] }}</span>
+                                @endif
                             </span>
                             <span class="wf-prontos-info">
+                                <span class="wf-prontos-identidade">{{ $t['identidade'] }}</span>
                                 <b>{{ $t['nome'] }}</b>
                                 <span class="texto-2 text-xs">{{ $t['frase'] }}</span>
                                 <span class="wf-prontos-abas">
@@ -39,7 +44,7 @@
                     </form>
                 @endforeach
             </div>
-            <p class="texto-2 text-xs mt-3">Os temas inspirados em jogos usam só nomes e ideias genéricas, sem arte ou marcas oficiais. A música vem de rádios lo-fi ao vivo do YouTube e não toca sozinha: toque no botão de música da área.</p>
+            <p class="texto-2 text-xs mt-3">Cada workflow tem identidade visual própria: ilustração de fundo, cores dos cartões e música ambiente (rádios ao vivo do YouTube, que só tocam quando você aperta o botão de música da área).</p>
         </div>
     </div>
 </div>
@@ -54,7 +59,10 @@
         border: 1px solid var(--linha); background: var(--papel); color: inherit; cursor: pointer; transition: transform .15s, box-shadow .15s; }
     .wf-prontos-cartao:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,.18); }
     .wf-prontos-cartao:disabled { opacity: .6; cursor: wait; }
-    .wf-prontos-capa { display: grid; place-items: center; }
+    .wf-prontos-capa { display: grid; place-items: center; overflow: hidden; }
+    .wf-prontos-capa img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s; }
+    .wf-prontos-cartao:hover .wf-prontos-capa img { transform: scale(1.04); }
+    .wf-prontos-identidade { font-size: .66rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--tinta-2); }
     .wf-prontos-emoji { font-size: 2.6rem; filter: drop-shadow(0 4px 10px rgba(0,0,0,.25)); }
     .wf-prontos-info { display: flex; flex-direction: column; gap: .3rem; padding: .8rem .9rem .9rem; }
     .wf-prontos-abas { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .2rem; }

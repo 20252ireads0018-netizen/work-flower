@@ -26,7 +26,7 @@ class WorkflowsProntosTest extends TestCase
     {
         $u = User::factory()->create();
         $r = $this->actingAs($u)->get('/painel')->assertOk()->assertSee('Workflows prontos');
-        foreach (['Estudos', 'Jornada Pokémon', 'Gaming', 'Negócios', 'Music production', 'Leitura', 'Fitness', 'Viagem', 'Escrita e worldbuilding'] as $nome) {
+        foreach (['Estudos', 'Projetos', 'Game dev', 'Negócios', 'Music production', 'Leitura', 'Fitness', 'Viagem', 'Escrita e worldbuilding'] as $nome) {
             $r->assertSee($nome);
         }
         $this->assertGreaterThanOrEqual(9, count(WorkflowsProntos::temas()));
@@ -106,9 +106,9 @@ class WorkflowsProntosTest extends TestCase
     public function test_mesmo_tema_duas_vezes_ganha_nome_novo_e_tema_desconhecido_falha(): void
     {
         $u = User::factory()->create();
-        $this->actingAs($u)->post(route('workflows.prontos.criar', 'gaming'));
-        $this->actingAs($u)->post(route('workflows.prontos.criar', 'gaming'));
-        $this->assertSame(['Gaming', 'Gaming 2'], array_column(AreasConta::config($u->fresh())['extras'], 'nome'));
+        $this->actingAs($u)->post(route('workflows.prontos.criar', 'gamedev'));
+        $this->actingAs($u)->post(route('workflows.prontos.criar', 'gamedev'));
+        $this->assertSame(['Game dev', 'Game dev 2'], array_column(AreasConta::config($u->fresh())['extras'], 'nome'));
 
         $this->actingAs($u)->from('/painel')->post(route('workflows.prontos.criar', 'naoexiste'))->assertRedirect('/painel')->assertSessionHas('erro');
         $this->actingAs($u)->postJson(route('workflows.prontos.criar', 'naoexiste'))->assertStatus(422);
@@ -136,5 +136,29 @@ class WorkflowsProntosTest extends TestCase
             $this->assertSame([1280, 800, 'image/jpeg'], [$info[0], $info[1], $info['mime']]);
             $this->assertLessThan(400000, strlen($url));
         }
+    }
+
+    public function test_cada_tema_tem_ilustracao_propria_e_vai_para_o_fundo(): void
+    {
+        $vistas = [];
+        foreach (array_keys(WorkflowsProntos::temas()) as $tema) {
+            $url = WorkflowsProntos::ilustracao($tema);
+            $this->assertNotNull($url, "sem ilustração: $tema");
+            $info = getimagesizefromstring(base64_decode(substr($url, strlen('data:image/jpeg;base64,'))));
+            $this->assertSame([1600, 1000, 'image/jpeg'], [$info[0], $info[1], $info['mime']]);
+            $this->assertFileExists(resource_path("workflows-prontos/{$tema}.svg"));
+            $this->assertFileExists(public_path("img/workflows-prontos/{$tema}.jpg"));
+            $vistas[] = md5($url);
+        }
+        $this->assertSame(count($vistas), count(array_unique($vistas))); // nenhuma repetida
+        $this->assertNull(WorkflowsProntos::ilustracao('../env'));
+
+        $u = User::factory()->create();
+        $this->actingAs($u)->get('/painel')->assertOk()->assertSee('img/workflows-prontos/projetos.jpg', false)->assertSee('Onda japonesa');
+        $this->actingAs($u)->post(route('workflows.prontos.criar', 'projetos'));
+        $e = $this->estado($u->id);
+        $aba = $e['abas'][count($e['abas']) - 1]['id'];
+        $this->assertSame(WorkflowsProntos::ilustracao('projetos'),
+            CorpoDado::where('user_id', $u->id)->where('chave', Ambiente::chave('diverso', $aba) . '.img')->value('valor'));
     }
 }

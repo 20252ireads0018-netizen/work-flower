@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+  <!-- Identidade "Pôster de viagem retrô": sol listrado, mar turquesa, veleiro, avião com rastro e moldura de selo -->
+  <defs>
+    <linearGradient id="ceu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbe3b5"/><stop offset="1" stop-color="#f6c48f"/></linearGradient>
+    <linearGradient id="mar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2bb3b1"/><stop offset="1" stop-color="#11707a"/></linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#ceu)"/>
+  <circle cx="800" cy="560" r="300" fill="#f28c4b"/>
+  <g fill="#fbe3b5"><rect x="480" y="470" width="640" height="14"/><rect x="480" y="510" width="640" height="18"/><rect x="480" y="554" width="640" height="22"/></g>
+  <!-- rastro e avião -->
+  <path d="M120,300 C400,180 700,240 1060,150" fill="none" stroke="#fff" stroke-width="6" stroke-dasharray="18 14" stroke-linecap="round"/>
+  <g transform="translate(1100,140) rotate(-12)" fill="#2d4a6b">
+    <path d="M-40,-6 L40,-6 C56,-6 56,6 40,6 L-40,6 Z"/><path d="M-6,-6 L14,-44 L26,-44 L16,-6 Z"/><path d="M-6,6 L14,44 L26,44 L16,6 Z"/><path d="M-40,-6 L-50,-22 L-40,-22 L-30,-6 Z"/>
+  </g>
+  <!-- mar -->
+  <rect y="600" width="1600" height="400" fill="url(#mar)"/>
+  <g stroke="#bff1ea" stroke-width="5" stroke-linecap="round" fill="none" opacity=".75">
+    <path d="M100,680 q30,-16 60,0 q30,16 60,0"/><path d="M420,740 q30,-16 60,0 q30,16 60,0"/><path d="M900,700 q30,-16 60,0 q30,16 60,0"/>
+    <path d="M1260,780 q30,-16 60,0 q30,16 60,0"/><path d="M640,860 q30,-16 60,0 q30,16 60,0"/><path d="M1100,900 q30,-16 60,0 q30,16 60,0"/><path d="M220,880 q30,-16 60,0 q30,16 60,0"/>
+  </g>
+  <!-- veleiro -->
+  <g transform="translate(1060,560)">
+    <path d="M-90,60 L110,60 L80,100 L-60,100 Z" fill="#7a3b2a"/>
+    <rect x="6" y="-170" width="8" height="232" fill="#5b3a2a"/>
+    <path d="M18,-160 L18,50 L120,50 Z" fill="#fff8ec"/><path d="M2,-140 L2,50 L-80,50 Z" fill="#f2c14e"/>
+    <path d="M14,-170 L50,-158 L14,-148 Z" fill="#d9634f"/>
+  </g>
+  <!-- palmeira -->
+  <g transform="translate(220,600)">
+    <path d="M0,0 C10,-120 30,-240 70,-330" fill="none" stroke="#7a4b2a" stroke-width="22" stroke-linecap="round"/>
+    <g fill="#2f8f5b"><path d="M70,-330 C20,-370 -60,-360 -100,-320 C-40,-330 10,-320 70,-330Z"/><path d="M70,-330 C120,-380 200,-380 240,-330 C180,-350 130,-340 70,-330Z"/><path d="M70,-330 C40,-280 -10,-250 -50,-240 C0,-280 30,-310 70,-330Z"/><path d="M70,-330 C110,-280 170,-250 210,-240 C160,-280 120,-310 70,-330Z"/><path d="M70,-330 C80,-390 120,-430 160,-440 C120,-400 100,-370 70,-330Z"/></g>
+  </g>
+  <path d="M0,600 C120,570 260,580 380,600 Z" fill="#f2d9a6"/>
+  <!-- moldura de selo -->
+  <rect x="24" y="24" width="1552" height="952" fill="none" stroke="#fff8ec" stroke-width="16" stroke-dasharray="2 22" stroke-linecap="round"/>
+</svg>

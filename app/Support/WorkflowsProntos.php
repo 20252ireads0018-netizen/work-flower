@@ -11,13 +11,13 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Workflows prontos (botão "Workflows prontos" no painel): em um clique cria uma área nova (AreasConta::criarExtra)
- * com abas, cartões iniciais coerentes com o tema e o ambiente de cada aba (fundo desenhado pelo FundoTema, cor e
- * música do YouTube, ver App\Support\Ambiente), no estilo de um mural do Pinterest: cartões coloridos em colunas
- * de alturas diferentes.
+ * com abas, cartões iniciais de um assunto sério (estudos, projetos, negócios...) e uma identidade visual própria:
+ * ilustração de fundo exclusiva (resources/workflows-prontos/{tema}.svg → .jpg; sem ela, o FundoTema desenha um
+ * degradê), cores dos cartões combinando e a música do YouTube de cada aba (App\Support\Ambiente), no estilo de um
+ * mural do Pinterest: cartões coloridos em colunas de alturas diferentes.
  *
  * As abas moram no estado do Diverso com "grupo" = id da área criada (o mesmo formato do diverso.js, v2), então
  * exportar, compartilhar, mover cartões e mudar o fundo continuam valendo como em qualquer área criada.
- * Os temas inspirados em jogos usam só nomes e ideias genéricas: nada de arte, logos ou personagens oficiais.
  */
 class WorkflowsProntos
 {
@@ -38,8 +38,8 @@ class WorkflowsProntos
     {
         return [
             'estudos' => [
-                'nome' => 'Estudos', 'frase' => 'Cronograma, revisões e foco com lo-fi.', 'emoji' => '📚',
-                'cores' => ['#fde68a', '#fca5a5', '#c4b5fd'], 'padrao' => 'caderno', 'escurecer' => 40, 'musica' => 'lTRiuFIWV54',
+                'nome' => 'Estudos', 'identidade' => 'Estudo noturno lo-fi', 'frase' => 'Cronograma, revisões e foco com lo-fi.', 'emoji' => '📚',
+                'cores' => ['#1d2340', '#6b5aa6', '#ffd58a'], 'padrao' => 'caderno', 'escurecer' => 20, 'musica' => 'lTRiuFIWV54',
                 'cartoes' => ['#fef3c7', '#fce7f3', '#ede9fe', '#dcfce7'],
                 'abas' => [
                     ['Planejamento', 'calendario', [
@@ -59,52 +59,53 @@ class WorkflowsProntos
                     ]],
                 ],
             ],
-            'pokemon' => [
-                'nome' => 'Jornada Pokémon', 'frase' => 'Time, capturas e jornada de treinador (tema de fã).', 'emoji' => '⚡',
-                'cores' => ['#fef08a', '#fb7185', '#60a5fa'], 'padrao' => 'estrelas', 'escurecer' => 35, 'musica' => '4xDzrJKXOOY',
-                'cartoes' => ['#fef9c3', '#fee2e2', '#dbeafe', '#dcfce7'],
+            'projetos' => [
+                'nome' => 'Projetos', 'identidade' => 'Onda japonesa', 'frase' => 'Escopo, roadmap, execução e riscos de um projeto.', 'emoji' => '🌊',
+                'cores' => ['#efe4cc', '#2c5383', '#c8432f'], 'padrao' => 'ondas', 'escurecer' => 15, 'musica' => '5yx6BWlEVcY',
+                'cartoes' => ['#f3ead6', '#dbe6f2', '#f6dcd6', '#e6eef7'],
                 'abas' => [
-                    ['Meu time', 'estrela', [
-                        ['tabela', '⚔️ Time principal', ['Parceiro', 'Tipo', 'Nível', 'Golpes'], [['', '', '', ''], ['', '', '', ''], ['', '', '', ''], ['', '', '', ''], ['', '', '', ''], ['', '', '', '']]],
-                        ['texto', '🧭 Estratégia', ['Quem abre a batalha:', 'Quem segura dano:', 'Plano B:']],
-                        ['lista', '🎒 Mochila', ['Poções', 'Itens de cura de status', 'Itens de captura']],
+                    ['Visão geral', 'ideia', [
+                        ['texto', '🎯 Objetivo do projeto', ['O que vamos entregar:', 'Para quem:', 'Como saberemos que deu certo:']],
+                        ['lista', '📦 Escopo (entra)', ['']],
+                        ['lista', '🚫 Fora do escopo', ['']],
+                        ['tabela', '👥 Pessoas envolvidas', ['Nome', 'Papel', 'Contato'], [['', 'Responsável', ''], ['', 'Aprovação', ''], ['', 'Execução', '']]],
                     ]],
-                    ['Capturas', 'check', [
-                        ['tabela', '📖 Registro de capturas', ['#', 'Nome', 'Onde encontrei', 'Shiny?'], [['001', '', '', ''], ['002', '', '', ''], ['003', '', '', '']]],
-                        ['lista', '🎯 Quero capturar', ['']],
+                    ['Roadmap', 'calendario', [
+                        ['tabela', '🗺️ Marcos', ['Marco', 'Data', 'Status'], [['Kickoff', '', 'Feito'], ['Primeira entrega', '', 'Em andamento'], ['Entrega final', '', 'A fazer']]],
+                        ['texto', '📌 Prioridades do mês', ['1. ', '2. ', '3. ']],
                     ]],
-                    ['Jornada', 'viagem', [
-                        ['lista', '🏅 Insígnias', ['Insígnia 1', 'Insígnia 2', 'Insígnia 3', 'Insígnia 4', 'Insígnia 5', 'Insígnia 6', 'Insígnia 7', 'Insígnia 8']],
-                        ['texto', '🗺️ Diário de viagem', ['Rota de hoje:', 'O que aconteceu:', 'Próximo destino:']],
-                        ['tabela', '🧪 Tabela de fraquezas (anotações)', ['Tipo', 'Forte contra', 'Fraco contra'], [['', '', ''], ['', '', ''], ['', '', '']]],
+                    ['Execução', 'check', [
+                        ['lista', '🧾 Backlog', ['Definir requisitos', 'Montar cronograma', 'Validar com o responsável']],
+                        ['tabela', '⚠️ Riscos', ['Risco', 'Impacto', 'Plano'], [['', 'Alto', ''], ['', 'Médio', '']]],
+                        ['texto', '📝 Ata da reunião', ['Data:', 'Decisões:', 'Próximos passos:']],
                     ]],
                 ],
             ],
-            'gaming' => [
-                'nome' => 'Gaming', 'frase' => 'Backlog, metas, builds e lives.', 'emoji' => '🎮',
-                'cores' => ['#1e1b4b', '#7c3aed', '#ec4899'], 'padrao' => 'grade', 'escurecer' => 30, 'musica' => '4xDzrJKXOOY',
-                'cartoes' => ['#ede9fe', '#fce7f3', '#e0f2fe', '#fef3c7'],
+            'gamedev' => [
+                'nome' => 'Game dev', 'identidade' => 'Arcade synthwave', 'frase' => 'Documento de design, sprints, bugs e playtests.', 'emoji' => '🕹️',
+                'cores' => ['#0d0628', '#7a1f6f', '#ff8a5b'], 'padrao' => 'grade', 'escurecer' => 25, 'musica' => '4xDzrJKXOOY',
+                'cartoes' => ['#ede9fe', '#fce7f3', '#e0f2fe', '#ffedd5'],
                 'abas' => [
-                    ['Backlog', 'jogo', [
-                        ['tabela', '🕹️ Backlog', ['Jogo', 'Plataforma', 'Status', 'Nota'], [['', '', 'Jogando', ''], ['', '', 'Na fila', ''], ['', '', 'Zerado', '']]],
-                        ['lista', '🏆 Conquistas que quero', ['']],
-                        ['texto', '⭐ Jogo do mês', ['Nome:', 'Por que estou jogando:', 'Impressões:']],
+                    ['Design', 'ideia', [
+                        ['texto', '💡 Conceito', ['Gênero:', 'Em uma frase:', 'Plataformas:', 'Público:']],
+                        ['lista', '🏛️ Pilares do jogo', ['', '', '']],
+                        ['tabela', '🔁 Loop principal', ['Ação', 'Recompensa', 'Por que volta'], [['', '', ''], ['', '', '']]],
                     ]],
-                    ['Ranked', 'grafico', [
-                        ['tabela', '📈 Evolução', ['Data', 'Rank', 'Vitórias', 'Derrotas'], [['', '', '', ''], ['', '', '', '']]],
-                        ['texto', '🧩 Build / loadout', ['Personagem / classe:', 'Itens:', 'Por que funciona:']],
-                        ['lista', '🎯 Treino da semana', ['Aquecimento 15 min', 'Revisar replay de uma derrota', 'Treinar mira / mecânica']],
+                    ['Produção', 'codigo', [
+                        ['lista', '🏃 Sprint atual', ['Protótipo do movimento', 'Primeira fase jogável', 'Menu principal']],
+                        ['tabela', '🐞 Bugs', ['Bug', 'Gravidade', 'Status'], [['', 'Alta', 'Aberto'], ['', 'Baixa', 'Aberto']]],
+                        ['texto', '🧱 Decisões técnicas', ['Engine:', 'Controle de versão:', 'Padrões do projeto:']],
                     ]],
-                    ['Lives', 'chat', [
-                        ['tabela', '📺 Agenda de lives', ['Dia', 'Horário', 'Jogo'], [['', '', ''], ['', '', '']]],
-                        ['lista', '💡 Ideias de conteúdo', ['Desafio da comunidade', 'Melhores momentos da semana']],
+                    ['Playtests', 'usuario', [
+                        ['tabela', '🧪 Rodadas de teste', ['Data', 'Testador', 'O que achou', 'Ação'], [['', '', '', ''], ['', '', '', '']]],
+                        ['lista', '🚀 Antes de lançar', ['Página na loja', 'Trailer', 'Build de demonstração', 'Lista de imprensa']],
                     ]],
                 ],
             ],
             'negocios' => [
-                'nome' => 'Negócios', 'frase' => 'Metas, funil de vendas e rotina do negócio.', 'emoji' => '💼',
-                'cores' => ['#0f172a', '#1e3a8a', '#0d9488'], 'padrao' => 'pontos', 'escurecer' => 35, 'musica' => '5yx6BWlEVcY',
-                'cartoes' => ['#e0f2fe', '#dcfce7', '#f1f5f9', '#fef3c7'],
+                'nome' => 'Negócios', 'identidade' => 'Art déco dourado', 'frase' => 'Metas, funil de vendas e rotina do negócio.', 'emoji' => '💼',
+                'cores' => ['#061a17', '#0b2b26', '#c9a24a'], 'padrao' => 'pontos', 'escurecer' => 20, 'musica' => '5yx6BWlEVcY',
+                'cartoes' => ['#f3e7c4', '#dcebe5', '#efe9d8', '#e3efe9'],
                 'abas' => [
                     ['Visão', 'ideia', [
                         ['texto', '🧭 Visão e proposta de valor', ['Para quem:', 'Problema que resolvo:', 'Por que eu:']],
@@ -123,8 +124,8 @@ class WorkflowsProntos
                 ],
             ],
             'musica' => [
-                'nome' => 'Music production', 'frase' => 'Projetos, sessões de estúdio e lançamentos.', 'emoji' => '🎛️',
-                'cores' => ['#111827', '#be185d', '#f59e0b'], 'padrao' => 'ondas', 'escurecer' => 30, 'musica' => '5yx6BWlEVcY',
+                'nome' => 'Music production', 'identidade' => 'Estúdio neon', 'frase' => 'Projetos, sessões de estúdio e lançamentos.', 'emoji' => '🎛️',
+                'cores' => ['#0e0a14', '#3a0d3c', '#ff8a3d'], 'padrao' => 'ondas', 'escurecer' => 20, 'musica' => '5yx6BWlEVcY',
                 'cartoes' => ['#fce7f3', '#fef3c7', '#ede9fe', '#e0f2fe'],
                 'abas' => [
                     ['Projetos', 'musica', [
@@ -144,9 +145,9 @@ class WorkflowsProntos
                 ],
             ],
             'leitura' => [
-                'nome' => 'Leitura', 'frase' => 'Estante, metas e citações favoritas.', 'emoji' => '📖',
-                'cores' => ['#78350f', '#d97706', '#fde68a'], 'padrao' => 'bokeh', 'escurecer' => 45, 'musica' => 'DWcJFNfaw9c',
-                'cartoes' => ['#fef3c7', '#ffedd5', '#fae8ff', '#ecfccb'],
+                'nome' => 'Leitura', 'identidade' => 'Outono aconchegante', 'frase' => 'Estante, metas e citações favoritas.', 'emoji' => '📖',
+                'cores' => ['#f6d6a8', '#e3995b', '#9c4f2a'], 'padrao' => 'bokeh', 'escurecer' => 20, 'musica' => 'DWcJFNfaw9c',
+                'cartoes' => ['#fde6c8', '#f8d6b8', '#f3e3c7', '#fbe9d5'],
                 'abas' => [
                     ['Estante', 'livro', [
                         ['tabela', '📚 Lendo agora / quero ler', ['Livro', 'Autor(a)', 'Status', 'Nota'], [['', '', 'Lendo', ''], ['', '', 'Quero ler', ''], ['', '', 'Lido', '']]],
@@ -161,9 +162,9 @@ class WorkflowsProntos
                 ],
             ],
             'fitness' => [
-                'nome' => 'Fitness', 'frase' => 'Treinos, cargas, hábitos e progresso.', 'emoji' => '💪',
-                'cores' => ['#052e16', '#16a34a', '#a3e635'], 'padrao' => 'grade', 'escurecer' => 35, 'musica' => '4xDzrJKXOOY',
-                'cartoes' => ['#dcfce7', '#ecfccb', '#e0f2fe', '#fef3c7'],
+                'nome' => 'Fitness', 'identidade' => 'Trilha ao amanhecer', 'frase' => 'Treinos, cargas, hábitos e progresso.', 'emoji' => '💪',
+                'cores' => ['#ffd9a0', '#5d9471', '#1d4a37'], 'padrao' => 'bokeh', 'escurecer' => 20, 'musica' => '4xDzrJKXOOY',
+                'cartoes' => ['#dcefe0', '#fde3cc', '#e6f2df', '#fff1d6'],
                 'abas' => [
                     ['Treinos', 'saude', [
                         ['tabela', '🏋️ Treino A / B / C', ['Dia', 'Grupo', 'Exercícios'], [['Seg', 'Peito e tríceps', ''], ['Qua', 'Costas e bíceps', ''], ['Sex', 'Pernas e ombros', '']]],
@@ -178,9 +179,9 @@ class WorkflowsProntos
                 ],
             ],
             'viagem' => [
-                'nome' => 'Viagem', 'frase' => 'Roteiro, orçamento e mala pronta.', 'emoji' => '✈️',
-                'cores' => ['#0ea5e9', '#22d3ee', '#fde68a'], 'padrao' => 'bokeh', 'escurecer' => 40, 'musica' => '7NOSDKb0HlU',
-                'cartoes' => ['#e0f2fe', '#fef3c7', '#ccfbf1', '#fce7f3'],
+                'nome' => 'Viagem', 'identidade' => 'Pôster de viagem retrô', 'frase' => 'Roteiro, orçamento e mala pronta.', 'emoji' => '✈️',
+                'cores' => ['#fbe3b5', '#f28c4b', '#11707a'], 'padrao' => 'bokeh', 'escurecer' => 20, 'musica' => '7NOSDKb0HlU',
+                'cartoes' => ['#d5f3ef', '#fde3c8', '#fff3dc', '#f9d9c9'],
                 'abas' => [
                     ['Roteiro', 'viagem', [
                         ['tabela', '🗺️ Roteiro dia a dia', ['Dia', 'Cidade', 'Programa'], [['1', '', ''], ['2', '', ''], ['3', '', '']]],
@@ -195,8 +196,8 @@ class WorkflowsProntos
                 ],
             ],
             'escrita' => [
-                'nome' => 'Escrita e worldbuilding', 'frase' => 'Mundo, personagens, enredo e metas de escrita.', 'emoji' => '🖋️',
-                'cores' => ['#1e1b4b', '#4338ca', '#a78bfa'], 'padrao' => 'estrelas', 'escurecer' => 40, 'musica' => 'DWcJFNfaw9c',
+                'nome' => 'Escrita e worldbuilding', 'identidade' => 'Fantasia ao luar', 'frase' => 'Mundo, personagens, enredo e metas de escrita.', 'emoji' => '🖋️',
+                'cores' => ['#0d0b2b', '#2a1f5f', '#b48cff'], 'padrao' => 'estrelas', 'escurecer' => 20, 'musica' => 'DWcJFNfaw9c',
                 'cartoes' => ['#ede9fe', '#e0e7ff', '#fae8ff', '#fef3c7'],
                 'abas' => [
                     ['Mundo', 'globo', [
@@ -224,7 +225,9 @@ class WorkflowsProntos
         $saida = [];
         foreach (self::temas() as $id => $t) {
             $saida[] = [
-                'id' => $id, 'nome' => $t['nome'], 'frase' => $t['frase'], 'emoji' => $t['emoji'], 'cores' => $t['cores'],
+                'id' => $id, 'nome' => $t['nome'], 'identidade' => $t['identidade'], 'frase' => $t['frase'], 'emoji' => $t['emoji'], 'cores' => $t['cores'],
+                // miniatura da ilustração (public/img/workflows-prontos/{tema}.jpg)
+                'capa' => is_file(public_path("img/workflows-prontos/{$id}.jpg")) ? asset("img/workflows-prontos/{$id}.jpg") : null,
                 'abas' => array_map(fn ($a) => $a[0], $t['abas']),
                 'cartoes' => array_sum(array_map(fn ($a) => count($a[2]), $t['abas'])),
             ];
@@ -264,7 +267,7 @@ class WorkflowsProntos
 
         return DB::transaction(function () use ($request, $u, $t, $tema, $e, $nome) {
             $area = AreasConta::criarExtra($u, $nome);
-            $fundo = FundoTema::gerar($t['cores'], $t['padrao'], crc32($tema));
+            $fundo = self::ilustracao($tema) ?? FundoTema::gerar($t['cores'], $t['padrao'], crc32($tema));
             $usados = [];
             $setores = [];
 
@@ -314,6 +317,20 @@ class WorkflowsProntos
 
             return $area + ['url' => route('areas.extra', $area['id'])];
         });
+    }
+
+    /**
+     * Ilustração do tema (identidade visual própria): resources/workflows-prontos/{tema}.jpg, gerada a partir do
+     * {tema}.svg da mesma pasta. Volta como data URL JPEG, o formato que o fundo do Ambiente guarda; null se não houver.
+     */
+    public static function ilustracao(string $tema): ?string
+    {
+        $arq = resource_path("workflows-prontos/{$tema}.jpg");
+        if (! preg_match('/^[a-z]+$/', $tema) || ! is_file($arq)) {
+            return null;
+        }
+
+        return 'data:image/jpeg;base64,' . base64_encode((string) file_get_contents($arq));
     }
 
     /** Altura do cartão pelo conteúdo (o cabeçalho do cartão tem ~46px). */
