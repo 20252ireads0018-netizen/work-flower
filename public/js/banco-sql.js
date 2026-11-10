@@ -8,11 +8,13 @@
        sqlz.<id>.<versão>.<tabela>.<n>  linhas, em pedaços de gzip+base64 (< 6 MB cada), baixados só quando a tabela abre
      Formato antigo (até 11/2026): b.dados.tabelas no estado e img.<id>.sql com as linhas em JSON. Continua abrindo.
    - b.dados guarda só o leve: versao, arquivo, resumo, visao e as posições das tabelas que a pessoa arrastou.
-   Estende o diverso.js + diagrama.js: carregue depois deles; continua usando x-data="diversoAbasDiagrama()". */
+   Estende o diverso.js + diagrama.js: carregue depois deles; continua usando x-data="diversoAbasDiagrama()".
+   Nas outras áreas (cartão levado do Diverso; App\Support\MoverCartoes) o public/js/cartoes-diverso.js usa
+   WFBancoSql.estender(componente): as linhas vão para a tabela da área (App\Support\PedacosBanco). */
 (function () {
     'use strict';
     const Q = window.WFQuadro;
-    if (!Q || typeof window.diversoAbasDiagrama !== 'function') return;
+    if (!Q) return;
     const { uid } = Q.util;
     const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     const num = n => Number(n || 0).toLocaleString('pt-BR');
@@ -1218,12 +1220,9 @@
         };
     }
 
-    window.WFBancoSql = { sessoes, arrumar };
-
-    const anterior = window.diversoAbasDiagrama;
-    window.diversoAbasDiagrama = function () {
-        const base = anterior();
-        base.tiposBloco = [...base.tiposBloco, { id: 'banco', nome: 'Banco de dados (.sql)' }];
+    /** Mistura o cartão no componente do quadro (base precisa de criarBloco e apagarImagens). Sem oferecer = não entra no "+ Bloco". */
+    function estender(base, oferecer = true) {
+        if (oferecer && !base.tiposBloco.some(t => t.id === 'banco')) base.tiposBloco = [...base.tiposBloco, { id: 'banco', nome: 'Banco de dados (.sql)' }];
         const criar = base.criarBloco;
         base.criarBloco = function (sec, tipo, pos, over = {}) {
             if (tipo !== 'banco') return criar.call(this, sec, tipo, pos, over);
@@ -1252,5 +1251,10 @@
             return r;
         };
         return base;
-    };
+    }
+
+    window.WFBancoSql = { sessoes, arrumar, estender, tipo: { id: 'banco', nome: 'Banco de dados (.sql)' } };
+
+    const anterior = window.diversoAbasDiagrama;
+    if (typeof anterior === 'function') window.diversoAbasDiagrama = function () { return estender(anterior()); };
 })();

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CarteiraDado;
 use App\Models\Tarefa;
 use App\Support\Compartilhar;
+use App\Support\PedacosBanco;
 use App\Support\Sincronia;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,8 @@ class CarteiraController extends Controller
         // abas retiradas (Trabalho e Mapa mental): os cartões delas vão para o Quadro livre antes de ler o estado
         \App\Support\AbasRetiradas::migrarConta(self::SLUG, $donoId);
 
-        $dados = CarteiraDado::where('user_id', $donoId)->pluck('valor', 'chave');
+        // as linhas do cartão Banco de dados (sqlz.*, PedacosBanco) ficam fora da página
+        $dados = CarteiraDado::where('user_id', $donoId)->where('chave', 'not like', PedacosBanco::PREFIXO . '%')->pluck('valor', 'chave');
 
         // Ajuste aqui se o seu model Tarefa usar outros nomes de coluna.
         $tarefas = Tarefa::where('user_id', $donoId)
@@ -53,9 +55,16 @@ class CarteiraController extends Controller
         return Sincronia::gravar($request, self::SLUG, Compartilhar::dono($request, self::SLUG), $chave, $data['valor'] ?? null);
     }
 
+    /** GET /carteira/dados/sqlz.* : um pedaço do cartão Banco de dados (vem do Diverso; PedacosBanco) */
+    public function ler(Request $request, string $chave): JsonResponse
+    {
+        return PedacosBanco::ler($request, self::SLUG, $chave);
+    }
+
     /** DELETE /carteira/dados/{chave} */
     public function remover(Request $request, string $chave): JsonResponse
     {
+        if (PedacosBanco::eh($chave)) return PedacosBanco::apagar($request, self::SLUG, $chave);
         CarteiraDado::where('user_id', Compartilhar::dono($request, self::SLUG))->where('chave', $chave)->delete();
 
         return response()->json(['ok' => true]);

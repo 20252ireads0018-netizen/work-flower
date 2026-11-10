@@ -14,8 +14,9 @@
     const SEC = 'quadro'; // primeira aba criada: é nela que ficam os cartões de tarefas
     const MAX_ABAS = 20;  // máximo de abas por área (o Diverso e cada área criada; MoverCartoes::MAX_ABAS_GRUPO no servidor)
     const ICONE_PADRAO = 'pasta';
-    // Tipos de bloco que não existem mais: blocos antigos desses tipos são apagados ao abrir a página
-    const REMOVIDOS = ['documento', 'compras', 'escrita', 'social', 'loja'];
+    // Tipos de bloco que não existem mais: blocos antigos desses tipos são apagados ao abrir a página.
+    // (O "Documento" saiu desta lista: ele vem da Mente quando cartões ou a área são levados para cá; partials/documento-cartao.)
+    const REMOVIDOS = ['compras', 'escrita', 'social', 'loja'];
     // As chaves vêm do WF_ICONES (definido na página). Lê na hora de usar, porque este arquivo carrega antes dele.
     const listaIcones = () => Object.keys(window.WF_ICONES || {});
     // Emojis de abas antigas viram o ícone equivalente
@@ -167,7 +168,7 @@
             mudou = true;
         }
 
-        // tipos removidos (Documento, Lista de compras, Escrita, Redes sociais, Loja): some o bloco, a posição e as imagens (img.<bloco>.c.<item>, img.<bloco>.<produto>)
+        // tipos removidos (Lista de compras, Escrita, Redes sociais, Loja): some o bloco, a posição e as imagens (img.<bloco>.c.<item>, img.<bloco>.<produto>)
         const mortos = e.blocos.filter(b => REMOVIDOS.includes(b?.tipo));
         if (mortos.length) {
             mortos.forEach(b => {
@@ -388,298 +389,12 @@
         document.head.appendChild(st);
     })();
 
-    window.diversoAbas = function () {
-        const cfg = lerCfg();
-        let e = null;
-        try { if (cfg.dados.estado) e = JSON.parse(cfg.dados.estado); } catch { /* usa o padrão */ }
-        e = e && typeof e === 'object' ? e : {};
-        e.layout = e.layout && typeof e.layout === 'object' && !Array.isArray(e.layout) ? e.layout : {};
-        e.blocos = Array.isArray(e.blocos) ? e.blocos.filter(b => b && typeof b === 'object' && b.id) : [];
-        const migracao = migrar(e);
-        e.pecasSalvas = normalizarModelos(e.pecasSalvas); // "Minhas peças" do tabletop
-        e.layout[SEC] ??= {};
-        const estado = e;
-        const imagens = {};
-        Object.keys(cfg.dados).filter(k => k.startsWith('img.')).forEach(k => {
-            try { imagens[k.slice(4)] = JSON.parse(cfg.dados[k]); } catch { /* ignora */ }
-        });
-        const motor = Q.metodos(PADRAO);
+    /* ---------- Tabletop: métodos do cartão (tt*) ----------
+       Misturados no componente do Diverso e, pelo cartoes-diverso.js, no das áreas que recebem o cartão (Corpo, Mente,
+       Carteira, Negócios). Usam do componente: estado (blocos e pecasSalvas), imagens, cfg.url, ui, aviso() e apagarImagens(). */
+    function metodosTabletop() {
         const copia = o => JSON.parse(JSON.stringify(o));
-        const vivo = window.WFTabletopVivo
-            ? window.WFTabletopVivo.metodos({ uid, copia, reduzirSrc, normalizarTabletop })
-            : {};
-
         return {
-            ...Q.estadoUI(), ...motor, ...vivo,
-            cfg, estado, imagens, tarefas: cfg.tarefas || [], aba: abasDaVista(estado, cfg)[0]?.id ?? null,
-            grupos: cfg.grupos || [], maxAbas: MAX_ABAS,
-            icones: listaIcones(), formAba: null,
-            ui: {}, ultimo: null,
-            paleta: PALETA,
-            tiposBloco: [
-                { id: 'texto', nome: 'Campo de texto' }, { id: 'tabela', nome: 'Tabela' },
-                { id: 'lista', nome: 'Lista de itens' }, { id: 'imagem', nome: 'Imagem' },
-                { id: 'mapa', nome: 'Mapa mental' },
-                { id: 'codigo', nome: 'GitHub / VS Code' },
-                { id: 'tabletop', nome: 'Tabletop' },
-            ],
-            ttPecas: TT_PECAS, ttFormas: TT_FORMAS, ttFerramentas: TT_FERRAMENTAS,
-            uid, num, r1, brl, fmt,
-            pct(v, m) { return m > 0 ? Math.min(Math.max(v / m * 100, 0), 100) : 0; },
-
-            init() {
-                // cartões ativos que apontam para uma aba que não existe mais caem na aba principal
-                if (Q.EMBED && !this.abaExiste(Q.EMBED.sec)) Q.EMBED.sec = SEC;
-                // tabletops colados da biblioteca antes desta correção podem ter nomes null: conserta e salva de novo
-                let reparou = false;
-                this.estado.blocos.forEach(b => { if (b.tipo === 'tabletop' && normalizarTabletop(b.dados)) reparou = true; });
-                this.zTop = this.maiorZ();
-                this.$watch('estado', () => { this.agendar(); this.vivoAlterou?.(); });
-                // avisa o ambiente (partials/ambiente) de qual setor está aberto: cada aba pode ter fundo e música próprios
-                const avisarSetor = () => { const a = (this.estado.abas).find(x => x.id === this.aba); window.wfSetorAtual = { id: this.aba || '', nome: a ? a.nome : '' }; window.dispatchEvent(new CustomEvent('wf-setor', { detail: window.wfSetorAtual })); };
-                this.$watch('aba', avisarSetor); avisarSetor();
-                this.initQuadro();
-                this.vivoIniciarTudo?.();
-                const urgente = () => { if (this.salvo === 'pendente') this.gravarEstado(); };
-                document.addEventListener('visibilitychange', () => { if (document.hidden) urgente(); });
-                window.addEventListener('pagehide', urgente);
-                migracao.orfaos.forEach(id => this.apagarImagens(id));
-                if (!this.cfg.dados.estado || migracao.mudou || reparou) this.agendar();
-            },
-
-            /* ---------- abas (nome e ícone escolhidos pelo usuário) ---------- */
-            abaExiste(id) { return id === SEC || this.estado.abas.some(a => a.id === id); },
-            /** Abas desta página: as do Diverso, ou só as da área criada que está aberta (cfg.grupo). */
-            abasVisiveis() { return abasDaVista(this.estado, this.cfg); },
-            grupoDe(a) { return grupoDaAba(a, this.cfg); },
-            nomeGrupo(g) { return g ? (this.grupos.find(x => x.id === g)?.nome || 'Diverso') : 'Diverso'; },
-            irPara(id) { this.aba = id; this.menuBloco = false; this.formAba = null; },
-            abrirNovaAba() {
-                if (this.abasVisiveis().length >= MAX_ABAS) { this.aviso(`Limite de ${MAX_ABAS} abas. Exclua alguma para criar outra.`); return; }
-                this.menuBloco = false;
-                const ic = listaIcones();
-                this.formAba = { id: null, nome: '', icone: ic.length ? ic[this.abasVisiveis().length % ic.length] : ICONE_PADRAO, grupo: this.cfg.grupo || '' };
-                this.focarNomeAba();
-            },
-            editarAba(a) {
-                this.menuBloco = false;
-                this.aba = a.id;
-                this.formAba = { id: a.id, nome: a.nome, icone: normalizarIcone(a.icone), grupo: this.grupoDe(a) };
-                this.focarNomeAba();
-            },
-            focarNomeAba() {
-                this.$nextTick(() => { const i = this.$refs.nomeAba; if (i) { i.focus(); i.select(); } });
-            },
-            cancelarAba() { this.formAba = null; },
-            salvarAba() {
-                const f = this.formAba;
-                if (!f) return;
-                const icone = normalizarIcone(f.icone);
-                const grupo = this.grupos.some(x => x.id === f.grupo) ? f.grupo : '';
-                if (f.id) {
-                    const a = this.estado.abas.find(x => x.id === f.id);
-                    if (a) {
-                        a.nome = String(f.nome || '').trim().slice(0, 40) || a.nome; a.icone = icone;
-                        // trocar de área (Diverso ou uma área criada): a aba vai inteira, com os cartões e as imagens
-                        if (a.id !== SEC && grupo !== this.grupoDe(a)) {
-                            const lotada = this.estado.abas.filter(x => x.id !== a.id && this.grupoDe(x) === grupo).length >= MAX_ABAS;
-                            if (lotada) { this.aviso(`${this.nomeGrupo(grupo)} já tem ${MAX_ABAS} abas. Exclua alguma antes de mover esta.`); return; }
-                            if (grupo) a.grupo = grupo; else delete a.grupo;
-                            if (!this.cfg.todas) {
-                                this.aba = this.abasVisiveis()[0]?.id ?? null;
-                                this.aviso(`Aba "${a.nome}" movida para ${this.nomeGrupo(grupo)}.`);
-                            }
-                        }
-                    }
-                    this.formAba = null;
-                    return;
-                }
-                if (this.abasVisiveis().length >= MAX_ABAS) { this.formAba = null; return; }
-                let n = this.abasVisiveis().length + 1;
-                const nome = String(f.nome || '').trim().slice(0, 40) || `Aba ${n}`;
-                // a primeira aba do Diverso guarda os cartões de tarefas (eles pertencem ao quadro "quadro")
-                const doDiverso = !this.cfg.grupo;
-                const id = doDiverso && this.abasVisiveis().length === 0 && !this.estado.abas.some(a => a.id === SEC) ? SEC : 'a' + uid();
-                this.estado.abas.push({ id, nome, icone, ...(this.cfg.grupo ? { grupo: this.cfg.grupo } : {}) });
-                this.estado.layout[id] ??= {};
-                this.formAba = null;
-                this.aba = id;
-            },
-            removerAba(a) {
-                if (a.id === SEC) { this.aviso('A primeira aba guarda as tarefas e não pode ser excluída. Você pode renomeá-la e trocar o ícone.'); return; }
-                const blocos = this.estado.blocos.filter(b => b.secao === a.id);
-                const texto = blocos.length
-                    ? `Excluir a aba "${a.nome}" e os ${blocos.length} bloco(s) dela? Não dá para desfazer.`
-                    : `Excluir a aba "${a.nome}"?`;
-                if (!confirm(texto)) return;
-                blocos.forEach(b => this.apagarImagens(b.id));
-                this.estado.blocos = this.estado.blocos.filter(b => b.secao !== a.id);
-                delete this.estado.layout[a.id];
-                this.estado.abas = this.estado.abas.filter(x => x.id !== a.id);
-                this.formAba = null;
-                this.aba = this.abasVisiveis()[0]?.id ?? null;
-                this.aviso('Aba excluída.');
-                // os favoritos dos cartões desta aba saem junto (public/js/favoritos.js)
-                if (window.wfFavoritosLimpar) this.$nextTick(() => window.wfFavoritosLimpar());
-            },
-
-            /* ---------- blocos ---------- */
-            criarBloco(sec, tipo, pos, over = {}) {
-                const d = defBloco(tipo);
-                if (!d) return null;
-                const id = 'b' + uid(), W = this.col || 1088, w = Math.min(d[0], W);
-                const dados = over.dados ? { ...d[3], ...over.dados } : d[3];
-                this.estado.blocos.push({ id, secao: sec, tipo, titulo: over.titulo || d[2], links: [], dados });
-                const y0 = this.alturaConteudo(sec);
-                (this.estado.layout[sec] ??= {})[id] = pos
-                    ? { x: pos.x, y: pos.y, w, h: d[1], z: ++this.zTop }
-                    : { x: 0, y: y0 ? y0 + 16 : 0, w, h: d[1], z: ++this.zTop };
-                return id;
-            },
-            novoBloco(sec, tipo) {
-                if (!this.criarBloco(sec, tipo)) return;
-                this.menuBloco = false;
-                this.aviso(`${this.tipoNome(tipo)} adicionado ao fim da aba. Arraste para onde quiser.`);
-            },
-            desfazerVisivel() { return !!this.ultimo && this.msg === 'Bloco excluído.'; },
-            tipoNome(t) { return t === 'vivo' ? 'Cartão ativo' : (this.tiposBloco.find(x => x.id === t)?.nome || t); },
-
-            /* Imagem do bloco: o cartão se ajusta à proporção da imagem (só quando a imagem muda,
-               para não desfazer um redimensionamento manual feito depois). */
-            ajustarImagem(b, img) {
-                if (!img.naturalWidth) return;
-                const ratio = img.naturalHeight / img.naturalWidth;
-                if (b.dados.ratio === ratio) return;
-                b.dados.ratio = ratio;
-                const L = this.estado.layout?.[b.secao]?.[b.id];
-                if (!L) return;
-                const cabecalho = 46, padding = 32;           // topo do cartão + padding do corpo
-                L.h = Math.max(Math.round((L.w - padding) * ratio) + cabecalho + padding, 80);
-            },
-
-            /* ---------- excluir (com "Desfazer" por alguns segundos; sem lixeira) ---------- */
-            removerBloco(b) {
-                const i = this.estado.blocos.findIndex(x => x.id === b.id);
-                if (i < 0) return;
-                const [bloco] = this.estado.blocos.splice(i, 1);
-                const lay = this.estado.layout[bloco.secao]?.[bloco.id];
-                if (this.estado.layout[bloco.secao]) delete this.estado.layout[bloco.secao][bloco.id];
-                // as imagens saem do servidor agora; a cópia fica só na memória enquanto dá para desfazer
-                const imgs = {};
-                Object.keys(this.imagens).filter(k => k === bloco.id || k.startsWith(bloco.id + '.')).forEach(k => { imgs[k] = this.imagens[k]; });
-                this.apagarImagens(bloco.id);
-                this.enviarParaHistorico(bloco, lay, imgs);
-                this.ultimo = { bloco: copia(bloco), lay: lay ? copia(lay) : null, imgs };
-                this.msg = 'Bloco excluído.';
-                clearTimeout(this._m);
-                this._m = setTimeout(() => { this.msg = ''; this.ultimo = null; }, 8000);
-            },
-            /* Histórico (lixeira.js): guarda uma cópia do bloco excluído para restaurar depois, na aba e posição de origem.
-               As imagens vão embutidas (reduzidas) porque o histórico fica no navegador, que tem pouco espaço. */
-            async enviarParaHistorico(bloco, lay, imgs) {
-                try {
-                    const dados = Q.normalizarDados(bloco.tipo, copia(bloco.dados || {}));
-                    let imagem = null;
-                    if (bloco.tipo === 'tabletop') {
-                        const pecas = {};
-                        for (const p of (dados.pecas || [])) {
-                            const im = p.img && imgs[`${bloco.id}.i.${p.img}`];
-                            if (im && !pecas[p.img]) pecas[p.img] = await reduzirSrc(im, 256, 0.75, 40000);
-                        }
-                        if (Object.keys(pecas).length) dados.imgs = pecas;
-                        if (imgs[`${bloco.id}.mapa`]) dados.mapaImg = await reduzirSrc(imgs[`${bloco.id}.mapa`], 900, 0.65, 180000);
-                    } else if (imgs[bloco.id]) {
-                        imagem = await reduzirSrc(imgs[bloco.id], 1100, 0.8, 300000);
-                    }
-                    const l = lay || {};
-                    window.dispatchEvent(new CustomEvent('wf-bloco-removido', { detail: {
-                        id: uid(),
-                        nome: (bloco.titulo || '').trim().slice(0, 120) || 'Sem título',
-                        tipo: bloco.tipo,
-                        titulo: String(bloco.titulo || '').slice(0, 200),
-                        dados,
-                        cor: /^#[0-9a-fA-F]{6}$/.test(l.cor || '') ? l.cor : null,
-                        w: Math.round(l.w || 360), h: Math.round(l.h || 260), x: l.x || 0, y: l.y || 0,
-                        secao: bloco.secao,
-                        imagem,
-                    } }));
-                } catch (e) { console.error('[Histórico] não consegui guardar o bloco excluído:', e); }
-            },
-            desfazerRemocao() {
-                const u = this.ultimo;
-                if (!u) return;
-                this.ultimo = null;
-                const b = copia(u.bloco);
-                if (!this.abaExiste(b.secao)) b.secao = SEC;
-                this.estado.blocos.push(b);
-                (this.estado.layout[b.secao] ??= {})[b.id] = u.lay
-                    ? { ...u.lay, z: ++this.zTop }
-                    : { x: 0, y: this.alturaConteudo(b.secao) + 16, w: 360, h: 260, z: ++this.zTop };
-                Object.entries(u.imgs).forEach(([k, v]) => {
-                    this.imagens[k] = v;
-                    Q.enviar(`${this.cfg.url}/img.${k}`, JSON.stringify(v)).catch(() => this.aviso('Não consegui salvar uma imagem restaurada.'));
-                });
-                this.aviso('Bloco restaurado.');
-            },
-            apagarImagens(id) {
-                Object.keys(this.imagens).filter(k => k === id || k.startsWith(id + '.')).forEach(k => {
-                    delete this.imagens[k];
-                    Q.enviar(`${this.cfg.url}/img.${k}`, null, 'DELETE').catch(() => {});
-                });
-            },
-
-            /* ---------- biblioteca: o tabletop leva as imagens junto ----------
-               As imagens ficam fora de `dados` (img.<bloco>.<...>); ao guardar, vão embutidas no item da
-               biblioteca e, ao colar, voltam para o servidor com o id do novo bloco.
-               O mapa de fundo do tabletop é reduzido ao guardar (é a imagem mais pesada e pode estourar o limite do servidor). */
-            async guardarBloco(b) {
-                if (b.tipo !== 'tabletop') return motor.guardarBloco.call(this, b);
-                const dados = copia(b.dados);
-                const imgs = {};
-                (dados.pecas || []).forEach(p => {
-                    if (!p.img || imgs[p.img]) return;
-                    const im = this.imagens[`${b.id}.i.${p.img}`];
-                    if (im) imgs[p.img] = im;
-                });
-                if (Object.keys(imgs).length) dados.imgs = imgs;
-                // a biblioteca inteira vai num único PUT: o mapa de fundo e as imagens das peças entram compactados
-                for (const id of Object.keys(imgs)) imgs[id] = await reduzirSrc(imgs[id], 256, 0.75, 40000);
-                const mapa = this.imagens[`${b.id}.mapa`];
-                if (mapa) dados.mapaImg = await reduzirSrc(mapa, 900, 0.65, 180000);
-                return motor.guardarBloco.call(this, { ...b, dados });
-            },
-            colarBloco(item) {
-                if (!this.aba) { this.aviso('Crie uma aba antes de colar blocos.'); return false; }
-                // vindo do Histórico: volta para a aba de origem (se ela ainda existir)
-                if (item && item.restaurar && item.secao && this.abaExiste(item.secao)) this.aba = item.secao;
-                const antes = this.estado.blocos.length;
-                motor.colarBloco.call(this, item);
-                const nb = this.estado.blocos[this.estado.blocos.length - 1];
-                if (this.estado.blocos.length === antes || !nb) return false;
-                // itens antigos da biblioteca de tipos que não existem mais (Documento, Lista de compras, Escrita, Redes sociais, Loja) não são colados
-                if (REMOVIDOS.includes(nb.tipo)) {
-                    this.estado.blocos.pop();
-                    if (this.estado.layout[nb.secao]) delete this.estado.layout[nb.secao][nb.id];
-                    this.aviso('Esse tipo de bloco não existe mais e não pode ser colado.');
-                    return false;
-                }
-                const salvar = (k, v, msg) => {
-                    this.imagens[k] = v;
-                    Q.enviar(`${this.cfg.url}/img.${k}`, JSON.stringify(v)).catch(() => this.aviso(msg));
-                };
-                if (nb.tipo === 'tabletop') {
-                    const d = copia(nb.dados);
-                    Object.entries(d.imgs || {}).forEach(([id, src]) => salvar(`${nb.id}.i.${id}`, src, 'Não consegui salvar a imagem de uma peça.'));
-                    if (d.mapaImg) salvar(`${nb.id}.mapa`, d.mapaImg, 'Não consegui salvar a imagem do mapa.');
-                    delete d.imgs; delete d.mapaImg;
-                    normalizarTabletop(d); // o servidor troca "" por null: nomes de peças voltam como texto
-                    nb.dados = d;
-                }
-                return true;
-            },
-
-            linkSeguro(u) { return /^https:\/\/[^\s]+$/i.test(String(u || '').trim()) ? String(u).trim() : '#'; },
-
             /* ---------- tabletop: mapa com grade e peças arrastáveis ---------- */
             ttUI(b) {
                 const k = 'tt.' + b.id;
@@ -1212,6 +927,318 @@
                 d.refaz = [];
                 b.dados.desenho = [];
             },
+        };
+    }
+
+    /** Biblioteca: as imagens do tabletop ficam fora de `dados` (img.<bloco>.<...>); ao guardar vão embutidas, reduzidas
+        (a biblioteca inteira vai num único PUT: o mapa de fundo e as imagens das peças entram compactados). */
+    async function tabletopParaBiblioteca(ctx, b) {
+        const dados = JSON.parse(JSON.stringify(b.dados));
+        const imgs = {};
+        (dados.pecas || []).forEach(p => {
+            if (!p.img || imgs[p.img]) return;
+            const im = ctx.imagens[`${b.id}.i.${p.img}`];
+            if (im) imgs[p.img] = im;
+        });
+        if (Object.keys(imgs).length) dados.imgs = imgs;
+        for (const id of Object.keys(imgs)) imgs[id] = await reduzirSrc(imgs[id], 256, 0.75, 40000);
+        const mapa = ctx.imagens[`${b.id}.mapa`];
+        if (mapa) dados.mapaImg = await reduzirSrc(mapa, 900, 0.65, 180000);
+        return dados;
+    }
+    /** Biblioteca: ao colar, as imagens embutidas voltam para o servidor com o id do bloco novo. */
+    function tabletopDaBiblioteca(ctx, nb) {
+        const salvar = (k, v, msg) => {
+            ctx.imagens[k] = v;
+            Q.enviar(`${ctx.cfg.url}/img.${k}`, JSON.stringify(v)).catch(() => ctx.aviso(msg));
+        };
+        const d = JSON.parse(JSON.stringify(nb.dados || {}));
+        Object.entries(d.imgs || {}).forEach(([id, src]) => salvar(`${nb.id}.i.${id}`, src, 'Não consegui salvar a imagem de uma peça.'));
+        if (d.mapaImg) salvar(`${nb.id}.mapa`, d.mapaImg, 'Não consegui salvar a imagem do mapa.');
+        delete d.imgs; delete d.mapaImg;
+        normalizarTabletop(d); // o servidor troca "" por null: nomes de peças voltam como texto
+        nb.dados = d;
+    }
+
+    /* O que as outras áreas usam para mostrar e criar o Tabletop (public/js/cartoes-diverso.js). */
+    window.WFTabletop = {
+        metodos: metodosTabletop, normalizar: normalizarTabletop, normalizarModelos, reduzirSrc,
+        paraBiblioteca: tabletopParaBiblioteca, daBiblioteca: tabletopDaBiblioteca,
+        novo: () => defBloco('tabletop'),
+        pecas: TT_PECAS, formas: TT_FORMAS, ferramentas: TT_FERRAMENTAS,
+    };
+
+    window.diversoAbas = function () {
+        const cfg = lerCfg();
+        let e = null;
+        try { if (cfg.dados.estado) e = JSON.parse(cfg.dados.estado); } catch { /* usa o padrão */ }
+        e = e && typeof e === 'object' ? e : {};
+        e.layout = e.layout && typeof e.layout === 'object' && !Array.isArray(e.layout) ? e.layout : {};
+        e.blocos = Array.isArray(e.blocos) ? e.blocos.filter(b => b && typeof b === 'object' && b.id) : [];
+        const migracao = migrar(e);
+        e.pecasSalvas = normalizarModelos(e.pecasSalvas); // "Minhas peças" do tabletop
+        e.layout[SEC] ??= {};
+        const estado = e;
+        const imagens = {};
+        Object.keys(cfg.dados).filter(k => k.startsWith('img.')).forEach(k => {
+            try { imagens[k.slice(4)] = JSON.parse(cfg.dados[k]); } catch { /* ignora */ }
+        });
+        const motor = Q.metodos(PADRAO);
+        const copia = o => JSON.parse(JSON.stringify(o));
+        const vivo = window.WFTabletopVivo
+            ? window.WFTabletopVivo.metodos({ uid, copia, reduzirSrc, normalizarTabletop })
+            : {};
+
+        return {
+            ...Q.estadoUI(), ...motor, ...vivo,
+            cfg, estado, imagens, tarefas: cfg.tarefas || [], aba: abasDaVista(estado, cfg)[0]?.id ?? null,
+            grupos: cfg.grupos || [], maxAbas: MAX_ABAS,
+            icones: listaIcones(), formAba: null,
+            ui: {}, ultimo: null,
+            paleta: PALETA,
+            tiposBloco: [
+                { id: 'texto', nome: 'Campo de texto' }, { id: 'tabela', nome: 'Tabela' },
+                { id: 'lista', nome: 'Lista de itens' }, { id: 'imagem', nome: 'Imagem' },
+                { id: 'mapa', nome: 'Mapa mental' },
+                { id: 'codigo', nome: 'GitHub / VS Code' },
+                { id: 'tabletop', nome: 'Tabletop' },
+            ],
+            ttPecas: TT_PECAS, ttFormas: TT_FORMAS, ttFerramentas: TT_FERRAMENTAS,
+            uid, num, r1, brl, fmt,
+            pct(v, m) { return m > 0 ? Math.min(Math.max(v / m * 100, 0), 100) : 0; },
+
+            init() {
+                // cartões ativos que apontam para uma aba que não existe mais caem na aba principal
+                if (Q.EMBED && !this.abaExiste(Q.EMBED.sec)) Q.EMBED.sec = SEC;
+                // tabletops colados da biblioteca antes desta correção podem ter nomes null: conserta e salva de novo
+                let reparou = false;
+                this.estado.blocos.forEach(b => { if (b.tipo === 'tabletop' && normalizarTabletop(b.dados)) reparou = true; });
+                this.zTop = this.maiorZ();
+                this.$watch('estado', () => { this.agendar(); this.vivoAlterou?.(); });
+                // avisa o ambiente (partials/ambiente) de qual setor está aberto: cada aba pode ter fundo e música próprios
+                const avisarSetor = () => { const a = (this.estado.abas).find(x => x.id === this.aba); window.wfSetorAtual = { id: this.aba || '', nome: a ? a.nome : '' }; window.dispatchEvent(new CustomEvent('wf-setor', { detail: window.wfSetorAtual })); };
+                this.$watch('aba', avisarSetor); avisarSetor();
+                this.initQuadro();
+                this.vivoIniciarTudo?.();
+                const urgente = () => { if (this.salvo === 'pendente') this.gravarEstado(); };
+                document.addEventListener('visibilitychange', () => { if (document.hidden) urgente(); });
+                window.addEventListener('pagehide', urgente);
+                migracao.orfaos.forEach(id => this.apagarImagens(id));
+                if (!this.cfg.dados.estado || migracao.mudou || reparou) this.agendar();
+            },
+
+            /* ---------- abas (nome e ícone escolhidos pelo usuário) ---------- */
+            abaExiste(id) { return id === SEC || this.estado.abas.some(a => a.id === id); },
+            /** Abas desta página: as do Diverso, ou só as da área criada que está aberta (cfg.grupo). */
+            abasVisiveis() { return abasDaVista(this.estado, this.cfg); },
+            grupoDe(a) { return grupoDaAba(a, this.cfg); },
+            nomeGrupo(g) { return g ? (this.grupos.find(x => x.id === g)?.nome || 'Diverso') : 'Diverso'; },
+            irPara(id) { this.aba = id; this.menuBloco = false; this.formAba = null; },
+            abrirNovaAba() {
+                if (this.abasVisiveis().length >= MAX_ABAS) { this.aviso(`Limite de ${MAX_ABAS} abas. Exclua alguma para criar outra.`); return; }
+                this.menuBloco = false;
+                const ic = listaIcones();
+                this.formAba = { id: null, nome: '', icone: ic.length ? ic[this.abasVisiveis().length % ic.length] : ICONE_PADRAO, grupo: this.cfg.grupo || '' };
+                this.focarNomeAba();
+            },
+            editarAba(a) {
+                this.menuBloco = false;
+                this.aba = a.id;
+                this.formAba = { id: a.id, nome: a.nome, icone: normalizarIcone(a.icone), grupo: this.grupoDe(a) };
+                this.focarNomeAba();
+            },
+            focarNomeAba() {
+                this.$nextTick(() => { const i = this.$refs.nomeAba; if (i) { i.focus(); i.select(); } });
+            },
+            cancelarAba() { this.formAba = null; },
+            salvarAba() {
+                const f = this.formAba;
+                if (!f) return;
+                const icone = normalizarIcone(f.icone);
+                const grupo = this.grupos.some(x => x.id === f.grupo) ? f.grupo : '';
+                if (f.id) {
+                    const a = this.estado.abas.find(x => x.id === f.id);
+                    if (a) {
+                        a.nome = String(f.nome || '').trim().slice(0, 40) || a.nome; a.icone = icone;
+                        // trocar de área (Diverso ou uma área criada): a aba vai inteira, com os cartões e as imagens
+                        if (a.id !== SEC && grupo !== this.grupoDe(a)) {
+                            const lotada = this.estado.abas.filter(x => x.id !== a.id && this.grupoDe(x) === grupo).length >= MAX_ABAS;
+                            if (lotada) { this.aviso(`${this.nomeGrupo(grupo)} já tem ${MAX_ABAS} abas. Exclua alguma antes de mover esta.`); return; }
+                            if (grupo) a.grupo = grupo; else delete a.grupo;
+                            if (!this.cfg.todas) {
+                                this.aba = this.abasVisiveis()[0]?.id ?? null;
+                                this.aviso(`Aba "${a.nome}" movida para ${this.nomeGrupo(grupo)}.`);
+                            }
+                        }
+                    }
+                    this.formAba = null;
+                    return;
+                }
+                if (this.abasVisiveis().length >= MAX_ABAS) { this.formAba = null; return; }
+                let n = this.abasVisiveis().length + 1;
+                const nome = String(f.nome || '').trim().slice(0, 40) || `Aba ${n}`;
+                // a primeira aba do Diverso guarda os cartões de tarefas (eles pertencem ao quadro "quadro")
+                const doDiverso = !this.cfg.grupo;
+                const id = doDiverso && this.abasVisiveis().length === 0 && !this.estado.abas.some(a => a.id === SEC) ? SEC : 'a' + uid();
+                this.estado.abas.push({ id, nome, icone, ...(this.cfg.grupo ? { grupo: this.cfg.grupo } : {}) });
+                this.estado.layout[id] ??= {};
+                this.formAba = null;
+                this.aba = id;
+            },
+            removerAba(a) {
+                if (a.id === SEC) { this.aviso('A primeira aba guarda as tarefas e não pode ser excluída. Você pode renomeá-la e trocar o ícone.'); return; }
+                const blocos = this.estado.blocos.filter(b => b.secao === a.id);
+                const texto = blocos.length
+                    ? `Excluir a aba "${a.nome}" e os ${blocos.length} bloco(s) dela? Não dá para desfazer.`
+                    : `Excluir a aba "${a.nome}"?`;
+                if (!confirm(texto)) return;
+                blocos.forEach(b => this.apagarImagens(b.id));
+                this.estado.blocos = this.estado.blocos.filter(b => b.secao !== a.id);
+                delete this.estado.layout[a.id];
+                this.estado.abas = this.estado.abas.filter(x => x.id !== a.id);
+                this.formAba = null;
+                this.aba = this.abasVisiveis()[0]?.id ?? null;
+                this.aviso('Aba excluída.');
+                // os favoritos dos cartões desta aba saem junto (public/js/favoritos.js)
+                if (window.wfFavoritosLimpar) this.$nextTick(() => window.wfFavoritosLimpar());
+            },
+
+            /* ---------- blocos ---------- */
+            criarBloco(sec, tipo, pos, over = {}) {
+                const d = defBloco(tipo);
+                if (!d) return null;
+                const id = 'b' + uid(), W = this.col || 1088, w = Math.min(d[0], W);
+                const dados = over.dados ? { ...d[3], ...over.dados } : d[3];
+                this.estado.blocos.push({ id, secao: sec, tipo, titulo: over.titulo || d[2], links: [], dados });
+                const y0 = this.alturaConteudo(sec);
+                (this.estado.layout[sec] ??= {})[id] = pos
+                    ? { x: pos.x, y: pos.y, w, h: d[1], z: ++this.zTop }
+                    : { x: 0, y: y0 ? y0 + 16 : 0, w, h: d[1], z: ++this.zTop };
+                return id;
+            },
+            novoBloco(sec, tipo) {
+                if (!this.criarBloco(sec, tipo)) return;
+                this.menuBloco = false;
+                this.aviso(`${this.tipoNome(tipo)} adicionado ao fim da aba. Arraste para onde quiser.`);
+            },
+            desfazerVisivel() { return !!this.ultimo && this.msg === 'Bloco excluído.'; },
+            tipoNome(t) { return t === 'vivo' ? 'Cartão ativo' : (this.tiposBloco.find(x => x.id === t)?.nome || t); },
+
+            /* Imagem do bloco: o cartão se ajusta à proporção da imagem (só quando a imagem muda,
+               para não desfazer um redimensionamento manual feito depois). */
+            ajustarImagem(b, img) {
+                if (!img.naturalWidth) return;
+                const ratio = img.naturalHeight / img.naturalWidth;
+                if (b.dados.ratio === ratio) return;
+                b.dados.ratio = ratio;
+                const L = this.estado.layout?.[b.secao]?.[b.id];
+                if (!L) return;
+                const cabecalho = 46, padding = 32;           // topo do cartão + padding do corpo
+                L.h = Math.max(Math.round((L.w - padding) * ratio) + cabecalho + padding, 80);
+            },
+
+            /* ---------- excluir (com "Desfazer" por alguns segundos; sem lixeira) ---------- */
+            removerBloco(b) {
+                const i = this.estado.blocos.findIndex(x => x.id === b.id);
+                if (i < 0) return;
+                const [bloco] = this.estado.blocos.splice(i, 1);
+                const lay = this.estado.layout[bloco.secao]?.[bloco.id];
+                if (this.estado.layout[bloco.secao]) delete this.estado.layout[bloco.secao][bloco.id];
+                // as imagens saem do servidor agora; a cópia fica só na memória enquanto dá para desfazer
+                const imgs = {};
+                Object.keys(this.imagens).filter(k => k === bloco.id || k.startsWith(bloco.id + '.')).forEach(k => { imgs[k] = this.imagens[k]; });
+                this.apagarImagens(bloco.id);
+                this.enviarParaHistorico(bloco, lay, imgs);
+                this.ultimo = { bloco: copia(bloco), lay: lay ? copia(lay) : null, imgs };
+                this.msg = 'Bloco excluído.';
+                clearTimeout(this._m);
+                this._m = setTimeout(() => { this.msg = ''; this.ultimo = null; }, 8000);
+            },
+            /* Histórico (lixeira.js): guarda uma cópia do bloco excluído para restaurar depois, na aba e posição de origem.
+               As imagens vão embutidas (reduzidas) porque o histórico fica no navegador, que tem pouco espaço. */
+            async enviarParaHistorico(bloco, lay, imgs) {
+                try {
+                    const dados = Q.normalizarDados(bloco.tipo, copia(bloco.dados || {}));
+                    let imagem = null;
+                    if (bloco.tipo === 'tabletop') {
+                        const pecas = {};
+                        for (const p of (dados.pecas || [])) {
+                            const im = p.img && imgs[`${bloco.id}.i.${p.img}`];
+                            if (im && !pecas[p.img]) pecas[p.img] = await reduzirSrc(im, 256, 0.75, 40000);
+                        }
+                        if (Object.keys(pecas).length) dados.imgs = pecas;
+                        if (imgs[`${bloco.id}.mapa`]) dados.mapaImg = await reduzirSrc(imgs[`${bloco.id}.mapa`], 900, 0.65, 180000);
+                    } else if (imgs[bloco.id]) {
+                        imagem = await reduzirSrc(imgs[bloco.id], 1100, 0.8, 300000);
+                    }
+                    const l = lay || {};
+                    window.dispatchEvent(new CustomEvent('wf-bloco-removido', { detail: {
+                        id: uid(),
+                        nome: (bloco.titulo || '').trim().slice(0, 120) || 'Sem título',
+                        tipo: bloco.tipo,
+                        titulo: String(bloco.titulo || '').slice(0, 200),
+                        dados,
+                        cor: /^#[0-9a-fA-F]{6}$/.test(l.cor || '') ? l.cor : null,
+                        w: Math.round(l.w || 360), h: Math.round(l.h || 260), x: l.x || 0, y: l.y || 0,
+                        secao: bloco.secao,
+                        imagem,
+                    } }));
+                } catch (e) { console.error('[Histórico] não consegui guardar o bloco excluído:', e); }
+            },
+            desfazerRemocao() {
+                const u = this.ultimo;
+                if (!u) return;
+                this.ultimo = null;
+                const b = copia(u.bloco);
+                if (!this.abaExiste(b.secao)) b.secao = SEC;
+                this.estado.blocos.push(b);
+                (this.estado.layout[b.secao] ??= {})[b.id] = u.lay
+                    ? { ...u.lay, z: ++this.zTop }
+                    : { x: 0, y: this.alturaConteudo(b.secao) + 16, w: 360, h: 260, z: ++this.zTop };
+                Object.entries(u.imgs).forEach(([k, v]) => {
+                    this.imagens[k] = v;
+                    Q.enviar(`${this.cfg.url}/img.${k}`, JSON.stringify(v)).catch(() => this.aviso('Não consegui salvar uma imagem restaurada.'));
+                });
+                this.aviso('Bloco restaurado.');
+            },
+            apagarImagens(id) {
+                Object.keys(this.imagens).filter(k => k === id || k.startsWith(id + '.')).forEach(k => {
+                    delete this.imagens[k];
+                    Q.enviar(`${this.cfg.url}/img.${k}`, null, 'DELETE').catch(() => {});
+                });
+            },
+
+            /* ---------- biblioteca: o tabletop leva as imagens junto ----------
+               As imagens ficam fora de `dados` (img.<bloco>.<...>); ao guardar, vão embutidas no item da
+               biblioteca e, ao colar, voltam para o servidor com o id do novo bloco.
+               O mapa de fundo do tabletop é reduzido ao guardar (é a imagem mais pesada e pode estourar o limite do servidor). */
+            async guardarBloco(b) {
+                if (b.tipo !== 'tabletop') return motor.guardarBloco.call(this, b);
+                return motor.guardarBloco.call(this, { ...b, dados: await tabletopParaBiblioteca(this, b) });
+            },
+            colarBloco(item) {
+                if (!this.aba) { this.aviso('Crie uma aba antes de colar blocos.'); return false; }
+                // vindo do Histórico: volta para a aba de origem (se ela ainda existir)
+                if (item && item.restaurar && item.secao && this.abaExiste(item.secao)) this.aba = item.secao;
+                const antes = this.estado.blocos.length;
+                motor.colarBloco.call(this, item);
+                const nb = this.estado.blocos[this.estado.blocos.length - 1];
+                if (this.estado.blocos.length === antes || !nb) return false;
+                // itens antigos da biblioteca de tipos que não existem mais (Lista de compras, Escrita, Redes sociais, Loja) não são colados
+                if (REMOVIDOS.includes(nb.tipo)) {
+                    this.estado.blocos.pop();
+                    if (this.estado.layout[nb.secao]) delete this.estado.layout[nb.secao][nb.id];
+                    this.aviso('Esse tipo de bloco não existe mais e não pode ser colado.');
+                    return false;
+                }
+                if (nb.tipo === 'tabletop') tabletopDaBiblioteca(this, nb);
+                return true;
+            },
+
+            linkSeguro(u) { return /^https:\/\/[^\s]+$/i.test(String(u || '').trim()) ? String(u).trim() : '#'; },
+
+            /* tabletop: mapa com grade e peças arrastáveis (métodos tt*, metodosTabletop) */
+            ...metodosTabletop(),
 
             /* ---------- mapa mental: tamanho considera o desenho ---------- */
             mmTam(b) {

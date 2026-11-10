@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CorpoDado;
 use App\Support\Compartilhar;
+use App\Support\PedacosBanco;
 use App\Support\Sincronia;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,6 +30,8 @@ class MenteController extends Controller
     {
         return CorpoDado::where('user_id', $usuarioId)
             ->where('chave', 'like', self::PREFIXO . '%')
+            // as linhas do cartão Banco de dados (sqlz.*, PedacosBanco) ficam fora da página
+            ->where('chave', 'not like', self::PREFIXO . PedacosBanco::PREFIXO . '%')
             ->pluck('valor', 'chave')
             ->mapWithKeys(fn ($valor, $chave) => [substr($chave, strlen(self::PREFIXO)) => $valor]);
     }
@@ -40,8 +43,15 @@ class MenteController extends Controller
         return Sincronia::gravar($request, 'mente', Compartilhar::dono($request, 'mente'), $chave, $request->input('valor'));
     }
 
+    /** Um pedaço do cartão Banco de dados (vem do Diverso; PedacosBanco). */
+    public function ler(Request $request, string $chave): JsonResponse
+    {
+        return PedacosBanco::ler($request, 'mente', $chave);
+    }
+
     public function apagar(Request $request, string $chave): JsonResponse
     {
+        if (PedacosBanco::eh($chave)) return PedacosBanco::apagar($request, 'mente', $chave);
         CorpoDado::where('user_id', Compartilhar::dono($request, 'mente'))
             ->where('chave', self::PREFIXO . $chave)
             ->delete();

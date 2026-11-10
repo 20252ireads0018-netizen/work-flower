@@ -207,6 +207,9 @@ Route::middleware('auth')->group(function () {
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('carteira.dados.salvar');
     Route::delete('/carteira/dados/{chave}', [CarteiraController::class, 'remover'])
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('carteira.dados.remover');
+    // linhas do cartão Banco de dados levado do Diverso (sqlz.*; App\Support\PedacosBanco)
+    Route::get('/carteira/dados/{chave}', [CarteiraController::class, 'ler'])
+        ->where('chave', \App\Support\PedacosBanco::ROTA)->middleware('throttle:600,1')->name('carteira.dados.ler');
 
     // Negócios: vendas, clientes, documentos, loja, marketplaces e equipe. Precisa vir ANTES de /areas/{area}
     Route::get('/areas/negocios', [\App\Http\Controllers\NegociosController::class, 'show'])->name('areas.negocios');
@@ -214,6 +217,8 @@ Route::middleware('auth')->group(function () {
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('negocios.dados.salvar');
     Route::delete('/negocios/dados/{chave}', [\App\Http\Controllers\NegociosController::class, 'remover'])
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('negocios.dados.remover');
+    Route::get('/negocios/dados/{chave}', [\App\Http\Controllers\NegociosController::class, 'ler'])
+        ->where('chave', \App\Support\PedacosBanco::ROTA)->middleware('throttle:600,1')->name('negocios.dados.ler');
     Route::get('/negocios/clientes-da-loja', [\App\Http\Controllers\NegociosController::class, 'clientesDaLoja'])
         ->middleware('throttle:30,1')->name('negocios.clientes.loja');
     // Negócios › Produtos: catálogo da conta (o mesmo da mini loja), venda com preço e baixa de estoque, pedidos da loja como vendas
@@ -333,6 +338,9 @@ Route::middleware('auth')->group(function () {
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('corpo.dados.salvar');
     Route::delete('/corpo/dados/{chave}', [CorpoController::class, 'remover'])
         ->where('chave', '[A-Za-z0-9._-]{1,60}')->middleware('throttle:gravar')->name('corpo.dados.remover');
+    // linhas do cartão Banco de dados levado do Diverso (sqlz.*; App\Support\PedacosBanco)
+    Route::get('/corpo/dados/{chave}', [CorpoController::class, 'ler'])
+        ->where('chave', \App\Support\PedacosBanco::ROTA)->middleware('throttle:600,1')->name('corpo.dados.ler');
 
     Route::put('/fundo', [FundoController::class, 'salvar'])->middleware('throttle:30,1')->name('fundo.salvar');
     // imagem ou GIF de um link (arrastado de outro site ou colado), para o fundo geral e o de cada workflow/aba
@@ -418,6 +426,12 @@ Route::middleware('auth')->prefix('mente')->name('mente.')->group(function () {
         ->where('chave', '[A-Za-z0-9._-]{1,90}')
         ->middleware('throttle:gravar')
         ->name('apagar');
+
+    // linhas do cartão Banco de dados levado do Diverso (sqlz.*; App\Support\PedacosBanco)
+    Route::get('/dados/{chave}', [MenteController::class, 'ler'])
+        ->where('chave', \App\Support\PedacosBanco::ROTA)
+        ->middleware('throttle:600,1')
+        ->name('ler');
 
     // PDFs dos livros
     Route::post('/pdf/{id}', [MenteController::class, 'enviarPdf'])

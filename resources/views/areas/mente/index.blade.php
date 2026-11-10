@@ -7,6 +7,11 @@
 {{-- várias pessoas no mesmo workflow (partials/compartilhar, js/compartilhar.js) --}}
 @include('partials.compartilhar', ['area' => 'mente'])
 @php
+    // cartões do Diverso que vieram para cá (Banco de dados, GitHub / VS Code, Tabletop): só então a página carrega
+    // os partials e scripts deles (partials/tipos-diverso, partials/tipos-diverso-cartoes; App\Support\MoverCartoes)
+    $wfTiposDiverso = \App\Support\MoverCartoes::tiposDoDiverso($menteDados['estado'] ?? null);
+@endphp
+@php
     // Tudo que o mente.js precisa: onde salvar, o que já foi salvo e as tarefas da área.
     $cfg = [
         'url'     => url('/mente/dados'),
@@ -187,6 +192,8 @@
 {{-- cartões de estudo: Flashcards, Pomodoro, Plano de estudos e Matemática (estende o quadro.js; usa o graficos.js) --}}
 @include('partials.estudo')
 <script src="{{ asset('js/mente.js') }}?v={{ @filemtime(public_path('js/mente.js')) }}"></script>
+{{-- cartões Banco de dados, GitHub / VS Code e Tabletop (vêm do Diverso quando cartões ou a área são levados para cá) --}}
+@include('partials.tipos-diverso')
 {{-- tabela.js estende menteAbas(): precisa vir DEPOIS de mente.js (importar/exportar CSV) --}}
 <script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
 {{-- Baixar cartões / soltar arquivos para criar blocos / tela cheia por cartão --}}

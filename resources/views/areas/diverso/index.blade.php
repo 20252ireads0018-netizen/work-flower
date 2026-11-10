@@ -180,149 +180,18 @@
     .wf-icone-op .wf-ic { width: 1.25rem; height: 1.25rem; }
     .wf-icone-op:hover { border-color: var(--prim-linha); color: var(--prim-forte); }
     .wf-icone-op.sel { border-color: var(--prim); box-shadow: 0 0 0 2px var(--prim-linha); color: var(--prim-forte); }
-    /* ===== Tabletop (mapa com grade) ===== */
-    .wf-tt { height: 100%; display: flex; flex-direction: column; gap: .6rem; min-height: 0; }
-    .wf-tt-linha { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
-    .wf-tt-linha .campo { width: auto; padding: .3rem .5rem; font-size: .8rem; }
-    .wf-tt-linha .wf-tt-nome-in { flex: 1; min-width: 7rem; }
-    .wf-tt-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .25rem .6rem; font-size: .75rem; border-radius: 9999px; border: 1px solid var(--linha); background: var(--superficie-2); color: var(--tinta); cursor: pointer; transition: border-color .15s, color .15s; }
-    .wf-tt-chip:hover { border-color: var(--prim-linha); color: var(--prim-forte); }
-    .wf-tt-chip i { display: inline-block; width: .6rem; height: .6rem; border-radius: 9999px; background: var(--pc); }
-
-    /* dropdown de atributos */
-    .wf-tt-drop { position: relative; }
-    .wf-tt-bolinha { display: inline-block; width: .65rem; height: .65rem; border-radius: 9999px; margin-right: .3rem; vertical-align: -1px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .25); }
-    .wf-tt-pop { position: absolute; top: 100%; left: 0; z-index: 30; margin-top: .35rem; min-width: 15rem; padding: .7rem; display: grid; gap: .55rem; background: var(--superficie); border: 1px solid var(--linha); border-radius: .6rem; box-shadow: 0 12px 30px rgba(0, 0, 0, .45); }
-    .wf-tt-attr { display: flex; align-items: center; justify-content: space-between; gap: .75rem; font-size: .78rem; color: var(--tinta-2); }
-    .wf-tt-pop .campo { width: 8rem; }
-    .wf-tt-mini { width: 1.75rem; height: 1.75rem; object-fit: cover; border-radius: .3rem; border: 1px solid var(--linha); }
-
-    .wf-tt-cena { flex: 1; min-height: 8rem; overflow: auto; border: 1px solid var(--linha); border-radius: .5rem; background: var(--superficie); padding: .5rem; }
-    .wf-tt-grade { position: relative; flex-shrink: 0; margin-bottom: 1.2rem; background: var(--superficie-2); box-shadow: 0 0 0 1px var(--linha); isolation: isolate; user-select: none; }
-    .wf-tt-grade::after {
-        content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-        background-image: linear-gradient(to right, rgba(255, 255, 255, .09) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, .09) 1px, transparent 1px);
-        background-size: var(--c) var(--c);
-    }
-    .wf-tt-grade.sem-grade::after { display: none; }
-    .wf-tt-mapa { position: absolute; inset: 0; z-index: 0; pointer-events: none; background-size: 100% 100%; background-repeat: no-repeat; }
-    .wf-tt-peca {
-        position: absolute; z-index: 2; display: flex; align-items: center; justify-content: center;
-        cursor: grab; touch-action: none; user-select: none; outline: none;
-        transition: left .1s ease, top .1s ease;
-    }
-    .wf-tt-peca::before { content: ""; position: absolute; inset: 3px; background: var(--pc); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .25); }
-    .wf-tt-peca.f-circulo::before { border-radius: 9999px; }
-    .wf-tt-peca.f-quadrado::before { border-radius: .3rem; }
-    .wf-tt-peca.f-losango::before { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
-    /* imagem no lugar da inicial: a moldura (span) recorta na forma da peça e a imagem dentro dela recebe o zoom e a posição */
-    .wf-tt-img { position: absolute; left: 3px; top: 3px; width: calc(100% - 6px); height: calc(100% - 6px); overflow: hidden; pointer-events: none; }
-    .wf-tt-img img, .wf-tt-enq img { display: block; width: 100%; height: 100%; object-fit: cover; transform-origin: center; pointer-events: none; }
-    .wf-tt-peca.f-circulo .wf-tt-img { border-radius: 9999px; }
-    .wf-tt-peca.f-quadrado .wf-tt-img { border-radius: .3rem; }
-    .wf-tt-peca.f-losango .wf-tt-img { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
-    .wf-tt-peca:focus-visible, .wf-tt-peca.sel { z-index: 3; filter: drop-shadow(0 0 3px #fff); }
-    .wf-tt-peca.arrasta { z-index: 5; cursor: grabbing; transition: none; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .55)); }
-    .wf-tt-ini { position: relative; font-size: .75rem; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .75); pointer-events: none; }
-    .wf-tt-rotulo { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); z-index: 4; white-space: nowrap; font-size: .62rem; padding: 0 .3rem; border-radius: .25rem; background: rgba(0, 0, 0, .65); color: #fff; pointer-events: none; }
-    /* retângulo de seleção */
-    .wf-tt-caixa { position: absolute; z-index: 6; pointer-events: none; border: 1px solid var(--prim); background: rgba(255, 255, 255, .08); }
-
-    /* editor de enquadramento da imagem (prévia no formato da peça, com zoom e posição) */
-    .wf-tt-enq-box { display: grid; gap: .4rem; justify-items: center; padding-top: .5rem; border-top: 1px solid var(--linha); }
-    .wf-tt-enq { position: relative; width: 9rem; height: 9rem; overflow: hidden; background: var(--superficie-2); cursor: move; touch-action: none; user-select: none; box-shadow: 0 0 0 2px var(--prim-linha); }
-    .wf-tt-enq.f-circulo { border-radius: 9999px; }
-    .wf-tt-enq.f-quadrado { border-radius: .4rem; }
-    .wf-tt-enq.f-losango { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); box-shadow: none; }
-    .wf-tt-enq-zoom { display: flex; align-items: center; gap: .5rem; width: 100%; font-size: .72rem; color: var(--tinta-2); }
-    .wf-tt-enq-zoom input[type=range] { flex: 1; min-width: 0; }
-
-    @media (max-width: 899px) { .wf-tt { height: auto; } .wf-tt-cena { max-height: 70vh; } }
-
+</style>
+{{-- cartão Tabletop (também usado nas áreas que recebem o cartão) --}}
+@include('partials.tabletop-estilo')
+<style>
     /* aviso de quadro vazio: logo abaixo do último cartão */
     .wf-vazio { position: absolute; left: var(--ox); top: var(--oy); }
     @media (max-width: 899px) { .wf-vazio { position: static; } }
 
-    /* ===== Banco de dados (.sql/.csv) — montado por banco-sql.js ===== */
-    .bd { min-height: 0; position: relative; }
-    .bd [hidden] { display: none !important; }
-    .bd.bd-soltando { outline: 2px dashed var(--prim); outline-offset: -2px; border-radius: .6rem; }
-    .bd-barra, .bd-ferr { display: flex; flex-wrap: wrap; align-items: center; gap: .375rem; font-size: .75rem; }
-    .bd-abas { display: flex; gap: .25rem; }
-    .bd-on { background: var(--prim) !important; color: var(--on-prim) !important; border-color: var(--prim) !important; }
-    .bd-tela-sair { display: none; }
-    .wf-fs .bd-tela { background: var(--prim); color: var(--on-prim); border-color: var(--prim); font-weight: 600; }
-    .wf-fs .bd-tela-entrar { display: none; }
-    .wf-fs .bd-tela-sair { display: inline; }
-    .wf-fs .bd-limpar { display: none !important; } /* longe do "Sair da tela cheia" */
-    .bd-msg { font-size: .78rem; padding: .4rem .6rem; border-radius: .5rem; background: var(--superficie-2); border: 1px solid var(--linha); }
-    .bd-msg.erro { border-color: #e5484d; background: color-mix(in srgb, #e5484d 12%, var(--superficie)); }
-    .bd-avisos { font-size: .72rem; color: var(--tinta-2); }
-    .bd-prog { border: 1px solid var(--linha); border-radius: .6rem; padding: .5rem .65rem; background: var(--superficie-2); font-size: .8rem; }
-    .bd-prog-topo { display: flex; justify-content: space-between; align-items: center; gap: .5rem; font-weight: 600; }
-    .bd-prog-trilho { height: .55rem; border-radius: 99px; background: var(--linha); overflow: hidden; margin: .4rem 0 .25rem; }
-    .bd-prog-barra { height: 100%; width: 0; background: var(--prim); border-radius: 99px; transition: width .2s; }
-    .bd-vazio { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 1rem; border: 2px dashed var(--linha); border-radius: .75rem; }
-    .bd-corpo { display: flex; flex-direction: column; }
-    .bd-diag, .bd-grade-v, .bd-stats-v { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .4rem; }
-    .bd-area { position: relative; flex: 1; min-height: 12rem; overflow: hidden; border: 1px solid var(--linha); border-radius: .6rem; background: var(--superficie-2); cursor: grab; touch-action: none; }
-    .bd-area.movendo { cursor: grabbing; }
-    .bd-dica { position: absolute; left: .5rem; bottom: .35rem; font-size: .65rem; color: var(--tinta-2); pointer-events: none; background: color-mix(in srgb, var(--superficie-2) 80%, transparent); padding: 0 .3rem; border-radius: .3rem; }
-    .bd-svg { display: block; user-select: none; -webkit-user-select: none; }
-    .bd-svg [data-bd-t] { cursor: move; }
-    .bd-svg .bd-caixa { fill: var(--superficie); stroke: var(--linha); }
-    .bd-svg .bd-caixa.on { stroke: var(--prim); stroke-width: 3; }
-    .bd-svg .bd-cab { fill: color-mix(in srgb, var(--prim) 30%, var(--superficie)); }
-    .bd-svg text { font-family: 'DM Sans', sans-serif; fill: var(--tinta); }
-    .bd-svg .bd-nome { font-size: 12.5px; font-weight: 700; }
-    .bd-svg .bd-nome.grande { font-size: 24px; }
-    .bd-svg .bd-qtd, .bd-svg .bd-tipo { font-size: 10px; fill: var(--tinta-2); }
-    .bd-svg .bd-col { font-size: 11.5px; }
-    .bd-svg .bd-col.pk { font-weight: 700; }
-    .bd-svg .bd-tag { font-size: 9px; font-weight: 700; fill: var(--prim-forte, var(--prim)); }
-    /* ligações: rota em ângulo reto, pé de galinha nas pontas; passar o mouse destaca e apaga o resto */
-    .bd-svg .bd-rel, .bd-svg [data-bd-t] { transition: opacity .12s; }
-    .bd-svg .bd-lig { fill: none; stroke: var(--tinta-2); stroke-width: 1.4; stroke-linejoin: round; opacity: .85; vector-effect: non-scaling-stroke; }
-    .bd-svg .bd-lig-hit { fill: none; stroke: transparent; stroke-width: 12; vector-effect: non-scaling-stroke; pointer-events: stroke; }
-    .bd-svg .bd-pe { fill: none; stroke: var(--tinta-2); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
-    .bd-svg .bd-pe-c { fill: var(--superficie-2); stroke: var(--tinta-2); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
-    .bd-svg .bd-rel.on .bd-lig, .bd-svg .bd-rel.rel .bd-lig { stroke: var(--prim); stroke-width: 2.6; opacity: 1; }
-    .bd-svg .bd-rel.on .bd-pe, .bd-svg .bd-rel.rel .bd-pe, .bd-svg .bd-rel.on .bd-pe-c, .bd-svg .bd-rel.rel .bd-pe-c { stroke: var(--prim); stroke-width: 2; }
-    .bd-svg g.foco .bd-rel:not(.rel) { opacity: .12; }
-    .bd-svg g.foco [data-bd-t]:not(.rel) { opacity: .4; }
-    .bd-svg [data-bd-t].rel .bd-caixa { stroke: var(--prim); stroke-width: 2; }
-    .bd-svg .bd-col.rel { fill: var(--prim-forte, var(--prim)); font-weight: 700; }
-    .bd-svg .bd-faixa { fill: color-mix(in srgb, var(--prim) 22%, transparent); }
-    /* tabela virtual: só as linhas visíveis existem no DOM */
-    .bd-rolagem { position: relative; flex: 1; min-height: 8rem; overflow: auto; border: 1px solid var(--linha); border-radius: .6rem; font-size: .75rem; }
-    .bd-cabeca { position: sticky; top: 0; z-index: 2; background: var(--superficie-2); }
-    .bd-corpo-v { position: relative; }
-    .bd-janela { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
-    .bd-lin { display: flex; height: 26px; border-bottom: 1px solid var(--linha); }
-    .bd-lin.par { background: color-mix(in srgb, var(--superficie-2) 55%, transparent); }
-    .bd-cel { flex: none; padding: 0 .5rem; line-height: 25px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid var(--linha); }
-    .bd-janela .bd-cel { cursor: pointer; }
-    .bd-cel.n { text-align: right; font-variant-numeric: tabular-nums; }
-    .bd-cel.nulo { color: var(--tinta-2); font-style: italic; }
-    .bd-cel.bd-num { width: 64px; text-align: right; color: var(--tinta-2); font-size: .68rem; background: var(--superficie-2); position: sticky; left: 0; z-index: 1; }
-    .bd-th { font-weight: 600; cursor: pointer; user-select: none; }
-    .bd-th:hover { color: var(--prim); }
-    .bd-th small { color: var(--prim-forte, var(--prim)); font-size: .6rem; }
-    .bd-th b { color: var(--prim); }
-    .bd-filtros .bd-cel { padding: 2px 3px; line-height: 1; }
-    .bd-filtro { width: 100%; height: 21px; font-size: .7rem; padding: 0 .35rem; border: 1px solid var(--linha); border-radius: .3rem; background: var(--superficie); color: var(--tinta); }
-    .bd-carregando { position: absolute; left: 50%; top: 4.5rem; transform: translateX(-50%); background: var(--superficie); border: 1px solid var(--linha); border-radius: .5rem; padding: .4rem .75rem; font-size: .75rem; box-shadow: 0 4px 14px rgba(0,0,0,.12); z-index: 3; max-width: 90%; text-align: center; }
-    .bd-detalhe { font-size: .75rem; padding: .35rem .55rem; border: 1px solid var(--linha); border-radius: .5rem; background: var(--superficie-2); max-height: 6.5rem; overflow: auto; white-space: pre-wrap; word-break: break-word; }
-    .bd-rodape { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: .75rem; }
-    .bd-pag { width: 4.5rem; display: inline-block; height: 1.5rem; }
-    .bd-stats { flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: .5rem; align-content: start; }
-    .bd-stat { border: 1px solid var(--linha); border-radius: .6rem; padding: .5rem .6rem; font-size: .75rem; background: var(--superficie-2); display: flex; flex-direction: column; gap: .2rem; }
-    .bd-top { display: flex; flex-direction: column; gap: 2px; margin-top: .2rem; }
-    .bd-barra-v { position: relative; display: flex; justify-content: space-between; gap: .5rem; padding: 1px .35rem; font-size: .7rem; border-radius: .25rem; overflow: hidden; }
-    .bd-barra-v span { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--prim) 22%, transparent); }
-    .bd-barra-v em, .bd-barra-v b { position: relative; font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .bd-barra-v b { font-weight: 600; flex: none; }
-
+</style>
+{{-- cartão Banco de dados (também usado nas áreas que recebem o cartão) --}}
+@include('partials.banco-estilo')
+<style>
     /* ===== Diagramas (mapa mental, BPMN, fluxograma, ER/UML) — usado com diagrama.js ===== */
     .wf-dd { display: flex; flex-direction: column; gap: .5rem; min-height: 0; }
     /* o mapa deixa o fundo da área (imagem, GIF, cor) aparecer, tingido com a cor do tema */

@@ -1,5 +1,6 @@
 {{-- Tabletop: mapa com grade, peças que se arrastam e desenho (pincel, borracha, formas).
-     Usa o escopo do bloco `b` dentro do diversoAbas(). --}}
+     Usa o escopo do bloco `b` dentro do diversoAbas() ou, nas áreas que receberam o cartão, do componente da área
+     (métodos tt* do WFTabletop misturados pelo js/cartoes-diverso.js). --}}
 
 <div class="wf-tt">
     {{-- Estilo da barra de desenho. Fica DENTRO da raiz porque o x-if do Alpine só renderiza um elemento raiz. --}}

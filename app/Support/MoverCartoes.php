@@ -10,16 +10,19 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Mover cartões (blocos livres) de uma aba para outra aba de OUTRA área, sem perder nada:
- * o bloco (com os dados), a posição/tamanho/cor/fundo do layout, as imagens (img.<id> e img.<id>.*)
- * e os PDFs do cartão Editor de PDF (storage/app/editorpdf/<dono>/<área>/<arquivo>.pdf).
+ * o bloco (com os dados), a posição/tamanho/cor/fundo do layout, as imagens (img.<id> e img.<id>.*: imagens, mapa e
+ * peças do Tabletop, índice do Banco de dados), as linhas do Banco de dados (sqlz.<id>.*) e os PDFs do cartão
+ * Editor de PDF (storage/app/editorpdf/<dono>/<área>/<arquivo>.pdf).
  *
  * - Só os dados da própria conta (nada de workflow de outra pessoa).
  * - Cartões fixos das áreas (Treinos, Contas, Livros...) não saem do lugar: são parte da página da área.
  *   Continuam guardados lá mesmo com a área escondida.
- * - Tipos que nasceram numa área só e viajam (TIPOS_QUE_VIAJAM, ex.: "Documento" da Mente) vão junto: a área de destino
- *   passa a mostrá-los (partials/documento-cartao) e a criá-los no "+ Bloco" (estado.tiposTrazidos).
- * - Tipo de cartão que a área de destino não sabe mostrar ("Banco de dados", "GitHub / VS Code" e "Tabletop" só
- *   no Diverso) fica onde está e aparece na resposta como "ficaram".
+ * - Tipos que nasceram numa área só e viajam (TIPOS_QUE_VIAJAM: "Documento" da Mente; "Banco de dados",
+ *   "GitHub / VS Code" e "Tabletop" do Diverso) vão junto: a área de destino passa a mostrá-los (partials/documento-cartao;
+ *   partials/tipos-diverso, só nas páginas que têm o tipo, ver tiposDoDiverso) e a criá-los no "+ Bloco"
+ *   (estado.tiposTrazidos). A sala do Tabletop ao vivo é ligada ao código guardado no próprio bloco (b.vivo), então
+ *   continua a mesma.
+ * - Tipo de cartão que a área de destino não sabe mostrar fica onde está e aparece na resposta como "ficaram".
  * - Diverso e as áreas criadas (AreasConta) são o mesmo estado: as abas de uma área criada têm "grupo".
  *
  * Os estados são lidos como objetos (stdClass) para {} continuar {} ao gravar (ver AbasRetiradas).
@@ -39,7 +42,26 @@ class MoverCartoes
     ];
 
     /** Tipos exclusivos de uma área que as outras sabem mostrar quando chegam (e passam a criar). */
-    public const TIPOS_QUE_VIAJAM = ['documento'];
+    public const TIPOS_QUE_VIAJAM = ['documento', 'banco', 'codigo', 'tabletop'];
+
+    /** Prefixo das linhas do cartão Banco de dados (DiversoController::PEDACO; PedacosBanco nas outras áreas). */
+    public const PEDACO = 'sqlz.';
+
+    /**
+     * Tipos do Diverso que uma página de outra área precisa saber mostrar: os trazidos (estado.tiposTrazidos) e os que
+     * já estão lá. As páginas só carregam os partials e scripts deles quando a lista não está vazia (são pesados).
+     */
+    public static function tiposDoDiverso(?string $estado): array
+    {
+        $e = json_decode((string) $estado, true);
+        if (! is_array($e)) return [];
+        $tipos = is_array($e['tiposTrazidos'] ?? null) ? $e['tiposTrazidos'] : [];
+        foreach (is_array($e['blocos'] ?? null) ? $e['blocos'] : [] as $b) {
+            if (is_array($b) && is_string($b['tipo'] ?? null)) $tipos[] = $b['tipo'];
+        }
+
+        return array_values(array_intersect(self::TIPOS_SO_DA_AREA['diverso'], $tipos));
+    }
 
     /**
      * Abas com quadro de cartões de cada área do sistema (as mesmas de corpo.js, mente.js e carteira.js).
@@ -376,8 +398,7 @@ class MoverCartoes
             $id = (string) $b->id;
             $ks = $this->chavesDoBloco($cDe, $pDe, $id);
             foreach ($ks as $k) {
-                $sufixo = substr($k, strlen($pDe . 'img.' . $id));
-                if (strlen($pPara . 'img.' . $novoId[$id] . $sufixo) > self::MAX_CHAVE) {
+                if (strlen($this->chaveNova($k, $pDe, $id, $pPara, $novoId[$id])) > self::MAX_CHAVE) {
                     $ficaram[] = ['titulo' => (string) ($b->titulo ?? 'Cartão'), 'tipo' => (string) ($b->tipo ?? '')];
                     unset($vao[$i]);
                     continue 2;
@@ -428,8 +449,7 @@ class MoverCartoes
 
             if (! $mesmo || $novoId[$id] !== $id) {
                 foreach ($chavesDe[$id] as $k) {
-                    $sufixo = substr($k, strlen($pDe . 'img.' . $id));
-                    $this->chaves[] = [$sDe, $k, $sPara, $pPara . 'img.' . $novoId[$id] . $sufixo];
+                    $this->chaves[] = [$sDe, $k, $sPara, $this->chaveNova($k, $pDe, $id, $pPara, $novoId[$id])];
                 }
             }
             if (! $mesmo && ($b->tipo ?? '') === 'editorpdf') {
@@ -481,17 +501,32 @@ class MoverCartoes
         return AbasRetiradas::fundo($lay, $ids);
     }
 
-    /** Chaves guardadas de um bloco (img.<id> e img.<id>.*), com o prefixo da área. */
+    /**
+     * Chaves guardadas de um bloco, com o prefixo da área: img.<id> e img.<id>.* (imagens, mapa e peças do Tabletop,
+     * índice do Banco de dados) e sqlz.<id>.* (linhas do Banco de dados).
+     */
     private function chavesDoBloco(string $classe, string $prefixo, string $id): array
     {
-        $base = $prefixo . 'img.' . $id;
-        $esc = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $base);
+        $img = $prefixo . 'img.' . $id;
+        $sql = $prefixo . self::PEDACO . $id . '.';
+        $esc = fn (string $s) => str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $s);
 
+        // "_" é curinga no LIKE: o LIKE só pré-filtra, o prefixo exato é conferido depois
         return $classe::where('user_id', $this->dono)
-            ->where(fn ($q) => $q->where('chave', $base)->orWhere('chave', 'like', $esc . '.%'))
+            ->where(fn ($q) => $q->where('chave', $img)->orWhere('chave', 'like', $esc($img) . '.%')->orWhere('chave', 'like', $esc($sql) . '%'))
             ->pluck('chave')
-            ->filter(fn ($k) => $k === $base || str_starts_with($k, $base . '.'))
+            ->filter(fn ($k) => $k === $img || str_starts_with($k, $img . '.') || str_starts_with($k, $sql))
             ->values()->all();
+    }
+
+    /** A mesma chave para o bloco com o id (e na área) de destino. */
+    private function chaveNova(string $k, string $pDe, string $id, string $pPara, string $novo): string
+    {
+        foreach (['img.', self::PEDACO] as $tipo) {
+            if (str_starts_with($k, $pDe . $tipo . $id)) return $pPara . $tipo . $novo . substr($k, strlen($pDe . $tipo . $id));
+        }
+
+        return $k;
     }
 
     private function apagarChavesDe(string $storage, string $id): void
@@ -499,11 +534,6 @@ class MoverCartoes
         [$classe, $prefixo] = Sincronia::armazenamento($storage);
         $ks = $this->chavesDoBloco($classe, $prefixo, $id);
         if ($ks) $classe::where('user_id', $this->dono)->whereIn('chave', $ks)->delete();
-        if ($storage === 'diverso') {
-            // pedaços do cartão Banco de dados
-            $esc = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], \App\Http\Controllers\DiversoController::PEDACO . $id);
-            $classe::where('user_id', $this->dono)->where('chave', 'like', $esc . '.%')->delete();
-        }
     }
 
     /* ------------------------------------------------------------------ gravar */
@@ -514,10 +544,18 @@ class MoverCartoes
             foreach ($this->chaves as [$sDe, $kDe, $sPara, $kPara]) {
                 [$cDe] = Sincronia::armazenamento($sDe);
                 [$cPara] = Sincronia::armazenamento($sPara);
+                if ($cDe === $cPara) {
+                    // mesma tabela (Corpo e Mente, Diverso e áreas criadas): só troca o nome da chave, sem ler o valor
+                    // (as linhas do Banco de dados chegam a vários MB cada)
+                    if ($kDe === $kPara || ! $cDe::where('user_id', $this->dono)->where('chave', $kDe)->exists()) continue;
+                    $cDe::where('user_id', $this->dono)->where('chave', $kPara)->delete();
+                    $cDe::where('user_id', $this->dono)->where('chave', $kDe)->update(['chave' => $kPara]);
+                    continue;
+                }
                 $valor = $cDe::where('user_id', $this->dono)->where('chave', $kDe)->value('valor');
                 if ($valor === null) continue;
                 $cPara::updateOrCreate(['user_id' => $this->dono, 'chave' => $kPara], ['valor' => $valor]);
-                if (! ($cDe === $cPara && $kDe === $kPara)) $cDe::where('user_id', $this->dono)->where('chave', $kDe)->delete();
+                $cDe::where('user_id', $this->dono)->where('chave', $kDe)->delete();
             }
             foreach (array_keys($this->mudou) as $s) {
                 [$classe, $prefixo] = Sincronia::armazenamento($s);

@@ -8,6 +8,7 @@ use App\Models\LojaPedido;
 use App\Models\NegocioDado;
 use App\Models\Tarefa;
 use App\Support\Compartilhar;
+use App\Support\PedacosBanco;
 use App\Support\SaldoLoja;
 use App\Support\Sincronia;
 use Illuminate\Http\JsonResponse;
@@ -29,7 +30,8 @@ class NegociosController extends Controller
         $donoId = Compartilhar::dono($request, self::SLUG);
         self::trazerDaCarteira($donoId);
 
-        $dados = NegocioDado::where('user_id', $donoId)->pluck('valor', 'chave');
+        // as linhas do cartão Banco de dados (sqlz.*, PedacosBanco) ficam fora da página
+        $dados = NegocioDado::where('user_id', $donoId)->where('chave', 'not like', PedacosBanco::PREFIXO . '%')->pluck('valor', 'chave');
         $tarefas = Tarefa::daArea($donoId, self::SLUG)->get();
         $loja = Loja::where('user_id', $request->user()->id)->first();
 
@@ -61,8 +63,15 @@ class NegociosController extends Controller
         return Sincronia::gravar($request, self::SLUG, Compartilhar::dono($request, self::SLUG), $chave, $data['valor'] ?? null);
     }
 
+    /** Um pedaço do cartão Banco de dados (vem do Diverso; PedacosBanco). */
+    public function ler(Request $request, string $chave): JsonResponse
+    {
+        return PedacosBanco::ler($request, self::SLUG, $chave);
+    }
+
     public function remover(Request $request, string $chave): JsonResponse
     {
+        if (PedacosBanco::eh($chave)) return PedacosBanco::apagar($request, self::SLUG, $chave);
         NegocioDado::where('user_id', Compartilhar::dono($request, self::SLUG))->where('chave', $chave)->delete();
 
         return response()->json(['ok' => true]);

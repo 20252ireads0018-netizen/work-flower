@@ -7,6 +7,11 @@
 {{-- Esta página serve duas áreas: Carteira (finanças pessoais, investimentos, trabalho) e Negócios (vendas, clientes,
      documentos, loja, marketplaces e equipe). $modo escolhe as abas; os dados de cada uma ficam separados. --}}
 @php $modo = $modo ?? 'carteira'; @endphp
+@php
+    // cartões do Diverso que vieram para cá (Banco de dados, GitHub / VS Code, Tabletop): só então a página carrega
+    // os partials e scripts deles (partials/tipos-diverso, partials/tipos-diverso-cartoes; App\Support\MoverCartoes)
+    $wfTiposDiverso = \App\Support\MoverCartoes::tiposDoDiverso($dados['estado'] ?? null);
+@endphp
 {{-- várias pessoas no mesmo workflow (partials/compartilhar, js/compartilhar.js) --}}
 @include('partials.compartilhar', ['area' => $modo])
 @php
@@ -160,6 +165,8 @@
 @include('partials.documento-estilo')
 <script src="{{ asset('js/documentos.js') }}?v={{ @filemtime(public_path('js/documentos.js')) }}"></script>
 <script src="{{ asset('js/carteira.js') }}?v={{ @filemtime(public_path('js/carteira.js')) }}"></script>
+{{-- cartões Banco de dados, GitHub / VS Code e Tabletop (vêm do Diverso quando cartões ou a área são levados para cá) --}}
+@include('partials.tipos-diverso')
 <script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
 <script src="{{ asset('js/tela-cheia.js') }}?v={{ @filemtime(public_path('js/tela-cheia.js')) }}"></script>
 <script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>

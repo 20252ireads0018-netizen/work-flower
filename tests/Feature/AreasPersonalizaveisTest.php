@@ -296,11 +296,130 @@ class AreasPersonalizaveisTest extends TestCase
     {
         $u = User::factory()->create();
         $this->gravar(DiversoDado::class, $u->id, 'estado', ['v' => 2, 'abas' => [], 'layout' => [], 'blocos' => [
-            ['id' => 'c1', 'secao' => 'quadro', 'tipo' => 'codigo', 'titulo' => 'Repo'],
+            ['id' => 'c1', 'secao' => 'quadro', 'tipo' => 'tipoquenaoexiste', 'titulo' => 'Antigo'],
         ]]);
         $r = $this->actingAs($u)->postJson('/areas-config/mover', ['de' => 'diverso', 'aba' => 'quadro', 'ids' => ['c1'], 'para' => 'carteira'])->assertOk();
         $this->assertSame(0, $r->json('movidos'));
-        $this->assertSame('Repo', $r->json('ficaram.0.titulo'));
+        $this->assertSame('Antigo', $r->json('ficaram.0.titulo'));
+    }
+
+    /* ================================================================ tipos do Diverso que viajam */
+
+    /** Diverso com um cartão de cada tipo exclusivo e os dados que ficam fora do bloco. */
+    private function diversoComTiposProprios(User $u): void
+    {
+        $this->gravar(DiversoDado::class, $u->id, 'estado', ['v' => 2, 'abas' => [['id' => 'quadro', 'nome' => 'Geral', 'icone' => 'pin']],
+            'layout' => ['quadro' => [
+                'k1' => ['x' => 0, 'y' => 40, 'w' => 820, 'h' => 560],
+                'c1' => ['x' => 0, 'y' => 620, 'w' => 640, 'h' => 260],
+                't1' => ['x' => 660, 'y' => 620, 'w' => 720, 'h' => 560],
+            ]],
+            'blocos' => [
+                ['id' => 'k1', 'secao' => 'quadro', 'tipo' => 'banco', 'titulo' => 'Loja.sql', 'links' => [], 'dados' => ['versao' => 'v1abc', 'visao' => 'diagrama', 'pos' => []]],
+                ['id' => 'c1', 'secao' => 'quadro', 'tipo' => 'codigo', 'titulo' => 'Site', 'links' => [], 'dados' => ['modo' => 'ide', 'repos' => [], 'ide' => ['arquivos' => [['id' => 'a', 'caminho' => 'index.html', 'texto' => '<h1>Oi</h1>']]]]],
+                ['id' => 't1', 'secao' => 'quadro', 'tipo' => 'tabletop', 'titulo' => 'Masmorra', 'links' => [], 'vivo' => ['codigo' => 'ABCD12', 'dono' => true],
+                    'dados' => ['cols' => 16, 'rows' => 12, 'cel' => 40, 'pecas' => [['id' => 'p1', 'nome' => 'Herói', 'img' => 'im1']], 'desenho' => []]],
+            ]]);
+        $this->gravar(DiversoDado::class, $u->id, 'img.k1.banco', '"wfsql2:INDICE"');
+        $this->gravar(DiversoDado::class, $u->id, 'sqlz.k1.v1abc.0', 'H4sIAAAAPEDACO0');
+        $this->gravar(DiversoDado::class, $u->id, 'sqlz.k1.v1abc.1', 'H4sIAAAAPEDACO1');
+        $this->gravar(DiversoDado::class, $u->id, 'img.t1.mapa', '"data:image/jpeg;base64,MAPA"');
+        $this->gravar(DiversoDado::class, $u->id, 'img.t1.i.im1', '"data:image/jpeg;base64,PECA"');
+    }
+
+    public function test_banco_codigo_e_tabletop_do_diverso_vao_junto_com_os_dados_e_o_destino_passa_a_criar(): void
+    {
+        $u = User::factory()->create();
+        $this->diversoComTiposProprios($u);
+
+        $r = $this->actingAs($u)->postJson('/areas-config/mover', ['de' => 'diverso', 'aba' => 'quadro', 'para' => 'corpo'])->assertOk();
+        $this->assertSame(3, $r->json('movidos'));
+        $this->assertSame([], $r->json('ficaram'));
+
+        $c = $this->estado(CorpoDado::class, $u->id);
+        $this->assertSame(['k1', 'c1', 't1'], array_column($c['blocos'], 'id'));
+        $this->assertSame(['banco', 'codigo', 'tabletop'], $c['tiposTrazidos']);
+        $this->assertSame('livre', $c['blocos'][0]['secao']);
+        // o projeto da IDE e a sala ao vivo do Tabletop estão no próprio bloco
+        $this->assertSame('<h1>Oi</h1>', $c['blocos'][1]['dados']['ide']['arquivos'][0]['texto']);
+        $this->assertSame(['codigo' => 'ABCD12', 'dono' => true], $c['blocos'][2]['vivo']);
+        // as posições relativas continuam (o banco era o mais alto)
+        $this->assertSame(0, $c['layout']['livre']['k1']['y']);
+        $this->assertSame(580, $c['layout']['livre']['t1']['y']);
+
+        // índice e linhas do banco, mapa e peças do tabletop: saem do Diverso e entram na tabela do Corpo
+        foreach (['img.k1.banco', 'sqlz.k1.v1abc.0', 'sqlz.k1.v1abc.1', 'img.t1.mapa', 'img.t1.i.im1'] as $k) {
+            $this->assertTrue(CorpoDado::where('user_id', $u->id)->where('chave', $k)->exists(), $k);
+            $this->assertFalse(DiversoDado::where('user_id', $u->id)->where('chave', $k)->exists(), $k);
+        }
+        $this->assertSame('H4sIAAAAPEDACO1', CorpoDado::where('user_id', $u->id)->where('chave', 'sqlz.k1.v1abc.1')->value('valor'));
+        $this->assertSame([], $this->estado(DiversoDado::class, $u->id)['blocos']);
+
+        // a página do Corpo mostra os três (partials e scripts só quando o tipo está lá) e não leva as linhas do banco junto
+        $this->actingAs($u)->get('/areas/corpo')->assertOk()
+            ->assertSee('js/cartoes-diverso.js', false)
+            ->assertSee('js/banco-sql.js', false)
+            ->assertSee('js/tabletopVivo.js', false)
+            ->assertSee('js/ide-motores.js', false)
+            ->assertSee('x-data="WFIde(b)"', false)
+            ->assertSee('bdMontar(b, $el)', false)
+            ->assertSee('class="wf-tt"', false)
+            ->assertDontSee('H4sIAAAAPEDACO0', false);
+        // as linhas são lidas (e apagadas) pelo endereço do Corpo
+        $this->actingAs($u)->getJson('/corpo/dados/sqlz.k1.v1abc.0')->assertOk()->assertJson(['valor' => 'H4sIAAAAPEDACO0']);
+        $this->actingAs($u)->deleteJson('/corpo/dados/sqlz.k1')->assertOk();
+        $this->assertFalse(CorpoDado::where('user_id', $u->id)->where('chave', 'like', 'sqlz.%')->exists());
+        $this->assertTrue(CorpoDado::where('user_id', $u->id)->where('chave', 'img.k1.banco')->exists());
+    }
+
+    public function test_tipos_do_diverso_na_mente_e_na_carteira_com_id_repetido(): void
+    {
+        $u = User::factory()->create();
+        $this->diversoComTiposProprios($u);
+        // a Mente já tem um bloco "k1": o banco ganha id novo e as linhas vão com o id novo
+        $this->gravar(CorpoDado::class, $u->id, 'mente.estado', ['layout' => [], 'blocos' => [['id' => 'k1', 'secao' => 'livre', 'tipo' => 'texto', 'titulo' => 'Nota']]]);
+
+        $this->actingAs($u)->postJson('/areas-config/mover', ['de' => 'diverso', 'aba' => 'quadro', 'ids' => ['k1'], 'para' => 'mente'])->assertOk()->assertJson(['movidos' => 1]);
+        $m = $this->estado(CorpoDado::class, $u->id, 'mente.estado');
+        $novo = $m['blocos'][1]['id'];
+        $this->assertNotSame('k1', $novo);
+        $this->assertSame(['banco'], $m['tiposTrazidos']);
+        $this->assertTrue(CorpoDado::where('user_id', $u->id)->where('chave', "mente.img.$novo.banco")->exists());
+        $this->assertSame('H4sIAAAAPEDACO0', CorpoDado::where('user_id', $u->id)->where('chave', "mente.sqlz.$novo.v1abc.0")->value('valor'));
+        $this->assertFalse(DiversoDado::where('user_id', $u->id)->where('chave', 'like', 'sqlz.%')->exists());
+        $this->actingAs($u)->getJson("/mente/dados/sqlz.$novo.v1abc.1")->assertOk()->assertJson(['valor' => 'H4sIAAAAPEDACO1']);
+        // só o que a Mente tem: banco sim, IDE e tabletop não
+        $this->actingAs($u)->get('/areas/mente')->assertOk()
+            ->assertSee('js/banco-sql.js', false)->assertDontSee('js/tabletopVivo.js', false)->assertDontSee('js/ide-motores.js', false)
+            ->assertDontSee('H4sIAAAAPEDACO0', false);
+
+        // o tabletop vai para a Carteira; os Negócios, que não receberam nada, não carregam nada
+        $this->actingAs($u)->postJson('/areas-config/mover', ['de' => 'diverso', 'aba' => 'quadro', 'ids' => ['t1'], 'para' => 'carteira'])->assertOk()->assertJson(['movidos' => 1]);
+        $this->assertSame(['tabletop'], $this->estado(CarteiraDado::class, $u->id)['tiposTrazidos']);
+        $this->assertSame('"data:image/jpeg;base64,PECA"', CarteiraDado::where('user_id', $u->id)->where('chave', 'img.t1.i.im1')->value('valor'));
+        $this->actingAs($u)->get('/areas/carteira')->assertOk()->assertSee('js/cartoes-diverso.js', false)->assertSee('class="wf-tt"', false);
+        $this->actingAs($u)->get('/areas/negocios')->assertOk()->assertDontSee('js/cartoes-diverso.js', false);
+
+        // e o banco volta para o Diverso sem perder nada
+        $this->actingAs($u)->postJson('/areas-config/mover', ['de' => 'mente', 'aba' => 'livre', 'ids' => [$novo], 'para' => 'diverso', 'para_aba' => 'quadro'])->assertOk()->assertJson(['movidos' => 1]);
+        $this->assertTrue(DiversoDado::where('user_id', $u->id)->where('chave', "sqlz.$novo.v1abc.0")->exists());
+        $this->assertFalse(CorpoDado::where('user_id', $u->id)->where('chave', 'like', 'mente.sqlz.%')->exists());
+        $this->assertSame(['c1', $novo], array_column($this->estado(DiversoDado::class, $u->id)['blocos'], 'id'));
+    }
+
+    public function test_linhas_do_banco_nas_outras_areas_so_em_base64(): void
+    {
+        $u = User::factory()->create();
+        $this->actingAs($u)->putJson('/corpo/dados/sqlz.b1.v1.0', ['valor' => 'H4sIAAAA+/=='])->assertOk();
+        $this->actingAs($u)->putJson('/corpo/dados/sqlz.b1.v1.1', ['valor' => 'INSERT INTO x VALUES (1);'])->assertStatus(422);
+        $this->actingAs($u)->putJson('/negocios/dados/sqlz.b1.v1.0', ['valor' => 'H4sIAAAA'])->assertOk();
+        $this->actingAs($u)->getJson('/negocios/dados/sqlz.b1.v1.0')->assertOk()->assertJson(['valor' => 'H4sIAAAA']);
+        $this->actingAs($u)->getJson('/carteira/dados/sqlz.b1.v1.0')->assertNotFound();
+        $this->actingAs($u)->getJson('/corpo/dados/estado')->assertMethodNotAllowed(); // só pedaços do banco são lidos por aqui
+        $this->actingAs($u)->deleteJson('/negocios/dados/sqlz.b1')->assertOk();
+        $this->assertFalse(\App\Models\NegocioDado::where('user_id', $u->id)->where('chave', 'like', 'sqlz.%')->exists());
+        // nenhuma área recebeu tipos do Diverso: as páginas não carregam nada deles
+        $this->actingAs($u)->get('/areas/corpo')->assertOk()->assertDontSee('js/cartoes-diverso.js', false)->assertDontSee('x-data="WFIde(b)"', false);
     }
 
     public function test_mover_so_alguns_cartoes_e_destino_invalido(): void

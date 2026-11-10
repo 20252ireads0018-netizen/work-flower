@@ -7,6 +7,11 @@
 {{-- várias pessoas no mesmo workflow (partials/compartilhar, js/compartilhar.js) --}}
 @include('partials.compartilhar', ['area' => 'corpo'])
 @php
+    // cartões do Diverso que vieram para cá (Banco de dados, GitHub / VS Code, Tabletop): só então a página carrega
+    // os partials e scripts deles (partials/tipos-diverso, partials/tipos-diverso-cartoes; App\Support\MoverCartoes)
+    $wfTiposDiverso = \App\Support\MoverCartoes::tiposDoDiverso($corpoDados['estado'] ?? null);
+@endphp
+@php
     // Tudo que o corpo.js precisa: onde salvar, o que já foi salvo e as tarefas da área.
     $cfg = [
         'url'     => url('/corpo/dados'),
@@ -169,6 +174,8 @@
 {{-- cartão Documento (vem da Mente quando cartões ou a área são levados para cá) --}}
 @include('partials.documento-estilo')
 <script src="{{ asset('js/corpo.js') }}?v={{ @filemtime(public_path('js/corpo.js')) }}"></script>
+{{-- cartões Banco de dados, GitHub / VS Code e Tabletop (vêm do Diverso quando cartões ou a área são levados para cá) --}}
+@include('partials.tipos-diverso')
 <script src="{{ asset('js/tabela.js') }}?v={{ @filemtime(public_path('js/tabela.js')) }}"></script>
 <script src="{{ asset('js/tela-cheia.js') }}?v={{ @filemtime(public_path('js/tela-cheia.js')) }}"></script>
 <script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>

@@ -136,6 +136,8 @@
             <template x-if="b.tipo === 'habitos'">
                 @include('partials.habitos-cartao')
             </template>
+            {{-- Banco de dados, GitHub / VS Code e Tabletop (vêm do Diverso; partials/tipos-diverso-cartoes, js/cartoes-diverso.js) --}}
+            @include('partials.tipos-diverso-cartoes')
             {{-- Editor de PDF (partials/editor-pdf-cartao; editor em js/editor-pdf.js) --}}
             <template x-if="b.tipo === 'editorpdf'">
                 @include('partials.editor-pdf-cartao')
