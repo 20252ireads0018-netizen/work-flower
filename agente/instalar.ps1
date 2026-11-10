@@ -13,7 +13,9 @@ param(
     [string]$Destino = (Join-Path $env:LOCALAPPDATA 'WorkFlowerAgente'),
     [int]$Intervalo = 30,
     [switch]$SemAutoInicio,
-    [switch]$SemIniciar
+    [switch]$SemIniciar,
+    # liga os textos rápidos no Windows inteiro sem perguntar (usado pelo instalador do app)
+    [switch]$Expansor
 )
 
 $ErrorActionPreference = 'Stop'
@@ -61,7 +63,7 @@ try {
 # ---------------------------------------------------------------- arquivos
 New-Item -ItemType Directory -Path $Destino -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $Destino 'scripts') -Force | Out-Null
-foreach ($f in @('agente.ps1', 'desinstalar.ps1', 'README.md')) {
+foreach ($f in @('agente.ps1', 'expansor.cs', 'desinstalar.ps1', 'README.md')) {
     if (Test-Path -LiteralPath (Join-Path $origem $f)) { Copy-Item -LiteralPath (Join-Path $origem $f) -Destination $Destino -Force }
 }
 # scripts de exemplo: não sobrescreve os que você já editou
@@ -74,6 +76,18 @@ $cfgArq = Join-Path $Destino 'config.json'
 $antigo = $null
 if (Test-Path -LiteralPath $cfgArq) { $antigo = Get-Content -LiteralPath $cfgArq -Raw -Encoding UTF8 | ConvertFrom-Json }
 
+# textos rápidos no Windows inteiro: -Expansor liga; reinstalação mantém a escolha; senão pergunta
+if ($Expansor) { $usarExpansor = $true }
+elseif ($antigo -and ($antigo.PSObject.Properties.Name -contains 'expansor')) { $usarExpansor = [bool]$antigo.expansor }
+else {
+    Write-Host ''
+    Write-Host 'Textos rápidos: os atalhos que você criou no site (ex.: ";ass" vira sua assinatura) podem funcionar'
+    Write-Host 'em qualquer programa do Windows (e-mail, Word, WhatsApp...). O agente só olha os últimos caracteres'
+    Write-Host 'digitados, na memória; nada é gravado nem enviado. Dá para desligar no ícone perto do relógio.'
+    $resp = Read-Host 'Ligar os textos rápidos no Windows inteiro? [S/n]'
+    $usarExpansor = -not ($resp -match '^\s*n')
+}
+
 $cfg = [ordered]@{
     site                = $Site
     token_protegido     = (ConvertTo-SecureString $Token -AsPlainText -Force | ConvertFrom-SecureString)
@@ -84,6 +98,8 @@ $cfg = [ordered]@{
     pastasPermitidas    = $(if ($antigo) { @($antigo.pastasPermitidas) } else { @() })
     # scripts que rodam sem perguntar (por padrão, todos perguntam)
     scriptsSemConfirmar = $(if ($antigo) { @($antigo.scriptsSemConfirmar) } else { @() })
+    # textos rápidos do site funcionando em qualquer programa (liga/desliga também no menu do ícone)
+    expansor            = $usarExpansor
 }
 [IO.File]::WriteAllText($cfgArq, ($cfg | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding($false)))
 Write-Host "Arquivos em $Destino"

@@ -106,4 +106,45 @@ class AgenteController extends Controller
 
         return response()->json(['ok' => true]);
     }
+
+    /**
+     * Textos rápidos da conta (os mesmos do expansor do site, js/expansor.js) para o agente expandir os atalhos
+     * em qualquer programa do Windows. Só atalho e texto; "ligado" segue a chave do site (expansorLigado).
+     * A lista vai em base64 (JSON UTF-8): textos com comandos ou HTML não esbarram no mod_security da hospedagem.
+     */
+    public function trechos(Request $request): JsonResponse
+    {
+        $d = $this->dispositivo($request);
+        $prefs = \App\Http\Controllers\PreferenciasController::de($d->user_id);
+
+        $lista = collect(is_array($prefs['trechos'] ?? null) ? $prefs['trechos'] : [])
+            ->filter(fn ($t) => is_array($t) && ($t['atalho'] ?? '') !== '' && ($t['texto'] ?? '') !== '')
+            ->map(fn ($t) => ['atalho' => (string) $t['atalho'], 'texto' => (string) $t['texto']])
+            ->values()->all();
+        $json = json_encode($lista, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return response()->json([
+            'ligado'      => ($prefs['expansorLigado'] ?? true) !== false,
+            'nome'        => (string) $d->user?->name,
+            'email'       => (string) $d->user?->email,
+            'quantidade'  => count($lista),
+            'versao'      => substr(md5($json . '|' . (($prefs['expansorLigado'] ?? true) !== false ? 1 : 0)), 0, 12),
+            'trechos_b64' => base64_encode($json),
+        ]);
+    }
+
+    /** Pacote do agente (.zip) para o instalador do app (Windows) instalar sem a pessoa baixar nada à parte. */
+    public function pacote(): \Illuminate\Http\Response|JsonResponse
+    {
+        $zip = \App\Support\PacoteAgente::gerar();
+        if ($zip === null) {
+            return response()->json(['erro' => 'Os arquivos do agente não estão no servidor.'], 503);
+        }
+
+        return response($zip, 200, [
+            'Content-Type'        => 'application/zip',
+            'Content-Disposition' => 'attachment; filename="work-flower-agente.zip"',
+            'Cache-Control'       => 'no-store',
+        ]);
+    }
 }

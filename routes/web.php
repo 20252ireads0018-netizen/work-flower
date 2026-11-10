@@ -49,6 +49,9 @@ Route::withoutMiddleware([
     // instalador leve para Windows (.cmd que cria os atalhos do app); botões "Baixar o app" (partials/instalar-app)
     Route::get('/app/instalar-windows', 'instaladorWindows')->middleware('throttle:20,1')->name('app.windows');
 });
+// instalador completo (app + agente com os textos rápidos no Windows inteiro): só logado, leva um código de uso único
+Route::get('/app/instalar-windows-completo', [\App\Http\Controllers\AppInstalavelController::class, 'instaladorWindowsCompleto'])
+    ->middleware(['auth', 'throttle:6,1'])->name('app.windows.completo');
 
 // Animação de apresentação (rolagem), aberta pela tela de login. Pública, para visitantes.
 Route::view('/conheca', 'conheca')->name('demo');

@@ -26,6 +26,9 @@ class AutomacaoServiceProvider extends ServiceProvider
             Route::prefix('api/agente')->name('agente.')
                 ->middleware(['throttle:agente', \App\Http\Middleware\AgenteToken::class, \Illuminate\Routing\Middleware\SubstituteBindings::class])
                 ->group(base_path('routes/agente.php'));
+            // instalador do app (Windows): troca o código de uso único pelo token do computador (sem sessão nem CSRF)
+            Route::post('api/agente-codigo', [\App\Http\Controllers\Api\AgenteCodigoController::class, 'trocar'])
+                ->middleware('throttle:10,1')->name('agente.codigo');
         }
 
         Tarefa::created(function (Tarefa $t) {

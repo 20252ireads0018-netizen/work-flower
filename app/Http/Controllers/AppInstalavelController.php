@@ -133,8 +133,79 @@ class AppInstalavelController extends Controller
         ]);
     }
 
+    /**
+     * Instalador completo para Windows (só para quem está logado): o app (os mesmos atalhos do instalador leve)
+     * + o agente do Work Flower com os textos rápidos funcionando em qualquer programa do Windows.
+     *
+     * Leva um código de uso único (30 min), não o token: o instalador troca o código pelo token do computador
+     * (POST /api/agente-codigo), baixa o pacote do agente (/api/agente/pacote) e roda o instalar.ps1 dele com
+     * -Expansor. O PowerShell é grande demais para uma linha do cmd.exe (8191 caracteres), então o .cmd escreve
+     * o script em base64, em pedaços, num arquivo temporário, decodifica e roda.
+     */
+    public function instaladorWindowsCompleto(\Illuminate\Http\Request $request): Response
+    {
+        $codigo = \App\Http\Controllers\Api\AgenteCodigoController::gerar($request->user()->id);
+        $ps = $this->scriptWindows(route('painel'), asset('icons/work-flower.ico'), $this->scriptAgente(rtrim(url('/'), '/'), $codigo));
+        $pedacos = str_split(base64_encode("\u{FEFF}" . $ps), 900);
+
+        $linhas = [
+            '@echo off',
+            'title Instalar o Work Flower (app + textos rapidos)',
+            'echo.',
+            'echo   Instalando o Work Flower e os textos rapidos neste computador...',
+            'echo   Sem administrador. Leva menos de um minuto.',
+            'echo.',
+            'set "WF=%TEMP%\\wf-instalar-%RANDOM%%RANDOM%"',
+            'type nul > "%WF%.b64"',
+        ];
+        // redirecionamento antes do echo: um pedaço que termine em dígito viraria "2>>" (saída de erro)
+        foreach ($pedacos as $p) {
+            $linhas[] = '>>"%WF%.b64" echo ' . $p;
+        }
+        $linhas[] = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$b = (Get-Content -LiteralPath \'%WF%.b64\' -Raw) -replace \'\\s\',\'\'; [IO.File]::WriteAllBytes(\'%WF%.ps1\', [Convert]::FromBase64String($b))"';
+        $linhas[] = 'powershell -NoProfile -ExecutionPolicy Bypass -File "%WF%.ps1"';
+        $linhas[] = 'set "ERRO=%ERRORLEVEL%"';
+        $linhas[] = 'del "%WF%.b64" "%WF%.ps1" 2>nul';
+        $linhas[] = 'if not "%ERRO%"=="0" (echo. & echo   Nao deu certo. Tente de novo ou baixe o instalador outra vez no site. & pause)';
+        $linhas[] = '';
+
+        return response(implode("\r\n", $linhas), 200, [
+            'Content-Type'        => 'application/octet-stream',
+            'Content-Disposition' => 'attachment; filename="Instalar Work Flower.cmd"',
+            'Cache-Control'       => 'no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    /** Parte do instalador completo que instala o agente com os textos rápidos (público para os testes). */
+    public function scriptAgente(string $site, string $codigo): string
+    {
+        $site = str_replace("'", "''", $site);
+        $codigo = preg_replace('/[^A-Za-z0-9_]/', '', $codigo);
+
+        return <<<PS
+Write-Host ''
+Write-Host '  Ligando os textos rapidos no Windows inteiro (agente do Work Flower)...'
+try {
+  \$site = '{$site}'
+  \$corpo = @{ codigo = '{$codigo}'; computador = \$env:COMPUTERNAME } | ConvertTo-Json
+  \$par = Invoke-RestMethod -Method Post -Uri "\$site/api/agente-codigo" -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -Body \$corpo
+  \$tmp = Join-Path \$env:TEMP ('wf-agente-' + [guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Force -Path \$tmp | Out-Null
+  \$zip = Join-Path \$tmp 'agente.zip'
+  Invoke-WebRequest -UseBasicParsing -Uri "\$site/api/agente/pacote" -Headers @{ Authorization = "Bearer \$(\$par.token)" } -OutFile \$zip
+  Expand-Archive -LiteralPath \$zip -DestinationPath \$tmp -Force
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path \$tmp 'work-flower-agente\\instalar.ps1') -Site \$site -Token \$par.token -Expansor
+  Remove-Item -LiteralPath \$tmp -Recurse -Force -ErrorAction SilentlyContinue
+} catch {
+  Write-Host "  Os textos rapidos nao foram instalados: \$(\$_.Exception.Message)" -ForegroundColor Yellow
+  Write-Host '  O app ja esta instalado. Para tentar de novo, baixe o instalador outra vez no site.'
+}
+PS;
+    }
+
     /** PowerShell do instalador (público para os testes conferirem o conteúdo). */
-    public function scriptWindows(string $url, string $icone): string
+    public function scriptWindows(string $url, string $icone, string $extra = ''): string
     {
         $url = str_replace("'", "''", $url);
         $icone = str_replace("'", "''", $icone);
@@ -164,6 +235,7 @@ foreach (\$a in \$atalhos) {
 }
 \$des = "@echo off`r`ndel `"\$(\$atalhos[0])`" 2>nul`r`ndel `"\$(\$atalhos[1])`" 2>nul`r`necho Work Flower removido deste computador.`r`npause`r`nrmdir /s /q `"\$pasta`"`r`n"
 Set-Content -Path (Join-Path \$pasta 'Desinstalar Work Flower.cmd') -Value \$des -Encoding ASCII
+{$extra}
 Write-Host ''
 Write-Host '  Pronto! O Work Flower esta na Area de Trabalho e no Menu Iniciar.' -ForegroundColor Green
 Write-Host '  Abrindo agora... (se pedir login, marque "Manter conectado" uma vez).'

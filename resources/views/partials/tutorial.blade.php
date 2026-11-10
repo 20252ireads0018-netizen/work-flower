@@ -414,6 +414,7 @@
         {
             t: 'Bem-vindo ao Work Flower', v: 'inicio',
             x: 'Sua vida em quatro áreas, num só lugar. Setas do teclado avançam e <b>Esc</b> sai.',
+            app: true, // boas-vindas: botão "Baixar o app" (public/js/app-instalavel.js; some no app instalado)
         },
         {
             t: 'Tarefas gerais', v: 'tarefas', alvo: '#janela-tarefas',
@@ -596,6 +597,11 @@
             const d = el('div', 'wfd'); d.setAttribute('aria-hidden', 'true'); d.innerHTML = DEMOS[p.v](); corpo.appendChild(d);
         }
         const txt = el('p'); comNegrito(txt, p.x); corpo.appendChild(txt);
+        if (p.app && !(window.wfApp && window.wfApp.instalado)) {
+            const b = el('button', 'btn-sec', '⬇ Baixar o app (Windows, Android, iPhone)');
+            b.type = 'button'; b.setAttribute('data-wf-instalar', ''); b.style.marginTop = '.6rem';
+            corpo.appendChild(b);
+        }
 
         if (p.campos) {
             const g = el('div', 'wft-campos');

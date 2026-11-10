@@ -126,7 +126,8 @@
     <link rel="apple-touch-icon" href="{{ asset('icons/apple-touch-icon.png') }}">
     <script src="{{ asset('js/app-instalavel.js') }}?v={{ @filemtime(public_path('js/app-instalavel.js')) }}"
             data-sw="{{ route('app.sw') }}" data-escopo="{{ rtrim(url('/'), '/') }}/"
-            data-windows="{{ \Illuminate\Support\Facades\Route::has('app.windows') ? route('app.windows') : '' }}"></script>
+            data-windows="{{ \Illuminate\Support\Facades\Route::has('app.windows') ? route('app.windows') : '' }}"
+            @auth data-windows-completo="{{ \Illuminate\Support\Facades\Route::has('app.windows.completo') ? route('app.windows.completo') : '' }}" @endauth></script>
     {{-- versão do editor de imagem (carregado só quando alguém abre um cartão "Editor de imagem") --}}
     <meta name="wf-editor-imagem-v" content="{{ @filemtime(public_path('js/editor-imagem.js')) }}">
     <meta name="wf-editor-video-v" content="{{ @filemtime(public_path('js/editor-video.js')) }}">
@@ -1292,6 +1293,13 @@
 
             {{-- textos rápidos (atalho que vira texto ao digitar): desenhado por public/js/expansor.js --}}
             <div id="wf-expansor-painel" class="space-y-3" style="border-top: 1px solid var(--linha); padding-top: 1rem"></div>
+            {{-- os mesmos textos rápidos em qualquer programa do Windows: agente (agente/expansor.cs) pelo instalador do app --}}
+            <p class="text-xs texto-2 mt-3">
+                <b>No Windows inteiro:</b> instale o app com os textos rápidos
+                (<a href="{{ route('app.windows.completo') }}" download class="link-prim">baixar o instalador</a>)
+                e os mesmos atalhos funcionam no e-mail, no Word, no WhatsApp e em qualquer programa. Liga e desliga no
+                ícone do Work Flower perto do relógio. Quem já usa o agente de Automações: menu do ícone › <b>Textos rápidos no Windows</b>.
+            </p>
         </section>
 
         </div>

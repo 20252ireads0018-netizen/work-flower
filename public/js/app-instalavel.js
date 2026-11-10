@@ -69,6 +69,7 @@
      * Senão abre uma janelinha com o caminho certo para o aparelho: instalador do Windows (.cmd leve que cria
      * os atalhos) e os passos do navegador (iPhone, Safari, Firefox...). No app instalado os botões somem. */
     var winUrl = script && script.dataset.windows;
+    var winCompleto = script && script.dataset.windowsCompleto; // só aparece para quem está logado
     var windows = /windows/i.test(ua);
     var android = /android/i.test(ua);
     var nav = /edg\//i.test(ua) ? 'edge' : /samsungbrowser/i.test(ua) ? 'samsung' : /firefox|fxios/i.test(ua) ? 'firefox'
@@ -125,11 +126,17 @@
                 + '<div class="wi-acoes"><button type="button" class="btn" data-wi-agora>Instalar o app</button></div></div>';
         }
         if (windows && winUrl) {
+            // logado: instalador completo (app + agente com os textos rápidos em qualquer programa do Windows)
             h += '<div class="wi-bloco"><strong>Instalador para Windows</strong>'
                 + '<ol><li>Baixe o <b>Instalar Work Flower.cmd</b> (poucos KB, sem administrador).</li>'
                 + '<li>Dê dois cliques nele. Se o Windows avisar, clique em <b>Mais informações › Executar assim mesmo</b>.</li>'
                 + '<li>O atalho aparece na Área de Trabalho e no Menu Iniciar e o app já abre.</li></ol>'
-                + '<div class="wi-acoes"><a class="' + (pedido ? 'btn-sec' : 'btn') + '" href="' + winUrl + '" download>⬇ Baixar para Windows</a></div></div>';
+                + (winCompleto
+                    ? '<p class="wi-2" style="font-size:.8rem">Com <b>textos rápidos</b>: os atalhos que você criou em Atalhos (ex.: <b>;ass</b> vira sua assinatura) passam a funcionar em qualquer programa do Windows, como e-mail, Word e WhatsApp. Liga e desliga no ícone do Work Flower perto do relógio.</p>'
+                        + '<div class="wi-acoes"><a class="' + (pedido ? 'btn-sec' : 'btn') + '" href="' + winCompleto + '" download>⬇ App + textos rápidos</a>'
+                        + '<a class="btn-sec" href="' + winUrl + '" download>Só o app</a></div></div>'
+                    : '<div class="wi-acoes"><a class="' + (pedido ? 'btn-sec' : 'btn') + '" href="' + winUrl + '" download>⬇ Baixar para Windows</a></div>'
+                        + '<p class="wi-2" style="font-size:.78rem">Entre na sua conta para baixar também os <b>textos rápidos</b> em qualquer programa do Windows.</p></div>');
         }
         h += '<div class="wi-bloco"><strong>' + (pedido || (windows && winUrl) ? 'Ou pelo navegador' : 'Pelo navegador') + '</strong><ol>'
             + passosNavegador().map(function (p) { return '<li>' + p + '</li>'; }).join('') + '</ol></div>'
