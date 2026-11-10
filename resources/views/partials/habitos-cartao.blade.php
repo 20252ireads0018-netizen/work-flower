@@ -59,7 +59,7 @@
                             </td>
                             <template x-for="d in hbDias(b)" :key="d.iso">
                                 <td :class="{ 'fds': d.fds, 'hoje': d.hoje }">
-                                    <button type="button" class="hb-dia" :disabled="d.futuro || (h.semFds && d.fds)"
+                                    <button type="button" class="hb-dia" :disabled="!!(d.futuro || (h.semFds && d.fds))"
                                             :class="{ 'feito': hbFeito(b, h, d.iso), 'hb-pulado': h.semFds && d.fds }" :style="hbFeito(b, h, d.iso) ? '--c:' + h.cor : ''"
                                             :title="h.semFds && d.fds ? 'Fim de semana pulado neste hábito' : ''"
                                             :aria-pressed="hbFeito(b, h, d.iso)" :aria-label="h.nome + ', dia ' + d.n"
