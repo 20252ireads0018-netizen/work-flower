@@ -23,10 +23,10 @@ class AgenteCodigoController extends Controller
     public const MINUTOS = 30;
 
     /** Gera um código para a conta (guardado só o hash, no cache). */
-    public static function gerar(int $userId): string
+    public static function gerar(int $userId, string $sufixo = ' (app)'): string
     {
         $codigo = self::PREFIXO . Str::random(32);
-        Cache::put(self::chave($codigo), ['user_id' => $userId], now()->addMinutes(self::MINUTOS));
+        Cache::put(self::chave($codigo), ['user_id' => $userId, 'sufixo' => $sufixo], now()->addMinutes(self::MINUTOS));
 
         return $codigo;
     }
@@ -56,7 +56,7 @@ class AgenteCodigoController extends Controller
         }
 
         $nome = trim((string) ($dados['computador'] ?? '')) ?: 'Computador';
-        [$d, $token] = AutomacaoDispositivo::parear((int) $par['user_id'], mb_substr($nome . ' (app)', 0, 60));
+        [$d, $token] = AutomacaoDispositivo::parear((int) $par['user_id'], mb_substr($nome . ($par['sufixo'] ?? ' (app)'), 0, 60));
 
         return response()->json(['token' => $token, 'dispositivo' => $d->nome]);
     }

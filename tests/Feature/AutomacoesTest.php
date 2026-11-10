@@ -229,7 +229,7 @@ class AutomacoesTest extends TestCase
     {
         $u = User::factory()->create();
         $this->actingAs($u)->get('/painel')->assertOk()->assertSee('Automações no PC');
-        $this->actingAs($u)->get('/automacoes')->assertOk()->assertSee('Primeiro pareie um computador')->assertSee('Como funciona')->assertSee('Voltar ao painel');
+        $this->actingAs($u)->get('/automacoes')->assertOk()->assertSee('Primeiro instale o agente')->assertSee('Como funciona')->assertSee('Voltar ao painel');
         $this->get('/logout-nao-existe');
         auth()->logout();
         $this->get('/automacoes')->assertRedirect('/login');

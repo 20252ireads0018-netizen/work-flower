@@ -119,6 +119,36 @@ class AutomacaoController extends Controller
 
     // ---------------------------------------------------------------- computadores
 
+    /** Situação dos computadores: a página confere depois do download do instalador e mostra "Conectado". */
+    public function computadores(Request $request): JsonResponse
+    {
+        $lista = AutomacaoDispositivo::where('user_id', $request->user()->id)->whereNull('revogado_em')->orderByDesc('id')->get();
+
+        return response()->json($lista->map(fn ($d) => [
+            'id' => $d->id, 'nome' => $d->nome, 'online' => $d->online(),
+            'visto' => $d->ultimo_contato_em?->diffForHumans(),
+        ])->values());
+    }
+
+    /** Notificação de teste no computador (não precisa criar automação). */
+    public function testar(Request $request, AutomacaoDispositivo $dispositivo): JsonResponse
+    {
+        abort_unless($dispositivo->user_id === $request->user()->id, 404);
+        if (! $dispositivo->ativo()) {
+            return response()->json(['erro' => 'Esse computador foi revogado.'], 422);
+        }
+        $e = AutomacaoExecucao::create([
+            'user_id'        => $dispositivo->user_id,
+            'dispositivo_id' => $dispositivo->id,
+            'nome'           => 'Teste do agente',
+            'origem'         => 'Botão Testar no site',
+            'acoes'          => [['tipo' => 'notificacao', 'titulo' => 'Work Flower conectado', 'mensagem' => 'O agente deste computador está funcionando.']],
+            'status'         => 'pendente',
+        ]);
+
+        return response()->json(['ok' => true, 'id' => $e->id, 'msg' => 'Teste enviado: o aviso aparece perto do relógio em até 30 s.']);
+    }
+
     public function parear(Request $request): RedirectResponse
     {
         $eu = $request->user()->id;

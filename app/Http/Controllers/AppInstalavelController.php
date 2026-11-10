@@ -146,13 +146,32 @@ class AppInstalavelController extends Controller
     {
         $codigo = \App\Http\Controllers\Api\AgenteCodigoController::gerar($request->user()->id);
         $ps = $this->scriptWindows(route('painel'), asset('icons/work-flower.ico'), $this->scriptAgente(rtrim(url('/'), '/'), $codigo));
+
+        return $this->cmd($ps, 'Instalar o Work Flower (app + textos rapidos)', 'Instalando o Work Flower e os textos rapidos neste computador...', 'Instalar Work Flower.cmd');
+    }
+
+    /**
+     * Instalador de um clique só do agente de automações (página Automações): o .cmd leva um código de uso único
+     * (30 min) que vira o token do computador lá no próprio PC. Sem .zip, sem colar token, sem política de execução.
+     */
+    public function instaladorAgente(\Illuminate\Http\Request $request): Response
+    {
+        $codigo = \App\Http\Controllers\Api\AgenteCodigoController::gerar($request->user()->id, '');
+        $ps = "\$ErrorActionPreference = 'Stop'\n" . $this->scriptAgente(rtrim(url('/'), '/'), $codigo, true);
+
+        return $this->cmd($ps, 'Instalar o agente de automacoes do Work Flower', 'Instalando o agente de automacoes do Work Flower neste computador...', 'Instalar agente Work Flower.cmd');
+    }
+
+    /** .cmd que escreve o PowerShell em base64 num arquivo temporário e roda (o cmd.exe não aceita linhas de 8191+). */
+    private function cmd(string $ps, string $titulo, string $mensagem, string $arquivo): Response
+    {
         $pedacos = str_split(base64_encode("\u{FEFF}" . $ps), 900);
 
         $linhas = [
             '@echo off',
-            'title Instalar o Work Flower (app + textos rapidos)',
+            'title ' . $titulo,
             'echo.',
-            'echo   Instalando o Work Flower e os textos rapidos neste computador...',
+            'echo   ' . $mensagem,
             'echo   Sem administrador. Leva menos de um minuto.',
             'echo.',
             'set "WF=%TEMP%\\wf-instalar-%RANDOM%%RANDOM%"',
@@ -171,17 +190,48 @@ class AppInstalavelController extends Controller
 
         return response(implode("\r\n", $linhas), 200, [
             'Content-Type'        => 'application/octet-stream',
-            'Content-Disposition' => 'attachment; filename="Instalar Work Flower.cmd"',
+            'Content-Disposition' => 'attachment; filename="' . $arquivo . '"',
             'Cache-Control'       => 'no-store',
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 
     /** Parte do instalador completo que instala o agente com os textos rápidos (público para os testes). */
-    public function scriptAgente(string $site, string $codigo): string
+    public function scriptAgente(string $site, string $codigo, bool $sozinho = false): string
     {
         $site = str_replace("'", "''", $site);
         $codigo = preg_replace('/[^A-Za-z0-9_]/', '', $codigo);
+
+        if ($sozinho) {
+            // só o agente (página Automações): erro sai com código 1 para o .cmd pausar e mostrar a mensagem
+            return <<<PS
+try {
+  \$site = '{$site}'
+  \$corpo = @{ codigo = '{$codigo}'; computador = \$env:COMPUTERNAME } | ConvertTo-Json
+  \$par = Invoke-RestMethod -Method Post -Uri "\$site/api/agente-codigo" -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -Body \$corpo
+  \$tmp = Join-Path \$env:TEMP ('wf-agente-' + [guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Force -Path \$tmp | Out-Null
+  \$zip = Join-Path \$tmp 'agente.zip'
+  Invoke-WebRequest -UseBasicParsing -Uri "\$site/api/agente/pacote" -Headers @{ Authorization = "Bearer \$(\$par.token)" } -OutFile \$zip
+  Expand-Archive -LiteralPath \$zip -DestinationPath \$tmp -Force
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path \$tmp 'work-flower-agente\\instalar.ps1') -Site \$site -Token \$par.token -Expansor
+  \$codigoSaida = \$LASTEXITCODE
+  Remove-Item -LiteralPath \$tmp -Recurse -Force -ErrorAction SilentlyContinue
+  if (\$codigoSaida) { throw "o instalador do agente terminou com erro (\$codigoSaida)" }
+  Write-Host ''
+  Write-Host "  Pronto! Este computador ja aparece como '\$(\$par.dispositivo)' no site." -ForegroundColor Green
+  Write-Host '  Volte para a pagina Automacoes: ela confirma sozinha e libera o botao Testar.'
+  Start-Sleep -Seconds 5
+} catch {
+  \$msg = \$_.Exception.Message
+  try { \$j = \$_.ErrorDetails.Message | ConvertFrom-Json; if (\$j.erro) { \$msg = \$j.erro } } catch { }
+  Write-Host ''
+  Write-Host "  Nao deu certo: \$msg" -ForegroundColor Yellow
+  Write-Host '  Baixe o instalador outra vez na pagina Automacoes (cada arquivo vale 30 minutos e uma vez so).'
+  exit 1
+}
+PS;
+        }
 
         return <<<PS
 Write-Host ''

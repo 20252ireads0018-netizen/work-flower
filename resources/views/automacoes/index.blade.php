@@ -51,7 +51,7 @@
 <section class="card p-4 mb-6">
     <h2 class="titulo text-lg mb-3">Como funciona</h2>
     <div class="au-passos text-sm">
-        <div class="au-passo"><span class="au-num">1</span><p><b>Instale o agente</b> no seu Windows: baixe o .zip, rode <b>instalar.ps1</b> e cole o token gerado aqui. Leva 2 minutos e não precisa ser administrador.</p></div>
+        <div class="au-passo"><span class="au-num">1</span><p><b>Instale o agente</b> no seu Windows: clique em <b>Instalar neste computador</b> e dê dois cliques no arquivo baixado. Menos de 1 minuto, sem administrador, sem token para copiar.</p></div>
         <div class="au-passo"><span class="au-num">2</span><p><b>Crie uma automação</b>: escolha <b>quando</b> (horário, tarefa criada/concluída ou só pelo botão) e <b>o que fazer</b> no computador.</p></div>
         <div class="au-passo"><span class="au-num">3</span><p><b>Pronto</b>: o agente confere a cada 30 s e roda. O resultado aparece no <b>Histórico</b>. Para cortar o acesso, clique em <b>Revogar</b>.</p></div>
     </div>
@@ -78,9 +78,19 @@
         <section class="card p-5 space-y-3">
             <h2 class="titulo text-xl">1. Seus computadores</h2>
             <p class="text-sm texto-2">O site não mexe no computador sozinho: quem faz é o <b>agente</b>, um programinha para Windows que confere aqui a cada 30 segundos e só roda os tipos de ação que você deixar.</p>
-            <div class="au-linha">
-                <a href="{{ route('automacoes.agente') }}" class="btn au-mini">Baixar o agente (.zip)</a>
-                <span class="text-xs texto-2">Depois rode <b>instalar.ps1</b> e cole o token.</span>
+            {{-- instalação de um clique: o .cmd leva um código de uso único (30 min); a página confere e mostra quando o PC conecta --}}
+            <div class="au-instalar space-y-2" x-data="wfAgenteInstalar(@js(route('automacoes.computadores')), @js($dispositivos->filter->ativo()->pluck('id')->values()))">
+                <div class="au-linha">
+                    <a href="{{ route('automacoes.instalador') }}" class="btn" @click="esperar()">⤓ Instalar neste computador</a>
+                    <span class="text-xs texto-2">Baixa <b>Instalar agente Work Flower.cmd</b>: dê dois cliques nele e pronto.</span>
+                </div>
+                <p class="text-xs texto-2" x-show="estado === 'esperando'" x-cloak>⏳ Esperando o computador conectar… abra o arquivo baixado (se o Windows avisar, clique em <b>Mais informações › Executar assim mesmo</b>).</p>
+                <div class="au-linha text-sm" x-show="estado === 'conectado'" x-cloak style="color: #16a34a">
+                    <b x-text="'✓ Conectado: ' + (novo ? novo.nome : '')"></b>
+                    <button type="button" class="btn-sec au-mini" @click="testar(novo)">Testar agora</button>
+                    <button type="button" class="btn-sec au-mini" @click="location.reload()">Continuar</button>
+                </div>
+                <p class="text-xs" x-show="msg" x-cloak x-text="msg"></p>
             </div>
 
             @forelse ($dispositivos as $d)
@@ -91,6 +101,7 @@
                     <b class="flex-1 truncate" style="min-width: 7rem" title="{{ $d->nome }}">{{ $d->nome }}</b>
                     <span class="text-xs texto-2">token …{{ $d->token_fim }} · {{ $d->ultimo_contato_em ? 'visto ' . $d->ultimo_contato_em->diffForHumans() : 'ainda não conectou (instale o agente)' }}</span>
                     @if ($d->ativo())
+                        <button type="button" class="btn-sec au-mini" title="Mostra uma notificação nesse computador" onclick="wfAgenteTestar({{ $d->id }}, this)">Testar</button>
                         <form method="POST" action="{{ route('automacoes.revogar', $d) }}" onsubmit="return confirm({{ \Illuminate\Support\Js::from('Revogar o token de ' . $d->nome . '? O agente desse computador para de funcionar até receber um token novo.') }})">
                             @csrf
                             <button class="btn-sec au-mini">Revogar</button>
@@ -98,18 +109,25 @@
                     @endif
                 </div>
             @empty
-                <p class="text-sm texto-2">Nenhum computador pareado ainda. Dê um nome abaixo e clique em <b>Gerar token</b>.</p>
+                <p class="text-sm texto-2">Nenhum computador ainda. Clique em <b>Instalar neste computador</b> acima.</p>
             @endforelse
 
-            <form method="POST" action="{{ route('automacoes.parear') }}" class="space-y-1">
-                @csrf
-                <label class="rotulo" for="au-computador">Parear um computador</label>
-                <div class="au-linha">
-                    <input id="au-computador" name="computador" class="campo flex-1" style="min-width: 10rem" maxlength="60" required placeholder="Nome (ex.: PC de casa)" value="{{ old('computador') }}">
-                    <button class="btn">Gerar token</button>
+            {{-- jeito antigo (zip + token), para quem prefere ou instala em outro computador sem entrar no site nele --}}
+            <details class="text-sm" @if ($errors->has('computador') || session('token_novo')) open @endif>
+                <summary class="texto-2 cursor-pointer">Instalar manualmente (.zip + token)</summary>
+                <div class="space-y-2 mt-2">
+                    <p class="text-xs texto-2">Gere um token, <a href="{{ route('automacoes.agente') }}" class="underline">baixe o agente (.zip)</a>, extraia, clique com o botão direito em <b>instalar.ps1</b> › Executar com o PowerShell e cole o token.</p>
+                    <form method="POST" action="{{ route('automacoes.parear') }}" class="space-y-1">
+                        @csrf
+                        <label class="rotulo" for="au-computador">Gerar token para um computador</label>
+                        <div class="au-linha">
+                            <input id="au-computador" name="computador" class="campo flex-1" style="min-width: 10rem" maxlength="60" required placeholder="Nome (ex.: PC de casa)" value="{{ old('computador') }}">
+                            <button class="btn-sec">Gerar token</button>
+                        </div>
+                    </form>
+                    @error('computador')<p class="erro">{{ $message }}</p>@enderror
                 </div>
-            </form>
-            @error('computador')<p class="erro">{{ $message }}</p>@enderror
+            </details>
         </section>
 
         <section class="card p-5 space-y-4" x-data="automacaoForm(@js($editaveis), @js($ativos->sortByDesc(fn ($d) => $d->ultimo_contato_em?->timestamp ?? 0)->first()?->id), @js($antigo))" @editar-automacao.window="editar($event.detail)">
@@ -118,7 +136,7 @@
                 <button type="button" class="btn-sec au-mini" x-show="id" x-cloak @click="limpar()">Cancelar edição</button>
             </div>
             @if ($ativos->isEmpty())
-                <p class="text-sm texto-2">Primeiro pareie um computador no passo 1 (dê um nome e clique em <b>Gerar token</b>). Depois o formulário aparece aqui.</p>
+                <p class="text-sm texto-2">Primeiro instale o agente no passo 1 (botão <b>Instalar neste computador</b>). Depois o formulário aparece aqui.</p>
             @else
             <form method="POST" :action="id ? @js(url('/automacoes')) + '/' + id : @js(route('automacoes.criar'))" class="space-y-4" @submit="$refs.b64.value = paraBase64(JSON.stringify(acoes))">
                 @csrf
@@ -277,6 +295,34 @@
 <script>
 // base64 de texto UTF-8 (o mod_security da hospedagem barra caminhos e textos com cara de código)
 function paraBase64(txt) { const b = new TextEncoder().encode(txt); let s = ''; b.forEach(c => s += String.fromCharCode(c)); return btoa(s); }
+// notificação de teste num computador pareado (sem precisar criar automação)
+async function wfAgenteTestar(id, botao) {
+    const r = await fetch(@js(url('/automacoes/computadores')) + '/' + id + '/testar', { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' } });
+    const j = await r.json().catch(() => ({}));
+    const msg = r.ok ? j.msg : (j.erro || 'Não deu certo agora. Tente de novo.');
+    if (botao) { botao.textContent = r.ok ? 'Enviado ✓' : 'Erro'; botao.title = msg; }
+    return msg;
+}
+// instalação de um clique: depois do download, confere a cada 4 s até aparecer um computador novo (por até 10 min)
+function wfAgenteInstalar(urlLista, conhecidos) {
+    return {
+        estado: '', novo: null, msg: '', timer: null,
+        esperar() {
+            this.estado = 'esperando'; this.msg = '';
+            clearInterval(this.timer);
+            const fim = Date.now() + 10 * 60 * 1000;
+            this.timer = setInterval(async () => {
+                if (Date.now() > fim) { clearInterval(this.timer); this.estado = ''; this.msg = 'Não vi nenhum computador conectar. Abriu o arquivo baixado? Se precisar, baixe de novo (cada arquivo vale 30 minutos e uma vez só).'; return; }
+                try {
+                    const lista = await (await fetch(urlLista, { headers: { Accept: 'application/json' } })).json();
+                    const novo = lista.find(d => !conhecidos.includes(d.id));
+                    if (novo) { clearInterval(this.timer); this.novo = novo; this.estado = 'conectado'; }
+                } catch (e) { /* tenta de novo na próxima volta */ }
+            }, 4000);
+        },
+        async testar(d) { if (d) this.msg = await wfAgenteTestar(d.id); },
+    };
+}
 function automacaoForm(lista, dispPadrao, antigo) {
     const vazio = () => ({ id: null, nome: '', dispositivo_id: dispPadrao, gatilho: 'horario', cfg: { hora: '08:30', dias: [], minutos: 60, area: '' }, acoes: [{ tipo: 'notificacao', titulo: 'Bom dia!', mensagem: 'Hora de começar.', espera: 3 }] });
     return {
