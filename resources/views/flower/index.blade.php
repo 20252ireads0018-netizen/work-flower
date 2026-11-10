@@ -81,6 +81,42 @@
     .fl-d-fechar{position:absolute;top:.45rem;right:.5rem;border:0;background:none;color:var(--tinta-2);font-size:1.1rem;cursor:pointer;line-height:1;padding:.2rem .35rem;border-radius:.4rem}
     .fl-d-fechar:hover{color:var(--tinta)}
 
+    /* ---- animações (leves: só transform/opacity; desligadas com "reduzir movimento") ---- */
+    .fl-petala{transition:fill .35s ease, stroke .35s ease}
+    .fl-petala.fl-trilha{fill:color-mix(in srgb, var(--c) 17%, transparent);stroke:color-mix(in srgb, var(--c) 65%, transparent)}
+    .fl-linha{transition:opacity .25s, stroke-width .25s, stroke .25s}
+    .fl-linha.fl-trilha{stroke:var(--c);stroke-width:3;opacity:1}
+    .fl-l-area.fl-trilha{stroke-width:5.5}
+    .fl-trilha .fl-bola{stroke:var(--tinta);stroke-width:2.6}
+    .fl-bola{transform-box:fill-box;transform-origin:center;transition:r .2s, stroke-width .2s, transform .3s cubic-bezier(.34,1.56,.64,1)}
+    .fl-no:hover .fl-bola,.fl-no:focus-visible .fl-bola{transform:scale(1.2)}
+    .fl-pessoa:hover .fl-bola{transform:scale(1.08)}
+    .fl-no:active .fl-bola{transform:scale(.92);transition-duration:.12s}
+    .fl-nasce .fl-bola{animation:fl-pop .6s cubic-bezier(.34,1.56,.64,1) var(--atraso,0ms) both}
+    .fl-nasce .fl-rot,.fl-nasce .fl-mais,.fl-nasce .fl-conta,.fl-nasce .fl-check{animation:fl-surge .45s ease calc(var(--atraso,0ms) + 120ms) both}
+    .fl-linha.fl-nasce{animation:fl-surge .5s ease var(--atraso,0ms) both}
+    .fl-onda{fill:none;stroke:var(--c);stroke-width:2;pointer-events:none;transform-box:fill-box;transform-origin:center;animation:fl-onda .65s cubic-bezier(.2,.7,.3,1) forwards}
+    .fl-flor{transform-box:fill-box;transform-origin:center;animation:fl-cresce 1.3s cubic-bezier(.34,1.56,.64,1) both, fl-respira 7s ease-in-out 1.3s infinite}
+    .fl-pessoa:hover .fl-flor path{fill:color-mix(in srgb, var(--prim) 22%, transparent)}
+    .fl-flor path{transition:fill .4s}
+    .fl-detalhe:not([hidden]){animation:fl-sobe .28s cubic-bezier(.2,.8,.3,1)}
+    .fl-legenda li{animation:fl-sobe .4s cubic-bezier(.2,.8,.3,1) both}
+    .fl-legenda li:nth-child(2){animation-delay:.05s}.fl-legenda li:nth-child(3){animation-delay:.1s}.fl-legenda li:nth-child(4){animation-delay:.15s}
+    .fl-legenda li:nth-child(5){animation-delay:.2s}.fl-legenda li:nth-child(n+6){animation-delay:.25s}
+    .fl-legenda button{transition:border-color .2s, transform .2s}
+    .fl-legenda button:hover{transform:translateX(3px)}
+    .fl-carregando:not([hidden]):not(.fl-erro)::before{content:'';display:block;width:2.6rem;height:2.6rem;margin:0 auto .8rem;border-radius:50% 0;background:color-mix(in srgb, var(--prim) 45%, transparent);animation:fl-gira 1.6s ease-in-out infinite}
+    @keyframes fl-pop{from{transform:scale(0)}to{transform:scale(1)}}
+    @keyframes fl-surge{from{opacity:0}to{opacity:1}}
+    @keyframes fl-onda{from{transform:scale(1);opacity:.85}to{transform:scale(2.8);opacity:0}}
+    @keyframes fl-cresce{from{transform:scale(0) rotate(-120deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
+    @keyframes fl-respira{0%,100%{transform:scale(1) rotate(0)}50%{transform:scale(1.045) rotate(8deg)}}
+    @keyframes fl-sobe{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    @keyframes fl-gira{0%{transform:rotate(0) scale(.85)}50%{transform:rotate(180deg) scale(1.05)}100%{transform:rotate(360deg) scale(.85)}}
+    @media (prefers-reduced-motion: reduce){
+        .fl-palco *,.fl-palco *::before{animation:none!important;transition:none!important}
+    }
+
     .fl-carregando{position:absolute;inset:0;display:grid;place-items:center;color:var(--tinta-2);font-size:.9rem;text-align:center;padding:2rem}
     .fl-carregando.fl-erro{color:#f87171}
     .fl-carregando[hidden],.fl-detalhe[hidden]{display:none}

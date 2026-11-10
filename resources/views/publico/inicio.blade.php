@@ -18,6 +18,7 @@
             <div class="mt-8 flex flex-wrap items-center gap-3">
                 <a href="{{ route('registro') }}" class="btn">Criar conta grátis</a>
                 <a href="{{ route('login') }}" class="btn-cab">Já tenho conta</a>
+                @include('partials.instalar-app', ['classe' => 'btn-cab', 'texto' => 'Baixar o app'])
             </div>
         </div>
 

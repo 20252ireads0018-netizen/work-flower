@@ -46,6 +46,8 @@ Route::withoutMiddleware([
     Route::get('/manifest.webmanifest', 'manifesto')->name('app.manifesto');
     Route::get('/sw.js', 'serviceWorker')->name('app.sw');
     Route::get('/offline', 'offline')->name('app.offline');
+    // instalador leve para Windows (.cmd que cria os atalhos do app); botões "Baixar o app" (partials/instalar-app)
+    Route::get('/app/instalar-windows', 'instaladorWindows')->middleware('throttle:20,1')->name('app.windows');
 });
 
 // Animação de apresentação (rolagem), aberta pela tela de login. Pública, para visitantes.

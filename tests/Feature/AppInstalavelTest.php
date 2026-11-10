@@ -85,6 +85,54 @@ class AppInstalavelTest extends TestCase
             ->assertSee('data-sw="' . route('app.sw') . '"', false);
 
         $u = User::factory()->create();
-        $this->actingAs($u)->get('/painel')->assertOk()->assertSee('Instalar o app');
+        $this->actingAs($u)->get('/painel')->assertOk()->assertSee('Baixar o app')->assertSee('data-wf-instalar', false);
+    }
+
+    public function test_botao_baixar_o_app_nas_paginas_de_entrada(): void
+    {
+        foreach (['/', '/login', '/registro', '/conheca'] as $pagina) {
+            $this->get($pagina)->assertOk()
+                ->assertSee('data-wf-instalar', false)
+                ->assertSee('Baixar o app')
+                ->assertSee('data-windows="' . route('app.windows') . '"', false);
+        }
+
+        // dentro do workflow: no cabeçalho e no menu de configurações de qualquer área
+        $u = User::factory()->create();
+        $html = $this->actingAs($u)->get('/flower')->assertOk()->getContent();
+        $this->assertGreaterThanOrEqual(2, substr_count($html, 'data-wf-instalar'));
+    }
+
+    public function test_instalador_windows_cria_atalhos_que_abrem_o_painel(): void
+    {
+        $r = $this->get('/app/instalar-windows')->assertOk();
+        $this->assertStringContainsString('attachment; filename="Instalar Work Flower.cmd"', $r->headers->get('Content-Disposition'));
+        $this->assertEmpty($r->headers->getCookies(), 'o instalador não deve abrir sessão');
+
+        $cmd = $r->getContent();
+        $this->assertStringStartsWith('@echo off', $cmd);
+        $this->assertStringContainsString("\r\n", $cmd, 'o .cmd precisa de quebras de linha do Windows');
+        $this->assertMatchesRegularExpression('/-EncodedCommand ([A-Za-z0-9+\/=]+)/', $cmd);
+        preg_match('/-EncodedCommand ([A-Za-z0-9+\/=]+)/', $cmd, $m);
+        $this->assertLessThan(8000, strlen($m[0]), 'linha do cmd.exe tem limite de 8191 caracteres');
+
+        $ps = mb_convert_encoding(base64_decode($m[1]), 'UTF-8', 'UTF-16LE');
+        $this->assertStringContainsString("--app=\$url", $ps);
+        $this->assertStringContainsString("\$url = '" . route('painel') . "'", $ps);
+        $this->assertStringContainsString(asset('icons/work-flower.ico'), $ps);
+        $this->assertStringContainsString('Desinstalar Work Flower.cmd', $ps);
+        $this->assertFileExists(public_path('icons/work-flower.ico'));
+    }
+
+    public function test_instalador_windows_na_subpasta_abre_o_painel_da_subpasta(): void
+    {
+        $r = $this->call('GET', 'https://websight.com.br/work-flower/app/instalar-windows', [], [], [], [
+            'SCRIPT_NAME'     => '/work-flower/index.php',
+            'SCRIPT_FILENAME' => public_path('index.php'),
+            'PHP_SELF'        => '/work-flower/index.php',
+        ])->assertOk();
+        preg_match('/-EncodedCommand ([A-Za-z0-9+\/=]+)/', $r->getContent(), $m);
+        $ps = mb_convert_encoding(base64_decode($m[1]), 'UTF-8', 'UTF-16LE');
+        $this->assertStringContainsString("'https://websight.com.br/work-flower/painel'", $ps);
     }
 }

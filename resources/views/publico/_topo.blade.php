@@ -6,6 +6,7 @@
         </a>
 
         <nav class="flex items-center gap-2" aria-label="Acesso">
+            @include('partials.instalar-app', ['classe' => 'btn-cab hidden sm:inline-flex', 'texto' => 'Baixar o app'])
             <a href="{{ route('login') }}" class="btn-cab">Entrar</a>
             <a href="{{ route('registro') }}" class="btn !py-1.5">Criar conta</a>
         </nav>

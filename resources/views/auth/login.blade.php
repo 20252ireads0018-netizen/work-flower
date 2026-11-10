@@ -14,7 +14,10 @@
             <h1 class="titulo text-3xl sm:text-4xl leading-tight max-w-md mx-auto mt-8">Seu fluxo de vida unificado em um lugar</h1>
             <p class="mt-4 max-w-sm mx-auto opacity-80">Unifique. Customize. Produza.</p>
 
-            <a href="{{ \Illuminate\Support\Facades\Route::has('demo') ? route('demo') : url('/conheca') }}" class="btn-cab mt-6">▶ Ver o Work Flower em ação</a>
+            <div class="mt-6 flex flex-wrap justify-center gap-2">
+                <a href="{{ \Illuminate\Support\Facades\Route::has('demo') ? route('demo') : url('/conheca') }}" class="btn-cab">▶ Ver o Work Flower em ação</a>
+                @include('partials.instalar-app', ['classe' => 'btn-cab', 'texto' => 'Baixar o app'])
+            </div>
         </div>
 
         {{-- Mantido vazio para o conteúdo continuar centralizado entre a marca e o rodapé --}}
@@ -43,6 +46,10 @@
             </label>
 
             <button type="submit" class="btn w-full">Entrar</button>
+
+            <div class="flex justify-center">
+                @include('partials.instalar-app', ['classe' => 'btn-sec !py-1.5 text-sm', 'texto' => 'Baixar o app (Windows, Android, iPhone)'])
+            </div>
 
             <p class="text-sm texto-2 text-center">
                 Ainda não tem conta?

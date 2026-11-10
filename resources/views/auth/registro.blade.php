@@ -13,6 +13,9 @@
             </div>
             <h1 class="titulo text-3xl sm:text-4xl leading-tight max-w-md mx-auto mt-8">Organize-se. Produza mais.</h1>
             <p class="mt-4 max-w-sm mx-auto opacity-80">Unifique. Customize. Produza.</p>
+            <div class="mt-6 flex justify-center">
+                @include('partials.instalar-app', ['classe' => 'btn-cab', 'texto' => 'Baixar o app'])
+            </div>
         </div>
 
         <p class="text-sm opacity-70">Seu corpo, Mente, Carteira e fluxos em um lugar.</p>

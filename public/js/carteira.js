@@ -31,6 +31,55 @@
     const NOMES_MERCADO = { todos: 'Todos', fii: 'FIIs', fiagro: 'Fiagro', fiinfra: 'FI-Infra', acao: 'Ações', etf: 'ETFs', bdr: 'BDRs' };
     const CORES_SIM = ['#60a5fa', '#f59e0b', '#4ade80', '#f472b6'];
 
+    /* O que cada tipo de ativo faz e as suposições padrão da projeção automática (% ao ano, todas editáveis por ativo).
+       Usadas só quando não há dado de mercado (DY dos últimos 12 meses) nem valor informado pela pessoa. */
+    const PERFIL_INVEST = {
+        'FII': { dy: 10, val: 1, txt: 'Fundo imobiliário: paga rendimentos todo mês (aluguéis ou juros de recebíveis), isentos de IR para pessoa física. Reinvestindo, a renda cresce como bola de neve.' },
+        'Fiagro': { dy: 12, val: 0, txt: 'Fundo do agronegócio: rendimentos mensais de terras, CRAs e recebíveis do agro, em geral isentos de IR para pessoa física.' },
+        'FI-Infra': { dy: 11, val: 0, txt: 'Fundo de infraestrutura: investe em debêntures incentivadas e distribui juros periódicos, isentos de IR para pessoa física.' },
+        'Ação': { dy: 6, val: 6, txt: 'Ação: você vira sócio da empresa. Ganha com a valorização e com dividendos e JCP quando ela distribui lucro.' },
+        'ETF': { dy: 0, val: 8, txt: 'ETF: uma cesta que segue um índice (ex.: Ibovespa, S&P 500). O ganho vem da valorização; quase todos reinvestem os proventos sozinhos.' },
+        'BDR': { dy: 1, val: 8, txt: 'BDR: recibo de uma ação estrangeira negociado na B3. Acompanha a ação lá fora e o dólar, com poucos dividendos.' },
+        'Renda fixa': { dy: 0, val: 10.5, taxa: true, txt: 'Renda fixa: rende juros compostos pela taxa contratada (prefixada, % do CDI ou IPCA+). A taxa ao ano é aplicada mês a mês.' },
+        'Cripto': { dy: 0, val: 0, txt: 'Cripto: não paga renda; o resultado vem só da variação do preço, que é muito volátil. Informe a valorização que quer testar.' },
+        'Outro': { dy: 0, val: 0, txt: 'Informe o rendimento (DY) e a valorização ao ano que quer testar.' },
+    };
+    const TIPOS_RENDA = ['FII', 'Fiagro', 'FI-Infra'];
+    const HORIZONTES = [1, 5, 10, 20];
+
+    /** Projeção mês a mês (a mesma conta de App\Support\SimuladorInvest): valorização composta, dividendos pelo DY
+     *  (reinvestidos ou não) e aporte mensal. p = { inicial, mensal, meses, dy, val, reinvestir, alvo } (dy e val em % a.a.). */
+    function projetar(p) {
+        const meses = Math.max(1, Math.min(600, Math.round(Number(p.meses) || 1)));
+        const dm = Math.max(0, Number(p.dy) || 0) / 100 / 12;
+        const g = Math.pow(1 + Math.max(-90, Number(p.val) || 0) / 100, 1 / 12) - 1;
+        const mensal = Math.max(0, Number(p.mensal) || 0), alvo = Math.max(0, Number(p.alvo) || 0);
+        let pat = Math.max(0, Number(p.inicial) || 0), aportado = pat, recebido = 0, renda = 0, mesAlvo = null;
+        const serie = [];
+        for (let m = 1; m <= meses; m++) {
+            pat *= 1 + g;
+            renda = pat * dm;
+            recebido += renda;
+            if (p.reinvestir) pat += renda;
+            pat += mensal; aportado += mensal;
+            if (mesAlvo === null && alvo > 0 && renda >= alvo) mesAlvo = m;
+            serie.push({ mes: m, patrimonio: pat, renda, aportado });
+        }
+        const passo = Math.ceil(meses / 120);
+        const r2 = n => Math.round(n * 100) / 100;
+        return {
+            dy: r2(Number(p.dy) || 0), valorizacao: r2(Number(p.val) || 0),
+            patrimonioFinal: r2(pat), aportado: r2(aportado), dividendosRecebidos: r2(recebido), rendaMensalFinal: r2(renda),
+            // o que veio só dos juros compostos (valorização + dividendos), além do que foi aportado
+            ganho: r2(pat + (p.reinvestir ? 0 : recebido) - aportado),
+            mesesAteAlvo: mesAlvo, patrimonioParaAlvo: alvo > 0 && dm > 0 ? r2(alvo / dm) : null,
+            serie: serie.filter(s => s.mes % passo === 0 || s.mes === meses)
+                .map(s => ({ mes: s.mes, patrimonio: r2(s.patrimonio), renda: r2(s.renda), aportado: r2(s.aportado) })),
+        };
+    }
+    const CACHE_PROJ = new Map(); // projeções já calculadas (fora do estado reativo do Alpine)
+    const vazio = v => v === null || v === undefined || String(v).trim() === '';
+
     /* Posição inicial dos itens (área de 1088 px de largura). O usuário muda tudo. */
     const PADRAO = {
         carteira: {
@@ -41,13 +90,13 @@
             'cart-relatorio': { x: 0, y: 642, w: 1088, h: 560 },
         },
         invest: {
-            'inv-resumo': { x: 0, y: 0, w: 1088, h: 190 },
-            'inv-novo': { x: 0, y: 206, w: 340, h: 440 },
-            'inv-lista': { x: 356, y: 206, w: 732, h: 440 },
-            'inv-radar': { x: 0, y: 662, w: 1088, h: 380 },
-            'inv-renda': { x: 0, y: 1058, w: 1088, h: 560 },
-            'inv-filtro': { x: 0, y: 1634, w: 1088, h: 620 },
-            'inv-simulador': { x: 0, y: 2270, w: 1088, h: 680 },
+            'inv-resumo': { x: 0, y: 0, w: 1088, h: 230 },
+            'inv-novo': { x: 0, y: 246, w: 340, h: 640 },
+            'inv-lista': { x: 356, y: 246, w: 732, h: 640 },
+            'inv-radar': { x: 0, y: 902, w: 1088, h: 380 },
+            'inv-renda': { x: 0, y: 1298, w: 1088, h: 560 },
+            'inv-filtro': { x: 0, y: 1874, w: 1088, h: 620 },
+            'inv-simulador': { x: 0, y: 2510, w: 1088, h: 700 },
         },
         negocios: {
             'neg-negocios': { x: 0, y: 0, w: 340, h: 490 },
@@ -185,7 +234,8 @@
             fl: { per: 'mes', tipo: 'todos', cat: '', conta: '' },
             ln: { tipo: 'gasto', valor: '', cat: '', conta: '', d: hoje(), desc: '' }, lnErro: '', novaCat: '',
             cc: { nome: '', banco: '', inicial: '' }, ccErro: '',
-            iv: { nome: '', tipo: 'Ação', qtd: '', pm: '', atual: '' }, ivErro: '',
+            iv: { nome: '', tipo: 'Ação', qtd: '', pm: '', atual: '', dy: '', val: '', aporte: '', reinv: true }, ivErro: '',
+            projAberto: {}, projAnos: 10,
             rd: { ticker: '', tese: '', alvo: '' },
             // Investimentos › mercado (brapi, com cache no servidor): dados dos ativos da carteira, filtro e simulador
             mk: { dados: {}, carregando: false, token: null, erro: '', iniciado: false },
@@ -216,6 +266,9 @@
                 const avisarSetor = () => { const a = (this.abas).find(x => x.id === this.aba); window.wfSetorAtual = { id: this.aba || '', nome: a ? a.nome : '' }; window.dispatchEvent(new CustomEvent('wf-setor', { detail: window.wfSetorAtual })); };
                 this.$watch('aba', avisarSetor); avisarSetor();
                 this.$watch('aba', v => { if (v === 'invest') this.iniciarInvest(); });
+                // o simulador refaz a conta sozinho enquanto a pessoa digita; o "Novo ativo" busca o DY do ticker digitado
+                this.$watch('simChave()', () => { clearTimeout(this._simT); this._simT = setTimeout(() => this.simular(true), 450); });
+                this.$watch('iv.nome', () => { clearTimeout(this._ivT); this._ivT = setTimeout(() => this.dadosDoTicker(), 600); });
                 if (this.aba === 'invest') this.$nextTick(() => this.iniciarInvest());
                 this.zTop = this.maiorZ();
                 this.ln.conta = this.estado.contas[0]?.id || '';
@@ -306,8 +359,108 @@
                 if (!f.nome.trim()) { this.ivErro = 'Informe o ativo (ex.: PETR4, Tesouro Selic).'; return; }
                 if (num(f.qtd) <= 0 || num(f.pm) <= 0) { this.ivErro = 'Quantidade e preço médio precisam ser maiores que zero.'; return; }
                 const atual = num(f.atual) > 0 ? num(f.atual) : num(f.pm);
-                this.estado.invest.push({ id: uid(), nome: f.nome.trim(), tipo: f.tipo, qtd: num(f.qtd), pm: num(f.pm), atual, hist: [{ d: hoje(), v: atual }] });
-                this.iv = { nome: '', tipo: f.tipo, qtd: '', pm: '', atual: '' }; this.ivErro = '';
+                const a = { id: uid(), nome: f.nome.trim(), tipo: f.tipo, qtd: num(f.qtd), pm: num(f.pm), atual, hist: [{ d: hoje(), v: atual }],
+                            dy: vazio(f.dy) ? '' : num(f.dy), val: vazio(f.val) ? '' : num(f.val), aporte: vazio(f.aporte) ? '' : num(f.aporte), reinv: f.reinv !== false };
+                this.estado.invest.push(a);
+                this.projAberto = { ...this.projAberto, [a.id]: true };
+                this.iv = { nome: '', tipo: f.tipo, qtd: '', pm: '', atual: '', dy: '', val: '', aporte: '', reinv: true }; this.ivErro = '';
+                this.aviso(`${a.nome} entrou na carteira com a projeção automática em "Meus ativos".`);
+                this.carregarMercado();
+            },
+            setQtd(a, v) { v = num(v); if (v > 0) a.qtd = v; },
+            setPm(a, v) { v = num(v); if (v > 0) a.pm = v; },
+            setParam(a, campo, v) { a[campo] = vazio(v) ? '' : num(v); },
+            alternarProj(a) { this.projAberto = { ...this.projAberto, [a.id]: !this.projAberto[a.id] }; },
+
+            /* ---- projeção automática de cada ativo (juros compostos, dividendos, aportes) ---- */
+            perfil(tipo) { return PERFIL_INVEST[tipo] || PERFIL_INVEST.Outro; },
+            ehRenda(tipo) { return TIPOS_RENDA.includes(tipo); },
+            /** DY automático (% a.a.): o do mercado (12 meses), senão o da renda por cota informada, senão a suposição do tipo. */
+            dyAuto(a) {
+                const p = this.perfil(a.tipo);
+                if (p.taxa) return { v: 0, fonte: 'taxa' };
+                const mk = this.mkDe(a);
+                if (mk && mk.dy != null) return { v: Number(mk.dy), fonte: 'mercado' };
+                const rc = num(a.rendaCota) > 0 ? num(a.rendaCota) : 0, preco = num(a.atual) || num(a.pm);
+                if (rc > 0 && preco > 0) return { v: rc * 12 / preco * 100, fonte: 'renda informada' };
+                return { v: p.dy, fonte: 'suposição do tipo' };
+            },
+            dyDe(a) { return vazio(a.dy) ? this.dyAuto(a).v : num(a.dy); },
+            fonteDy(a) { return vazio(a.dy) ? this.dyAuto(a).fonte : 'informado por você'; },
+            valDe(a) { return vazio(a.val) ? this.perfil(a.tipo).val : num(a.val); },
+            /** Projeção de um ativo em N anos (com cache: o template chama várias vezes por linha). */
+            projAtivo(a, anos) {
+                const p = { inicial: this.valorAtivo(a), mensal: num(a.aporte), meses: anos * 12, dy: this.dyDe(a), val: this.valDe(a), reinvestir: a.reinv !== false, alvo: 0 };
+                const k = JSON.stringify(p);
+                if (!CACHE_PROJ.has(k)) { if (CACHE_PROJ.size > 400) CACHE_PROJ.clear(); CACHE_PROJ.set(k, projetar(p)); }
+                return CACHE_PROJ.get(k);
+            },
+            horizontes() { return HORIZONTES; },
+            rendaHoje(a) { const r = this.rendaAtivo(a); return r > 0 ? r : this.valorAtivo(a) * this.dyDe(a) / 100 / 12; },
+            /** FIIs e afins: cotas para que a renda do mês compre uma cota nova sozinha ("número mágico"). */
+            numeroMagico(a) {
+                if (!this.ehRenda(a.tipo)) return null;
+                const rc = this.rendaCota(a) || (num(a.atual) * this.dyDe(a) / 100 / 12);
+                return rc > 0 && num(a.atual) > 0 ? Math.ceil(num(a.atual) / rc) : null;
+            },
+            explicaAtivo(a) {
+                const dy = this.dyDe(a), val = this.valDe(a), p = this.perfil(a.tipo);
+                const partes = [p.taxa ? `rende ${this.pc(val)} ao ano em juros compostos` : `DY de ${this.pc(dy)} ao ano (${this.fonteDy(a)})`];
+                if (!p.taxa) partes.push(`valorização suposta de ${this.pc(val)} ao ano`);
+                if (num(a.aporte) > 0) partes.push(`aporte de ${brl(num(a.aporte))} por mês`);
+                partes.push(a.reinv !== false ? 'dividendos reinvestidos' : 'dividendos no bolso');
+                return partes.join(' · ');
+            },
+            pontosProj(a) {
+                const r = this.projAtivo(a, this.projAnos), s = r.serie;
+                if (s.length < 2) return { pat: '', apo: '' };
+                const max = Math.max(1, ...s.map(x => x.patrimonio));
+                const f = campo => s.map(x => `${(x.mes / s[s.length - 1].mes * 100).toFixed(1)},${(38 - x[campo] / max * 34).toFixed(1)}`).join(' ');
+                return { pat: f('patrimonio'), apo: f('aportado') };
+            },
+            /** Carteira inteira projetada (soma das projeções de cada ativo). */
+            projCarteira(anos) {
+                return this.estado.invest.reduce((t, a) => {
+                    const r = this.projAtivo(a, anos);
+                    t.patrimonio += r.patrimonioFinal; t.renda += r.rendaMensalFinal; t.ganho += r.ganho; t.aportado += r.aportado;
+                    return t;
+                }, { patrimonio: 0, renda: 0, ganho: 0, aportado: 0 });
+            },
+            /** Leva o ativo para o simulador com os mesmos números (valor de hoje, aporte, DY e valorização). */
+            simularAtivo(a) {
+                const linha = { ticker: a.nome, dy: this.perfil(a.tipo).taxa ? '0' : String(r1(this.dyDe(a))), valorizacao: String(r1(this.valDe(a))) };
+                this.sim.inicial = String(Math.round(this.valorAtivo(a) * 100) / 100);
+                if (num(a.aporte) > 0) this.sim.mensal = String(num(a.aporte));
+                this.sim.reinvestir = a.reinv !== false;
+                const i = this.sim.ativos.findIndex(x => String(x.ticker).trim().toUpperCase() === String(a.nome).trim().toUpperCase());
+                const vaga = this.sim.ativos.findIndex(x => !String(x.ticker).trim() && String(x.dy).trim() === '');
+                if (i >= 0) this.sim.ativos.splice(i, 1, linha);
+                else if (vaga >= 0) this.sim.ativos.splice(vaga, 1, linha);
+                else if (this.sim.ativos.length < 4) this.sim.ativos.push(linha);
+                else this.sim.ativos.splice(3, 1, linha);
+                this.$nextTick(() => document.querySelector('[data-bid="inv-simulador"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+                this.aviso(`${a.nome} está no simulador.`);
+            },
+            /** Prévia ao vivo do "Novo ativo": o que a pessoa digitou já vira projeção. */
+            previaNovo() {
+                const f = this.iv, qtd = num(f.qtd), preco = num(f.atual) > 0 ? num(f.atual) : num(f.pm);
+                if (!String(f.nome).trim() || qtd <= 0 || preco <= 0) return null;
+                const tmp = { nome: f.nome, tipo: f.tipo, qtd, pm: num(f.pm) || preco, atual: preco, dy: f.dy, val: f.val, aporte: f.aporte, reinv: f.reinv !== false };
+                return { a: tmp, hoje: this.rendaHoje(tmp), r1: this.projAtivo(tmp, 1), r10: this.projAtivo(tmp, 10), dy: this.dyDe(tmp), fonte: this.fonteDy(tmp), val: this.valDe(tmp) };
+            },
+            /** Ticker digitado no "Novo ativo": busca preço, tipo e DY (cache do servidor) para a prévia. */
+            async dadosDoTicker() {
+                const t = this.tickerDe(this.iv);
+                if (!t || !this.cfg.mercado) return;
+                let x = this.mk.dados[t];
+                if (x === undefined) {
+                    try { const j = await pedirJson(`${this.cfg.mercado.ativos}?tickers=${t}`); x = (j.ativos || {})[t] ?? null; this.mk.dados = { ...this.mk.dados, [t]: x }; this.mk.token = !!j.token; }
+                    catch { return; }
+                }
+                if (!x || this.tickerDe(this.iv) !== t) return;
+                if (TIPO_MERCADO[x.tipo] && !['Renda fixa', 'Cripto'].includes(this.iv.tipo)) this.iv.tipo = TIPO_MERCADO[x.tipo];
+                if (num(this.iv.atual) <= 0 && x.preco > 0) this.iv.atual = String(x.preco);
+                if (num(this.iv.pm) <= 0 && x.preco > 0) this.iv.pm = String(x.preco);
             },
             remInvest(a) {
                 if (!confirm(`Remover "${a.nome}" da carteira?`)) return;
@@ -463,11 +616,21 @@
                 this.buscarFiltro();
             },
             temIndicadorFiltro() { const f = this.scr.f; return [f.dy_min, f.dy_max, f.pvp_min, f.pvp_max].some(v => String(v).trim() !== '') || ['dy', 'pvp'].includes(f.ordem); },
+            /** "+ Carteira" do filtro: o ativo entra direto em "Meus ativos" (1 cota ao preço de hoje) com a projeção aberta. */
             paraCarteira(x) {
-                this.iv = { nome: x.ticker, tipo: TIPO_MERCADO[x.tipo] || 'Outro', qtd: '', pm: String(x.preco), atual: String(x.preco) };
-                this.ivErro = '';
                 this.mk.dados = { ...this.mk.dados, [x.ticker]: x };
-                this.aviso(`${x.ticker} está no cartão "Novo ativo": informe a quantidade e confira o preço médio.`);
+                const ja = this.estado.invest.find(a => this.tickerDe(a) === x.ticker);
+                if (ja) {
+                    this.projAberto = { ...this.projAberto, [ja.id]: true };
+                    this.aviso(`${x.ticker} já está na carteira: ajuste a quantidade em "Meus ativos".`);
+                    return;
+                }
+                const preco = num(x.preco) > 0 ? num(x.preco) : 0;
+                const a = { id: uid(), nome: x.ticker, tipo: TIPO_MERCADO[x.tipo] || 'Outro', qtd: 1, pm: preco, atual: preco,
+                            hist: preco > 0 ? [{ d: hoje(), v: preco }] : [], dy: '', val: '', aporte: '', reinv: true };
+                this.estado.invest.push(a);
+                this.projAberto = { ...this.projAberto, [a.id]: true };
+                this.aviso(`${x.ticker} entrou na carteira com 1 cota e a projeção pronta em "Meus ativos". Ajuste a quantidade e o preço médio lá.`);
             },
             paraRadar(x) {
                 if (this.estado.radar.some(r => r.ticker === x.ticker)) { this.aviso(`${x.ticker} já está no radar.`); return; }
@@ -486,25 +649,37 @@
             /* ---- simulador ---- */
             addSimAtivo() { if (this.sim.ativos.length < 4) this.sim.ativos.push({ ticker: '', dy: '', valorizacao: '' }); },
             remSimAtivo(i) { this.sim.ativos.splice(i, 1); if (!this.sim.ativos.length) this.addSimAtivo(); },
-            async simular() {
-                if (!this.cfg.mercado) return;
-                const ativos = this.sim.ativos
+            /** O que muda o resultado do simulador (o $watch refaz a conta quando isto muda). */
+            simChave() { const s = this.sim; return JSON.stringify([s.inicial, s.mensal, s.anos, s.reinvestir, s.alvo, s.ativos]); },
+            /** Simulação feita no navegador, na hora (mesma conta do servidor). Ticker sem DY usa o DY dos últimos
+             *  12 meses (buscado uma vez, com cache no servidor). auto = disparada enquanto a pessoa digita. */
+            async simular(auto = false) {
+                const linhas = this.sim.ativos
                     .filter(a => String(a.ticker).trim() || String(a.dy).trim() !== '')
-                    .map(a => {
+                    .map((a, i) => {
                         const txt = String(a.ticker).trim();
-                        return { ticker: /^[A-Za-z0-9]{4,10}$/.test(txt) ? txt.toUpperCase() : null, nome: txt.slice(0, 60) || null,
-                                 dy: String(a.dy).trim() === '' ? null : num(a.dy), valorizacao: num(a.valorizacao) };
+                        return { ticker: /^[A-Za-z0-9]{4,10}$/.test(txt) ? txt.toUpperCase() : null, nome: txt.slice(0, 60) || `Cenário ${i + 1}`,
+                                 dy: vazio(a.dy) ? null : num(a.dy), valorizacao: num(a.valorizacao) };
                     });
-                if (!ativos.length) { this.sim.erro = 'Informe ao menos um ativo (ticker) ou um DY.'; return; }
-                this.sim.carregando = true; this.sim.erro = ''; this.sim.erros = [];
-                try {
-                    const j = await pedirJson(this.cfg.mercado.simular, 'POST', {
-                        inicial: num(this.sim.inicial), mensal: num(this.sim.mensal), alvo: num(this.sim.alvo), reinvestir: !!this.sim.reinvestir,
-                        meses: Math.max(1, Math.min(600, Math.round(num(this.sim.anos) * 12) || 12)), ativos,
-                    });
-                    this.sim.res = j.resultados || []; this.sim.erros = j.erros || [];
-                } catch (e) { this.sim.erro = e.message; this.sim.res = []; }
-                this.sim.carregando = false;
+                if (!linhas.length) { this.sim.res = []; this.sim.erros = []; this.sim.erro = auto ? '' : 'Informe ao menos um ativo (ticker) ou um DY.'; return; }
+                const faltam = linhas.filter(l => l.dy === null && l.ticker && this.mk.dados[l.ticker] === undefined).map(l => l.ticker);
+                if (faltam.length && this.cfg.mercado) {
+                    this.sim.carregando = true;
+                    try {
+                        const j = await pedirJson(`${this.cfg.mercado.ativos}?tickers=${[...new Set(faltam)].join(',')}`);
+                        const novos = {}; faltam.forEach(t => { novos[t] = (j.ativos || {})[t] ?? null; });
+                        this.mk.dados = { ...this.mk.dados, ...novos }; this.mk.token = !!j.token;
+                    } catch (e) { if (!auto) this.sim.erro = e.message; }
+                    this.sim.carregando = false;
+                }
+                const meses = Math.max(1, Math.min(600, Math.round(num(this.sim.anos) * 12) || 12));
+                const res = [], erros = [];
+                linhas.forEach(l => {
+                    const dy = l.dy !== null ? l.dy : (l.ticker ? this.mk.dados[l.ticker]?.dy ?? null : null);
+                    if (dy === null) { erros.push(l.ticker ? `Sem DY para ${l.ticker} agora: informe o DY manualmente.` : `Informe o DY de "${l.nome}".`); return; }
+                    res.push({ nome: l.ticker || l.nome, ...projetar({ inicial: num(this.sim.inicial), mensal: num(this.sim.mensal), meses, dy, val: l.valorizacao, reinvestir: !!this.sim.reinvestir, alvo: num(this.sim.alvo) }) });
+                });
+                this.sim.res = res; this.sim.erros = erros; this.sim.erro = '';
             },
             /** Linhas do gráfico (patrimônio de cada cenário e o total aportado), em coordenadas 0–100. */
             simGrafico() {
