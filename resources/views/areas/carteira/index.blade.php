@@ -195,14 +195,7 @@
         <p class="text-xs texto-2" x-text="rotuloSalvo()" aria-live="polite"></p>
         <div class="flex items-center gap-2" x-show="!semQuadro.includes(aba)">
             <button type="button" class="btn-sec" @click="reorganizar()">Reorganizar</button>
-            <div class="relative" @click.outside="menuBloco = false" @keydown.escape.window="menuBloco = false">
-                <button type="button" class="btn" @click="menuBloco = !menuBloco" aria-haspopup="menu" :aria-expanded="menuBloco">+ Bloco</button>
-                <div x-show="menuBloco" x-cloak class="menu-pop absolute right-0 top-full mt-2 w-48 p-1.5 z-40" role="menu">
-                    <template x-for="t in tiposBloco" :key="t.id">
-                        <button type="button" class="menu-item" role="menuitem" @click="novoBloco(aba, t.id)" x-text="t.nome"></button>
-                    </template>
-                </div>
-            </div>
+            @include('partials.menu-bloco')
         </div>
     </div>
 

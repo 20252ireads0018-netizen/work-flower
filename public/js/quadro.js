@@ -537,6 +537,19 @@
         return melhor;
     }
 
+    /* Setores do menu "+ Bloco" (tipo => setor). Tipo que não está aqui cai em "Outros". */
+    const SETORES = [
+        ['Básicos', ['texto', 'tabela', 'lista', 'imagem', 'pasta']],
+        ['Mapas e diagramas', ['mapa']],
+        ['Documentos e arquivos', ['documento', 'editorpdf', 'banco']],
+        ['Estudos', ['flashcards', 'pomodoro', 'planoestudo', 'matematica', 'questoes']],
+        ['Hábitos e números', ['habitos', 'grafico']],
+        ['Mídia e criação', ['editorimg', 'editorvid', 'musica', 'criador', 'tabletop']],
+        ['Trabalho e equipe', ['rh', 'codigo']],
+        ['Inteligência artificial', ['claude']],
+    ];
+    const SETOR_DE = Object.fromEntries(SETORES.flatMap(([s, ids], i) => ids.map(id => [id, i])));
+
     /** Propriedades de interface que o motor precisa no componente Alpine. */
     function estadoUI() {
         return {
@@ -549,6 +562,8 @@
             claudeUI: {}, claudeTemChave: false,
             // cartão "Estúdio de música" que está tocando a prévia (só um por vez)
             musicaTocando: null,
+            // menu "+ Bloco": o que se digita na busca
+            buscaBloco: '',
         };
     }
 
@@ -557,6 +572,23 @@
         return {
             /* ---------- avisos e salvamento ---------- */
             aviso(txt) { this.msg = txt; clearTimeout(this._m); this._m = setTimeout(() => { this.msg = ''; }, 2600); },
+            /** Menu "+ Bloco": tipos da página por setor (setores na ordem de SETORES, tipos em ordem alfabética), filtrados pela busca. */
+            blocosPorSetor() {
+                const q = norm(this.buscaBloco), grupos = new Map();
+                (this.tiposBloco || []).forEach(t => {
+                    const i = SETOR_DE[t.id] ?? SETORES.length;
+                    const setor = i < SETORES.length ? SETORES[i][0] : "Outros";
+                    if (q && !norm(t.nome + " " + setor).includes(q)) return;
+                    if (!grupos.has(i)) grupos.set(i, { setor, tipos: [] });
+                    grupos.get(i).tipos.push(t);
+                });
+                return [...grupos.entries()].sort((a, b) => a[0] - b[0]).map(([, g]) => ({ ...g, tipos: g.tipos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")) }));
+            },
+            /** Enter na busca do "+ Bloco": cria o primeiro tipo da lista filtrada. */
+            blocoDaBusca(sec) {
+                const g = this.blocosPorSetor()[0];
+                if (g && g.tipos[0]) { this.novoBloco(sec, g.tipos[0].id); this.buscaBloco = ""; }
+            },
             ir(sec) { this.aba = sec; },
             rotuloSalvo() {
                 return { ok: 'Tudo salvo', pendente: 'Alterações…', salvando: 'Salvando…', erro: 'Erro ao salvar. Tentando de novo' }[this.salvo];
