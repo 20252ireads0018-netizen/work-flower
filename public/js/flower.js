@@ -2,7 +2,9 @@
    - Pessoa no centro, uma pétala por área; dentro: abas › pastas › cartões › tarefas, em leque (árvore radial).
    - Clique: abre/fecha o ramo e mostra o detalhe (com "Abrir", que usa o ?fav=<id>&favsec=<aba> do js/favoritos.js).
      Duplo clique abre direto. Arrastar move, roda do mouse / pinça aproxima. Busca acende o que achar e abre o caminho.
-   - Tudo animado: os nós andam em coordenadas polares, então o mapa "desabrocha" ao abrir um ramo. */
+   - Tudo animado: os nós andam em coordenadas polares, então o mapa "desabrocha" ao abrir um ramo (com um leve
+     "estouro" na saída), nós novos nascem com um pop, o arrasto tem inércia e as pétalas balançam com o movimento,
+     passar o mouse acende o caminho até a pessoa. Respeita "reduzir movimento" do sistema. */
 (function () {
     'use strict';
     const palco = document.getElementById('flower');
@@ -102,6 +104,8 @@
     const xy = p => [Math.cos(p.a) * p.r, Math.sin(p.a) * p.r];
     const angDif = (a, b) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
     const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    // sai um pouco além do alvo e volta: o ramo "desabrocha" em vez de só deslizar
+    const estoura = t => { const c1 = 1.15, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
 
     function ancestralVisivel(n, mapa) { let p = n.pai; while (p && !mapa.has(p.id)) p = p.pai; return p; }
 
@@ -206,7 +210,8 @@
         const antes = new Map(atual);
         const petAntes = new Map(petalaAtual);
         calcular();
-        // nós novos (e as linhas deles) nascem da posição atual do ancestral
+        // nós novos (e as linhas deles) nascem da posição atual do ancestral, com um pop escalonado
+        const novos = new Set();
         alvo.forEach((p, id) => {
             const n = porId.get(id);
             noEl(n);
@@ -216,9 +221,18 @@
                 antes.set(id, anc ? { ...antes.get(anc.id) } : { a: p.a, r: 0 });
                 const g = elsNo.get(id); g.style.opacity = '';
                 const l = elsLinha.get(id); if (l) l.style.opacity = '';
+                if (!instantaneo && !reduzMov) {
+                    const ms = Math.min(novos.size, 24) * 14, atraso = ms + 'ms';
+                    g.style.setProperty('--atraso', atraso); g.classList.add('fl-nasce');
+                    if (l) { l.style.setProperty('--atraso', atraso); l.classList.add('fl-nasce'); }
+                    // garantia: em aba escondida o animationend pode não chegar
+                    setTimeout(() => { g.classList.remove('fl-nasce'); if (l) l.classList.remove('fl-nasce'); }, ms + 900);
+                }
+                novos.add(id);
             }
         });
-        petalaAlvo.forEach((pt, id) => { if (!petAntes.has(id)) petAntes.set(id, { a: pt.a, meio: pt.meio, R: 0 }); });
+        const petNovas = new Set();
+        petalaAlvo.forEach((pt, id) => { if (!petAntes.has(id)) { petAntes.set(id, { a: pt.a, meio: pt.meio, R: 0 }); petNovas.add(id); } });
         // nós que saem voltam para dentro do ancestral que continua aberto
         const saindo = [];
         const fimSaida = new Map();
@@ -228,20 +242,25 @@
             fimSaida.set(id, anc ? alvo.get(anc.id) : { a: p.a, r: 0 });
             saindo.push(id);
         });
+        // quem está saindo perde o pop de nascimento (senão a animação seguraria a opacidade)
+        saindo.forEach(id => { elsNo.get(id)?.classList.remove('fl-nasce'); elsLinha.get(id)?.classList.remove('fl-nasce'); });
         marcarEstados();
         aplicarBusca();
 
-        const dur = instantaneo || reduzMov ? 0 : 650;
+        const dur = instantaneo || reduzMov ? 0 : 720;
         const t0 = performance.now();
         if (anim) cancelAnimationFrame(anim);
         const passo = agora => {
-            const t = dur ? Math.min(1, (agora - t0) / dur) : 1, e = ease(t);
+            const t = dur ? Math.min(1, (agora - t0) / dur) : 1, e = ease(t), eb = estoura(t);
             const quadro = new Map();
-            const mistura = (de, para) => ({ a: de.a + angDif(de.a, para.a) * e, r: de.r + (para.r - de.r) * e });
-            alvo.forEach((p, id) => quadro.set(id, mistura(antes.get(id), p)));
-            saindo.forEach(id => quadro.set(id, mistura(antes.get(id), fimSaida.get(id))));
+            const mistura = (de, para, k) => ({ a: de.a + angDif(de.a, para.a) * k, r: Math.max(0, de.r + (para.r - de.r) * k) });
+            alvo.forEach((p, id) => quadro.set(id, mistura(antes.get(id), p, novos.has(id) ? eb : e)));
+            saindo.forEach(id => quadro.set(id, mistura(antes.get(id), fimSaida.get(id), e)));
             const pets = new Map();
-            petalaAlvo.forEach((pt, id) => { const de = petAntes.get(id); pets.set(id, { a: de.a + angDif(de.a, pt.a) * e, meio: de.meio + (pt.meio - de.meio) * e, R: de.R + (pt.R - de.R) * e }); });
+            petalaAlvo.forEach((pt, id) => {
+                const de = petAntes.get(id), k = petNovas.has(id) ? eb : e;
+                pets.set(id, { a: de.a + angDif(de.a, pt.a) * k, meio: de.meio + (pt.meio - de.meio) * k, R: Math.max(0, de.R + (pt.R - de.R) * k) });
+            });
             saindo.t = e;
             pintarQuadro(quadro, pets, saindo);
             quadro.forEach((p, id) => atual.set(id, p));
@@ -263,6 +282,7 @@
     }
     function irCam(x, y, k, dur = 550) {
         if (camAnim) cancelAnimationFrame(camAnim);
+        pararInercia();
         if (reduzMov) dur = 0;
         const de = { ...cam }, t0 = performance.now();
         const passo = agora => {
@@ -302,16 +322,77 @@
         irCam(w / 2 - x * kk, h / 2 - y * kk, kk);
     }
 
+    /* física leve: inércia depois de soltar e o balanço das pétalas (mola amortecida). Um só rAF, que para sozinho. */
+    const fis = { vx: 0, vy: 0, deslizando: false, ang: 0, angV: 0, angAlvo: 0, raf: null };
+    function moverFisica() {
+        if (fis.raf || reduzMov) return;
+        let ultimo = performance.now();
+        const passo = agora => {
+            const dt = Math.min(40, Math.max(1, agora - ultimo)); ultimo = agora;
+            if (fis.deslizando) {
+                cam.x += fis.vx * dt; cam.y += fis.vy * dt;
+                const atrito = Math.exp(-dt / 220);
+                fis.vx *= atrito; fis.vy *= atrito;
+                fis.angAlvo = Math.max(-5, Math.min(5, fis.vx * 6));
+                if (Math.hypot(fis.vx, fis.vy) < 0.015) { fis.deslizando = false; fis.vx = fis.vy = 0; fis.angAlvo = 0; }
+                aplicarCam();
+            }
+            // mola: as pétalas se inclinam contra o movimento e voltam balançando
+            const s = dt / 16;
+            fis.angV += ((fis.angAlvo - fis.ang) * 0.06 - fis.angV * 0.18) * s;
+            fis.ang += fis.angV * s;
+            const parado = !fis.deslizando && !arrasto && Math.abs(fis.ang - fis.angAlvo) < 0.02 && Math.abs(fis.angV) < 0.005;
+            if (parado) fis.ang = fis.angAlvo;
+            gPetalas.setAttribute('transform', `rotate(${fis.ang.toFixed(3)})`);
+            fis.raf = parado ? null : requestAnimationFrame(passo);
+        };
+        fis.raf = requestAnimationFrame(passo);
+    }
+    function pararInercia() { fis.deslizando = false; fis.vx = fis.vy = 0; }
+
+    // um anel que se espalha a partir do nó clicado (o ramo abrindo/fechando)
+    function onda(n) {
+        const g = n && elsNo.get(n.id);
+        if (!g || reduzMov) return;
+        const c = el('circle', { class: 'fl-onda', r: TAM[n.tipo] || 7 });
+        g.insertBefore(c, g.firstChild);
+        c.addEventListener('animationend', () => c.remove(), { once: true });
+        setTimeout(() => c.remove(), 1200);
+    }
+
+    // passar o mouse: acende o caminho até a pessoa e a pétala da área
+    let trilha = [];
+    function acender(n) {
+        trilha.forEach(e => e.classList.remove('fl-trilha'));
+        trilha = [];
+        for (let m = n; m && m.pai; m = m.pai) {
+            const l = elsLinha.get(m.id); if (l) trilha.push(l);
+            const g = elsNo.get(m.pai.id); if (g && m.pai.tipo !== 'pessoa') trilha.push(g);
+        }
+        if (n && n.area) { const p = elsPetala.get(n.area.id); if (p) trilha.push(p); }
+        trilha.forEach(e => e.classList.add('fl-trilha'));
+    }
+    gNos.addEventListener('pointerover', e => { const g = e.target.closest('.fl-no'); if (g && !(arrasto && arrasto.moveu)) acender(porId.get(g.dataset.id)); });
+    gNos.addEventListener('pointerout', e => { const g = e.target.closest('.fl-no'); if (g && !g.contains(e.relatedTarget)) acender(null); });
+    gNos.addEventListener('focusin', e => { const g = e.target.closest('.fl-no'); if (g) acender(porId.get(g.dataset.id)); });
+    gNos.addEventListener('focusout', () => acender(null));
+    // fim do pop de nascimento: libera o nó para o efeito de passar o mouse
+    mundo.addEventListener('animationend', e => {
+        if (e.animationName === 'fl-pop') e.target.closest('.fl-no')?.classList.remove('fl-nasce');
+        else if (e.animationName === 'fl-surge' && e.target.classList.contains('fl-linha')) e.target.classList.remove('fl-nasce');
+    });
+
     // arrastar com um dedo/mouse, pinça com dois; clique (sem arrastar) num nó abre/fecha
     const ponteiros = new Map();
     let arrasto = null, pinca = null, ultimoClique = { id: null, t: 0 };
     svg.addEventListener('pointerdown', e => {
         if (e.button !== 0 && e.pointerType === 'mouse') return;
+        pararInercia();
         svg.setPointerCapture(e.pointerId);
         ponteiros.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (ponteiros.size === 1) {
             const g = e.target.closest('.fl-no');
-            arrasto = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, moveu: false, id: g ? g.dataset.id : null };
+            arrasto = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, moveu: false, id: g ? g.dataset.id : null, ux: e.clientX, uy: e.clientY, ut: performance.now() };
         } else if (ponteiros.size === 2) {
             const [a, b] = [...ponteiros.values()];
             pinca = { d: Math.hypot(a.x - b.x, a.y - b.y), k: cam.k };
@@ -331,15 +412,33 @@
         const dx = e.clientX - arrasto.x, dy = e.clientY - arrasto.y;
         if (!arrasto.moveu && Math.hypot(dx, dy) < 5) return;
         if (!arrasto.moveu && camAnim) { cancelAnimationFrame(camAnim); camAnim = null; arrasto.cx = cam.x; arrasto.cy = cam.y; }
+        if (!arrasto.moveu) acender(null);
         arrasto.moveu = true;
         svg.classList.add('fl-arrastando');
         cam.x = arrasto.cx + dx; cam.y = arrasto.cy + dy;
         aplicarCam();
+        // velocidade suavizada (px/ms) para a inércia e o balanço das pétalas
+        const agora = performance.now(), dtm = Math.max(1, agora - arrasto.ut);
+        fis.vx = fis.vx * 0.6 + ((e.clientX - arrasto.ux) / dtm) * 0.4;
+        fis.vy = fis.vy * 0.6 + ((e.clientY - arrasto.uy) / dtm) * 0.4;
+        arrasto.ux = e.clientX; arrasto.uy = e.clientY; arrasto.ut = agora;
+        fis.angAlvo = Math.max(-5, Math.min(5, fis.vx * 6));
+        moverFisica();
     });
     const soltar = e => {
         ponteiros.delete(e.pointerId);
         if (ponteiros.size < 2) pinca = null;
         svg.classList.remove('fl-arrastando');
+        if (arrasto && arrasto.moveu) {
+            // soltou: continua deslizando (se o gesto ainda estava em movimento) e as pétalas voltam balançando
+            if (performance.now() - arrasto.ut > 90 || Math.hypot(fis.vx, fis.vy) < 0.05) fis.vx = fis.vy = 0;
+            fis.vx = Math.max(-2.2, Math.min(2.2, fis.vx)); fis.vy = Math.max(-2.2, Math.min(2.2, fis.vy));
+            fis.deslizando = !!(fis.vx || fis.vy);
+            fis.angAlvo = 0;
+            arrasto = null;
+            moverFisica();
+            return;
+        }
         if (arrasto && !arrasto.moveu && e.type === 'pointerup') {
             if (arrasto.id) {
                 const agora = performance.now();
@@ -378,6 +477,7 @@
     }
     function clicar(n) {
         if (!n) return;
+        onda(n);
         if (n.tipo === 'pessoa') { selecionar(n); enquadrar(); return; }
         if (n.filhos.length) alternar(n);
         selecionar(n);

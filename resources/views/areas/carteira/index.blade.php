@@ -363,6 +363,16 @@
                         </template>
                     </div>
                 </div>
+                {{-- projeção automática da carteira inteira (soma das projeções de cada ativo em "Meus ativos") --}}
+                <div x-show="estado.invest.length" class="inv-projtotal mt-3">
+                    <span class="texto-2">Projeção automática em</span>
+                    <select class="campo inv-anos" x-model.number="projAnos" aria-label="Anos da projeção">
+                        <template x-for="h in horizontes()" :key="h"><option :value="h" x-text="h + (h === 1 ? ' ano' : ' anos')"></option></template>
+                    </select>
+                    <span>patrimônio <b x-text="brl(projCarteira(projAnos).patrimonio)"></b></span>
+                    <span>· renda <b x-text="brl(projCarteira(projAnos).renda)"></b>/mês</span>
+                    <span class="texto-2">· juros compostos <b style="color:#4ade80" x-text="'+' + brl(projCarteira(projAnos).ganho)"></b></span>
+                </div>
             </x-carteira.item>
 
             <x-carteira.item sec="'invest'" bid="'inv-novo'" titulo="Novo ativo" :minw="280" :minh="320">
@@ -375,6 +385,31 @@
                         <div><label class="rotulo">Preço médio</label><input type="number" min="0" step="any" class="campo" x-model="iv.pm"></div>
                         <div><label class="rotulo">Preço atual</label><input type="number" min="0" step="any" class="campo" x-model="iv.atual"></div>
                     </div>
+                    {{-- parâmetros da projeção: vazios = automáticos (DY do mercado ou suposição do tipo) --}}
+                    <div class="grid grid-cols-3 gap-2">
+                        <div x-show="!perfil(iv.tipo).taxa"><label class="rotulo" title="Dividend yield ao ano. Vazio: o dos últimos 12 meses (ou a suposição do tipo)">DY % a.a.</label>
+                            <input type="number" min="0" step="any" class="campo" x-model="iv.dy" :placeholder="previaNovo() ? fmtN(previaNovo().dy, 1) : fmtN(perfil(iv.tipo).dy, 1)"></div>
+                        <div><label class="rotulo" x-text="perfil(iv.tipo).taxa ? 'Taxa % a.a.' : 'Valoriz. % a.a.'"></label>
+                            <input type="number" step="any" class="campo" x-model="iv.val" :placeholder="fmtN(perfil(iv.tipo).val, 1)"></div>
+                        <div><label class="rotulo">Aporte/mês</label><input type="number" min="0" step="any" class="campo" x-model="iv.aporte" placeholder="0"></div>
+                    </div>
+                    <label class="flex items-center gap-2 text-xs" x-show="!perfil(iv.tipo).taxa"><input type="checkbox" x-model="iv.reinv"> Reinvestir os dividendos (juros compostos)</label>
+
+                    {{-- simulação ao vivo do que foi digitado --}}
+                    <div class="inv-previa" x-show="previaNovo()" x-transition.opacity>
+                        <template x-if="previaNovo()">
+                            <div class="space-y-1">
+                                <p class="text-xs texto-2" x-text="perfil(iv.tipo).txt"></p>
+                                <p class="text-xs"><span class="texto-2">Investido</span> <b x-text="brl(previaNovo().a.qtd * previaNovo().a.atual)"></b>
+                                    <span x-show="previaNovo().hoje > 0"> · <span class="texto-2">renda hoje</span> <b x-text="brl(previaNovo().hoje)"></b>/mês</span></p>
+                                <p class="text-xs"><span class="texto-2">Em 1 ano</span> <b x-text="brl(previaNovo().r1.patrimonioFinal)"></b>
+                                    · <span class="texto-2">em 10 anos</span> <b x-text="brl(previaNovo().r10.patrimonioFinal)"></b></p>
+                                <p class="text-xs" x-show="previaNovo().r10.rendaMensalFinal > 0"><span class="texto-2">Renda em 10 anos</span> <b x-text="brl(previaNovo().r10.rendaMensalFinal)"></b>/mês
+                                    · <span class="texto-2">juros compostos</span> <b style="color:#4ade80" x-text="'+' + brl(previaNovo().r10.ganho)"></b></p>
+                                <p class="inv-mini texto-2" x-text="(perfil(iv.tipo).taxa ? 'Taxa ' + pc(previaNovo().val) : 'DY ' + pc(previaNovo().dy) + ' (' + previaNovo().fonte + ') · valorização ' + pc(previaNovo().val)) + ' ao ano'"></p>
+                            </div>
+                        </template>
+                    </div>
                     <p class="erro" x-text="ivErro"></p>
                     <button type="button" class="btn w-full" @click="addInvest()">Adicionar à carteira</button>
                 </div>
@@ -384,22 +419,79 @@
                 <p x-show="!estado.invest.length" class="text-sm texto-2">Nenhum investimento cadastrado.</p>
                 <div class="overflow-auto" x-show="estado.invest.length">
                     <table class="wf-tabela">
-                        <thead><tr><th>Ativo</th><th>Qtd.</th><th>P. médio</th><th>Atual</th><th>Valor</th><th>Resultado</th><th></th><th></th></tr></thead>
-                        <tbody>
-                            <template x-for="a in estado.invest" :key="a.id">
+                        <thead><tr><th>Ativo</th><th>Qtd.</th><th>P. médio</th><th>Atual</th><th>Valor</th><th>Resultado</th><th title="Projeção automática">Em <span x-text="projAnos"></span>a</th><th></th><th></th></tr></thead>
+                        {{-- um <tbody> por ativo: a linha do ativo e, aberta, a projeção automática dele --}}
+                        <template x-for="a in estado.invest" :key="a.id">
+                            <tbody>
                                 <tr>
                                     <td><p class="font-medium" x-text="a.nome"></p><p class="text-xs texto-2" x-text="a.tipo"></p></td>
-                                    <td x-text="a.qtd"></td>
-                                    <td x-text="brl(a.pm)"></td>
+                                    <td><input type="number" min="0" step="any" class="campo wf-num" :value="a.qtd" @change="setQtd(a, $event.target.value)" aria-label="Quantidade"></td>
+                                    <td><input type="number" min="0" step="any" class="campo wf-num" :value="a.pm" @change="setPm(a, $event.target.value)" aria-label="Preço médio"></td>
                                     <td><input type="number" min="0" step="any" class="campo wf-num" :value="a.atual" @change="setAtual(a, $event.target.value)" aria-label="Preço atual"></td>
                                     <td x-text="brl(valorAtivo(a))"></td>
                                     <td :style="{ color: cor(resAtivo(a)) }"><span x-text="brl(resAtivo(a))"></span><br><small x-text="pc(resPct(a))"></small></td>
+                                    <td class="text-xs"><b x-text="brl(projAtivo(a, projAnos).patrimonioFinal)"></b><br>
+                                        <span class="texto-2" x-show="projAtivo(a, projAnos).rendaMensalFinal > 0" x-text="brl(projAtivo(a, projAnos).rendaMensalFinal) + '/mês'"></span></td>
                                     <td><svg x-show="pontosAtivo(a)" viewBox="0 0 100 30" class="w-16 h-6" aria-hidden="true"><polyline :points="pontosAtivo(a)" fill="none" stroke="var(--prim)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg></td>
-                                    <td><button type="button" class="mini-btn perigo" title="Remover" @click="remInvest(a)">✕</button></td>
+                                    <td class="whitespace-nowrap">
+                                        <button type="button" class="mini-btn" :class="{ ativo: projAberto[a.id] }" title="Projeção automática: juros compostos, dividendos e aportes" :aria-expanded="!!projAberto[a.id]" @click="alternarProj(a)">
+                                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-5 4 4 8-9"/><path d="M15 7h5v5"/></svg>
+                                        </button>
+                                        <button type="button" class="mini-btn perigo" title="Remover" @click="remInvest(a)">✕</button>
+                                    </td>
                                 </tr>
-                            </template>
-                        </tbody>
+                                <tr x-show="projAberto[a.id]" x-transition.opacity class="inv-projlinha">
+                                    <td colspan="9">
+                                        <div class="inv-proj">
+                                            <div class="space-y-2 min-w-0">
+                                                <p class="text-xs" x-text="perfil(a.tipo).txt"></p>
+                                                <div class="inv-params">
+                                                    <div x-show="!perfil(a.tipo).taxa"><label class="rotulo">DY % a.a.</label>
+                                                        <input type="number" min="0" step="any" class="campo wf-num" :value="a.dy ?? ''" :placeholder="fmtN(dyAuto(a).v, 2)" @input="setParam(a, 'dy', $event.target.value)" aria-label="DY ao ano"></div>
+                                                    <div><label class="rotulo" x-text="perfil(a.tipo).taxa ? 'Taxa % a.a.' : 'Valoriz. % a.a.'"></label>
+                                                        <input type="number" step="any" class="campo wf-num" :value="a.val ?? ''" :placeholder="fmtN(perfil(a.tipo).val, 1)" @input="setParam(a, 'val', $event.target.value)" aria-label="Valorização ou taxa ao ano"></div>
+                                                    <div><label class="rotulo">Aporte/mês</label>
+                                                        <input type="number" min="0" step="any" class="campo wf-num" :value="a.aporte ?? ''" placeholder="0" @input="setParam(a, 'aporte', $event.target.value)" aria-label="Aporte mensal"></div>
+                                                    <label class="flex items-center gap-1.5 text-xs inv-pb" x-show="!perfil(a.tipo).taxa"><input type="checkbox" :checked="a.reinv !== false" @change="a.reinv = $event.target.checked"> Reinvestir</label>
+                                                </div>
+                                                <p class="inv-mini texto-2" x-text="explicaAtivo(a)"></p>
+                                                <p class="text-xs" x-show="numeroMagico(a)">
+                                                    <span class="texto-2">Número mágico:</span> <b x-text="numeroMagico(a) + ' cotas'"></b>
+                                                    <span class="texto-2" x-text="'(a renda do mês compra 1 cota nova sozinha; você tem ' + a.qtd + ')'"></span>
+                                                </p>
+                                                <div class="flex flex-wrap gap-2">
+                                                    <button type="button" class="chip" @click="simularAtivo(a)">Comparar no simulador</button>
+                                                </div>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <table class="wf-tabela inv-projtab">
+                                                    <thead><tr><th></th><th>Patrimônio</th><th>Renda/mês</th><th>Dividendos</th><th>Juros compostos</th></tr></thead>
+                                                    <tbody>
+                                                        <tr><td class="texto-2">Hoje</td><td x-text="brl(valorAtivo(a))"></td><td x-text="brl(rendaHoje(a))"></td><td>—</td><td>—</td></tr>
+                                                        <template x-for="h in horizontes()" :key="h">
+                                                            <tr :class="{ 'font-medium': h === projAnos }">
+                                                                <td class="texto-2" x-text="h + (h === 1 ? ' ano' : ' anos')"></td>
+                                                                <td x-text="brl(projAtivo(a, h).patrimonioFinal)"></td>
+                                                                <td x-text="brl(projAtivo(a, h).rendaMensalFinal)"></td>
+                                                                <td x-text="brl(projAtivo(a, h).dividendosRecebidos)"></td>
+                                                                <td style="color:#4ade80" x-text="'+' + brl(projAtivo(a, h).ganho)"></td>
+                                                            </tr>
+                                                        </template>
+                                                    </tbody>
+                                                </table>
+                                                <svg viewBox="0 0 100 40" preserveAspectRatio="none" class="w-full inv-projgraf mt-2" role="img" :aria-label="'Projeção de ' + a.nome + ' em ' + projAnos + ' anos'">
+                                                    <polyline :points="pontosProj(a).apo" fill="none" stroke="var(--tinta-2)" stroke-width="1.2" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
+                                                    <polyline :points="pontosProj(a).pat" fill="none" stroke="var(--prim)" stroke-width="2.2" vector-effect="non-scaling-stroke"/>
+                                                </svg>
+                                                <p class="inv-mini texto-2" x-text="'Linha: patrimônio em ' + projAnos + ' anos · tracejado: total aportado'"></p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </template>
                     </table>
+                    <p class="inv-mini texto-2 mt-2">Projeção automática com DY, valorização e aportes constantes, sem impostos, taxas e inflação. Não é recomendação de investimento.</p>
                 </div>
             </x-carteira.item>
 

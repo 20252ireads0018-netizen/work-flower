@@ -100,6 +100,150 @@ class AppInstalavelController extends Controller
         return response()->view('app.offline', [], 200, ['Cache-Control' => 'public, max-age=3600']);
     }
 
+    /**
+     * Instalador leve para Windows: um .cmd de poucos KB, sem administrador e sem baixar programa nenhum.
+     *
+     * Ele roda um PowerShell (já vem no Windows 10/11, passado como -EncodedCommand para caber numa linha) que:
+     * baixa o ícone da flor para %LOCALAPPDATA%\WorkFlower, cria os atalhos "Work Flower" na Área de Trabalho e no
+     * Menu Iniciar abrindo o painel em janela própria (modo app do Chrome ou do Edge, o navegador padrão primeiro,
+     * para usar o mesmo login já salvo nele), deixa um "Desinstalar Work Flower.cmd" na pasta e já abre o app.
+     */
+    public function instaladorWindows(): Response
+    {
+        $ps = $this->scriptWindows(route('painel'), asset('icons/work-flower.ico'));
+        $codificado = base64_encode(mb_convert_encoding($ps, 'UTF-16LE', 'UTF-8'));
+
+        $cmd = implode("\r\n", [
+            '@echo off',
+            'title Instalar o Work Flower',
+            'echo.',
+            'echo   Instalando o Work Flower neste computador (leva poucos segundos)...',
+            'echo   Nada e instalado no sistema: so atalhos para abrir o app em janela propria.',
+            'echo.',
+            'powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ' . $codificado,
+            'if errorlevel 1 (echo. & echo   Nao deu certo. Tente de novo ou instale pelo navegador: botao "Baixar o app". & pause)',
+            '',
+        ]);
+
+        return response($cmd, 200, [
+            'Content-Type'        => 'application/octet-stream',
+            'Content-Disposition' => 'attachment; filename="Instalar Work Flower.cmd"',
+            'Cache-Control'       => 'no-cache, max-age=0',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    /**
+     * Instalador completo para Windows (só para quem está logado): o app (os mesmos atalhos do instalador leve)
+     * + o agente do Work Flower com os textos rápidos funcionando em qualquer programa do Windows.
+     *
+     * Leva um código de uso único (30 min), não o token: o instalador troca o código pelo token do computador
+     * (POST /api/agente-codigo), baixa o pacote do agente (/api/agente/pacote) e roda o instalar.ps1 dele com
+     * -Expansor. O PowerShell é grande demais para uma linha do cmd.exe (8191 caracteres), então o .cmd escreve
+     * o script em base64, em pedaços, num arquivo temporário, decodifica e roda.
+     */
+    public function instaladorWindowsCompleto(\Illuminate\Http\Request $request): Response
+    {
+        $codigo = \App\Http\Controllers\Api\AgenteCodigoController::gerar($request->user()->id);
+        $ps = $this->scriptWindows(route('painel'), asset('icons/work-flower.ico'), $this->scriptAgente(rtrim(url('/'), '/'), $codigo));
+        $pedacos = str_split(base64_encode("\u{FEFF}" . $ps), 900);
+
+        $linhas = [
+            '@echo off',
+            'title Instalar o Work Flower (app + textos rapidos)',
+            'echo.',
+            'echo   Instalando o Work Flower e os textos rapidos neste computador...',
+            'echo   Sem administrador. Leva menos de um minuto.',
+            'echo.',
+            'set "WF=%TEMP%\\wf-instalar-%RANDOM%%RANDOM%"',
+            'type nul > "%WF%.b64"',
+        ];
+        // redirecionamento antes do echo: um pedaço que termine em dígito viraria "2>>" (saída de erro)
+        foreach ($pedacos as $p) {
+            $linhas[] = '>>"%WF%.b64" echo ' . $p;
+        }
+        $linhas[] = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$b = (Get-Content -LiteralPath \'%WF%.b64\' -Raw) -replace \'\\s\',\'\'; [IO.File]::WriteAllBytes(\'%WF%.ps1\', [Convert]::FromBase64String($b))"';
+        $linhas[] = 'powershell -NoProfile -ExecutionPolicy Bypass -File "%WF%.ps1"';
+        $linhas[] = 'set "ERRO=%ERRORLEVEL%"';
+        $linhas[] = 'del "%WF%.b64" "%WF%.ps1" 2>nul';
+        $linhas[] = 'if not "%ERRO%"=="0" (echo. & echo   Nao deu certo. Tente de novo ou baixe o instalador outra vez no site. & pause)';
+        $linhas[] = '';
+
+        return response(implode("\r\n", $linhas), 200, [
+            'Content-Type'        => 'application/octet-stream',
+            'Content-Disposition' => 'attachment; filename="Instalar Work Flower.cmd"',
+            'Cache-Control'       => 'no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    /** Parte do instalador completo que instala o agente com os textos rápidos (público para os testes). */
+    public function scriptAgente(string $site, string $codigo): string
+    {
+        $site = str_replace("'", "''", $site);
+        $codigo = preg_replace('/[^A-Za-z0-9_]/', '', $codigo);
+
+        return <<<PS
+Write-Host ''
+Write-Host '  Ligando os textos rapidos no Windows inteiro (agente do Work Flower)...'
+try {
+  \$site = '{$site}'
+  \$corpo = @{ codigo = '{$codigo}'; computador = \$env:COMPUTERNAME } | ConvertTo-Json
+  \$par = Invoke-RestMethod -Method Post -Uri "\$site/api/agente-codigo" -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -Body \$corpo
+  \$tmp = Join-Path \$env:TEMP ('wf-agente-' + [guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Force -Path \$tmp | Out-Null
+  \$zip = Join-Path \$tmp 'agente.zip'
+  Invoke-WebRequest -UseBasicParsing -Uri "\$site/api/agente/pacote" -Headers @{ Authorization = "Bearer \$(\$par.token)" } -OutFile \$zip
+  Expand-Archive -LiteralPath \$zip -DestinationPath \$tmp -Force
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path \$tmp 'work-flower-agente\\instalar.ps1') -Site \$site -Token \$par.token -Expansor
+  Remove-Item -LiteralPath \$tmp -Recurse -Force -ErrorAction SilentlyContinue
+} catch {
+  Write-Host "  Os textos rapidos nao foram instalados: \$(\$_.Exception.Message)" -ForegroundColor Yellow
+  Write-Host '  O app ja esta instalado. Para tentar de novo, baixe o instalador outra vez no site.'
+}
+PS;
+    }
+
+    /** PowerShell do instalador (público para os testes conferirem o conteúdo). */
+    public function scriptWindows(string $url, string $icone, string $extra = ''): string
+    {
+        $url = str_replace("'", "''", $url);
+        $icone = str_replace("'", "''", $icone);
+
+        return <<<PS
+\$ErrorActionPreference = 'Stop'
+\$url = '{$url}'
+\$pasta = Join-Path \$env:LOCALAPPDATA 'WorkFlower'
+New-Item -ItemType Directory -Force -Path \$pasta | Out-Null
+\$ico = Join-Path \$pasta 'work-flower.ico'
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri '{$icone}' -OutFile \$ico } catch { }
+\$pf86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+\$chrome = @("\$env:ProgramFiles\\Google\\Chrome\\Application\\chrome.exe", "\$pf86\\Google\\Chrome\\Application\\chrome.exe", "\$env:LOCALAPPDATA\\Google\\Chrome\\Application\\chrome.exe")
+\$edge = @("\$pf86\\Microsoft\\Edge\\Application\\msedge.exe", "\$env:ProgramFiles\\Microsoft\\Edge\\Application\\msedge.exe")
+\$padrao = ''
+try { \$padrao = (Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\https\\UserChoice').ProgId } catch { }
+\$ordem = if (\$padrao -like 'MSEdge*') { \$edge + \$chrome } else { \$chrome + \$edge }
+\$nav = \$ordem | Where-Object { \$_ -and (Test-Path \$_) } | Select-Object -First 1
+\$sh = New-Object -ComObject WScript.Shell
+\$atalhos = @((Join-Path ([Environment]::GetFolderPath('Desktop')) 'Work Flower.lnk'), (Join-Path ([Environment]::GetFolderPath('Programs')) 'Work Flower.lnk'))
+foreach (\$a in \$atalhos) {
+  \$l = \$sh.CreateShortcut(\$a)
+  if (\$nav) { \$l.TargetPath = \$nav; \$l.Arguments = "--app=\$url" } else { \$l.TargetPath = "\$env:WINDIR\\explorer.exe"; \$l.Arguments = \$url }
+  if (Test-Path \$ico) { \$l.IconLocation = \$ico }
+  \$l.Description = 'Work Flower'
+  \$l.Save()
+}
+\$des = "@echo off`r`ndel `"\$(\$atalhos[0])`" 2>nul`r`ndel `"\$(\$atalhos[1])`" 2>nul`r`necho Work Flower removido deste computador.`r`npause`r`nrmdir /s /q `"\$pasta`"`r`n"
+Set-Content -Path (Join-Path \$pasta 'Desinstalar Work Flower.cmd') -Value \$des -Encoding ASCII
+{$extra}
+Write-Host ''
+Write-Host '  Pronto! O Work Flower esta na Area de Trabalho e no Menu Iniciar.' -ForegroundColor Green
+Write-Host '  Abrindo agora... (se pedir login, marque "Manter conectado" uma vez).'
+if (\$nav) { Start-Process -FilePath \$nav -ArgumentList "--app=\$url" } else { Start-Process \$url }
+Start-Sleep -Seconds 3
+PS;
+    }
+
     /** Base do app sempre com barra no fim (ex.: https://websight.com.br/work-flower/). */
     private function base(): string
     {

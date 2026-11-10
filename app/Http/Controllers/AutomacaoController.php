@@ -157,25 +157,12 @@ class AutomacaoController extends Controller
     /** Baixa o agente (pasta agente/ do projeto) em .zip, com o endereço do site já preenchido. */
     public function baixarAgente(Request $request): \Illuminate\Http\Response|RedirectResponse
     {
-        $pasta = base_path('agente');
-        if (! is_file($pasta . '/agente.ps1')) {
+        $zip = \App\Support\PacoteAgente::gerar();
+        if ($zip === null) {
             return back()->with('erro', 'Os arquivos do agente não estão no servidor (pasta agente/ junto do código). Avise o suporte.');
         }
 
-        // ZipSimples: não depende da extensão zip do PHP
-        $zip = new \App\Support\ZipSimples();
-        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($pasta, \FilesystemIterator::SKIP_DOTS));
-        foreach ($it as $arq) {
-            $rel = str_replace('\\', '/', substr($arq->getPathname(), strlen($pasta) + 1));
-            // nunca leva configuração ou registro de quem gerou o pacote
-            if (preg_match('#(^|/)(config\.json|agente\.log(\.1)?|site\.txt|\.gitignore)$#', $rel)) {
-                continue;
-            }
-            $zip->adicionar('work-flower-agente/' . $rel, (string) file_get_contents($arq->getPathname()));
-        }
-        $zip->adicionar('work-flower-agente/site.txt', rtrim(url('/'), '/'));
-
-        return response($zip->gerar(), 200, [
+        return response($zip, 200, [
             'Content-Type'        => 'application/zip',
             'Content-Disposition' => 'attachment; filename="work-flower-agente.zip"',
             'Cache-Control'       => 'no-store',

@@ -4,6 +4,9 @@
     apenas os tipos de ação permitidos em config.json. Não executa comandos livres vindos do site:
     scripts só rodam se estiverem na pasta "scripts" deste computador, e com confirmação.
 
+    Também faz os textos rápidos da conta (os atalhos do expansor do site) funcionarem em qualquer programa do
+    Windows, se "expansor" estiver ligado em config.json ou no menu do ícone (expansor.cs, gancho de teclado).
+
     Uso:  powershell -ExecutionPolicy Bypass -File agente.ps1            (fica rodando)
           powershell -ExecutionPolicy Bypass -File agente.ps1 -UmaVez    (confere uma vez e sai)
 #>
@@ -13,7 +16,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$VERSAO = '1.0.0'
+$VERSAO = '1.1.0'
 $PASTA = Split-Path -Parent $Config
 $LOG = Join-Path $PASTA 'agente.log'
 $SCRIPTS = Join-Path $PASTA 'scripts'
@@ -98,6 +101,10 @@ $script:sair = $false
 $menu = New-Object Windows.Forms.ContextMenuStrip
 $itemPausar = $menu.Items.Add('Pausar')
 $itemPausar.add_Click({ $script:pausado = -not $script:pausado; $itemPausar.Text = $(if ($script:pausado) { 'Continuar' } else { 'Pausar' }) })
+$itemExpansor = New-Object Windows.Forms.ToolStripMenuItem('Textos rápidos no Windows')
+$itemExpansor.add_Click({ Alternar-Expansor })
+$menu.Items.Add($itemExpansor) | Out-Null
+$menu.Items.Add('Atualizar textos rápidos').add_Click({ $script:expProxima = Get-Date }) | Out-Null
 $menu.Items.Add('Abrir registro (log)').add_Click({ if (Test-Path -LiteralPath $LOG) { Start-Process notepad.exe -ArgumentList "`"$LOG`"" } }) | Out-Null
 $menu.Items.Add('Abrir pasta de scripts').add_Click({ Start-Process explorer.exe -ArgumentList "`"$SCRIPTS`"" }) | Out-Null
 $menu.Items.Add('Sair').add_Click({ $script:sair = $true }) | Out-Null
@@ -234,6 +241,77 @@ function Conferir {
     foreach ($e in @($r.execucoes)) { if ($e) { Rodar-Execucao $e } }
 }
 
+# ------------------------------------------------------------------ textos rápidos no Windows inteiro
+# Os atalhos vêm da conta (/api/agente/trechos, os mesmos do expansor do site) e são conferidos a cada 2 min.
+# O gancho de teclado (expansor.cs) só guarda os últimos 40 caracteres em memória; nada é gravado nem enviado.
+$script:expLocal = ($cfg.PSObject.Properties.Name -contains 'expansor') -and [bool]$cfg.expansor
+$script:expSite = $true
+$script:expVersao = ''
+$script:expProxima = Get-Date
+$script:expPronto = $false
+
+function Carregar-Expansor {
+    if ($script:expPronto) { return $true }
+    $cs = Join-Path $PSScriptRoot 'expansor.cs'
+    if (-not (Test-Path -LiteralPath $cs)) { Escrever-Log 'Textos rápidos: expansor.cs não encontrado (baixe o agente de novo).'; return $false }
+    try {
+        if (-not ('WFExpansor' -as [type])) { Add-Type -Path $cs }
+        $script:expPronto = $true
+    } catch { Escrever-Log "Textos rápidos: não deu para carregar ($($_.Exception.Message))." }
+    return $script:expPronto
+}
+
+function Aplicar-Expansor {
+    $ligar = $script:expLocal -and $script:expSite
+    $itemExpansor.Checked = $script:expLocal
+    $itemExpansor.Text = $(if (-not $script:expLocal) { 'Textos rápidos no Windows: desligados' }
+        elseif (-not $script:expSite) { 'Textos rápidos no Windows: desligados no site' }
+        else { 'Textos rápidos no Windows: ligados' })
+    if (-not $script:expPronto) { return }
+    [WFExpansor]::Ligado = $ligar
+    if ($ligar -and -not [WFExpansor]::Rodando) { [WFExpansor]::Iniciar() }
+}
+
+function Atualizar-Trechos {
+    $script:expProxima = (Get-Date).AddMinutes(2)
+    if (-not $script:expLocal) { Aplicar-Expansor; return }
+    if (-not (Carregar-Expansor)) { return }
+    $r = Chamar-Api 'GET' 'trechos'
+    if ($r.versao -ne $script:expVersao) {
+        $lista = @()
+        if ($r.trechos_b64) {
+            $json = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String([string]$r.trechos_b64))
+            $lido = $json | ConvertFrom-Json
+            $lista = @($lido | ForEach-Object { $_ } | Where-Object { $_ -and $_.atalho })
+        }
+        [string[]]$atalhos = @($lista | ForEach-Object { [string]$_.atalho })
+        [string[]]$textos = @($lista | ForEach-Object { [string]$_.texto })
+        [WFExpansor]::Definir($atalhos, $textos, [string]$r.nome, [string]$r.email)
+        $script:expVersao = [string]$r.versao
+        Escrever-Log "Textos rápidos: $($lista.Count) atalhos carregados$(if (-not $r.ligado) { ' (desligados no site)' })."
+    }
+    $script:expSite = [bool]$r.ligado
+    Aplicar-Expansor
+}
+
+function Alternar-Expansor {
+    $script:expLocal = -not $script:expLocal
+    try {
+        # guarda a escolha em config.json (o resto da configuração fica como está)
+        $c = Get-Content -LiteralPath $Config -Raw -Encoding UTF8 | ConvertFrom-Json
+        $c | Add-Member -NotePropertyName expansor -NotePropertyValue $script:expLocal -Force
+        [IO.File]::WriteAllText($Config, ($c | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding($false)))
+    } catch { Escrever-Log "Não consegui salvar a escolha em config.json: $($_.Exception.Message)" }
+    if ($script:expLocal) {
+        Avisar 'Work Flower' 'Textos rápidos ligados: seus atalhos do site agora funcionam em qualquer programa.'
+        $script:expVersao = ''; $script:expProxima = Get-Date
+    } else {
+        Avisar 'Work Flower' 'Textos rápidos desligados neste computador.'
+    }
+    Aplicar-Expansor
+}
+Aplicar-Expansor
+
 # ------------------------------------------------------------------ laço principal
 Escrever-Log "Agente $VERSAO iniciado ($SITE, a cada $INTERVALO s)."
 try {
@@ -244,6 +322,9 @@ try {
 $falhas = 0
 try {
     do {
+        if ((Get-Date) -ge $script:expProxima -and -not $UmaVez) {
+            try { Atualizar-Trechos } catch { Escrever-Log "Textos rápidos: falha ao atualizar ($($_.Exception.Message))." }
+        }
         if (-not $script:pausado) {
             try { Conferir; $falhas = 0 }
             catch {
@@ -260,10 +341,11 @@ try {
         # espera com o ícone respondendo; depois de falhas seguidas espera mais (até 5 min)
         $espera = [Math]::Min(300, $INTERVALO * [Math]::Pow(2, [Math]::Min($falhas, 4)))
         $fim = (Get-Date).AddSeconds($espera)
-        while ((Get-Date) -lt $fim -and -not $script:sair) { [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 200 }
+        while ((Get-Date) -lt $fim -and -not $script:sair -and ((Get-Date) -lt $script:expProxima -or $UmaVez)) { [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 200 }
     } while (-not $script:sair)
 } finally {
     if ($UmaVez) { Start-Sleep -Seconds 3; [Windows.Forms.Application]::DoEvents() }  # deixa a notificação aparecer
+    if ($script:expPronto) { try { [WFExpansor]::Parar() } catch { } }
     $icone.Visible = $false
     $icone.Dispose()
     Escrever-Log 'Agente encerrado.'

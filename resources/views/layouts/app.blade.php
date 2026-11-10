@@ -125,7 +125,9 @@
     <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('icons/icone-192.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('icons/apple-touch-icon.png') }}">
     <script src="{{ asset('js/app-instalavel.js') }}?v={{ @filemtime(public_path('js/app-instalavel.js')) }}"
-            data-sw="{{ route('app.sw') }}" data-escopo="{{ rtrim(url('/'), '/') }}/"></script>
+            data-sw="{{ route('app.sw') }}" data-escopo="{{ rtrim(url('/'), '/') }}/"
+            data-windows="{{ \Illuminate\Support\Facades\Route::has('app.windows') ? route('app.windows') : '' }}"
+            @auth data-windows-completo="{{ \Illuminate\Support\Facades\Route::has('app.windows.completo') ? route('app.windows.completo') : '' }}" @endauth></script>
     {{-- versão do editor de imagem (carregado só quando alguém abre um cartão "Editor de imagem") --}}
     <meta name="wf-editor-imagem-v" content="{{ @filemtime(public_path('js/editor-imagem.js')) }}">
     <meta name="wf-editor-video-v" content="{{ @filemtime(public_path('js/editor-video.js')) }}">
@@ -802,6 +804,8 @@
             </nav>
 
             <div class="flex items-center gap-2 shrink-0">
+                {{-- Baixar o app (some quando já está aberto como app instalado) --}}
+                @include('partials.instalar-app', ['classe' => 'btn-cab !p-2', 'texto' => 'Baixar o app', 'so_icone' => true])
                 {{-- Configurações --}}
                 <div class="relative" x-data="{ aberto: false }" @keydown.escape.window="aberto = false" @click.outside="aberto = false">
                     <button type="button" class="btn-cab !p-2" @click="aberto = !aberto"
@@ -865,14 +869,11 @@
                             </button>
                         @endif
 
-                        {{-- Instalar o app: só aparece quando o navegador oferece (Chrome, Edge, Android) ou no iPhone/iPad (instruções) --}}
-                        <button type="button" class="menu-item" role="menuitem"
-                                x-data="{ pode: !!(window.wfApp && window.wfApp.podeInstalar()) }"
-                                @wf-app-instalavel.window="pode = $event.detail.pode"
-                                x-show="pode" x-cloak
-                                @click="aberto = false; window.wfApp.instalar()">
+                        {{-- Baixar o app: instala com 1 clique quando o navegador oferece (Chrome, Edge, Android); senão abre a
+                             janela com o instalador do Windows e os passos do aparelho (public/js/app-instalavel.js). Some no app instalado. --}}
+                        <button type="button" class="menu-item" role="menuitem" data-wf-instalar @click="aberto = false">
                             <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 7.5v7m0 0l-3-3m3 3l3-3M10 18.5h4"/></svg>
-                            Instalar o app
+                            Baixar o app
                         </button>
 
                         <a href="{{ \Illuminate\Support\Facades\Route::has('planos') ? route('planos') : url('/planos') }}"
@@ -1299,6 +1300,13 @@
 
             {{-- textos rápidos (atalho que vira texto ao digitar): desenhado por public/js/expansor.js --}}
             <div id="wf-expansor-painel" class="space-y-3" style="border-top: 1px solid var(--linha); padding-top: 1rem"></div>
+            {{-- os mesmos textos rápidos em qualquer programa do Windows: agente (agente/expansor.cs) pelo instalador do app --}}
+            <p class="text-xs texto-2 mt-3">
+                <b>No Windows inteiro:</b> instale o app com os textos rápidos
+                (<a href="{{ route('app.windows.completo') }}" download class="link-prim">baixar o instalador</a>)
+                e os mesmos atalhos funcionam no e-mail, no Word, no WhatsApp e em qualquer programa. Liga e desliga no
+                ícone do Work Flower perto do relógio. Quem já usa o agente de Automações: menu do ícone › <b>Textos rápidos no Windows</b>.
+            </p>
         </section>
 
         </div>

@@ -60,6 +60,25 @@ e abra o agente de novo (ou reinicie o computador).
 - **scriptsSemConfirmar**: nomes de scripts (sem `.ps1`) que rodam sem perguntar. Deixe vazio se
   não tiver certeza.
 - **intervalo**: segundos entre as conferências (mínimo 10).
+- **expansor**: `true` liga os textos rápidos no Windows inteiro (veja abaixo).
+
+## Textos rápidos no Windows inteiro
+
+Os atalhos que você cria no site (configurações › **Atalhos** › textos rápidos, ex.: `;ass` vira sua
+assinatura) também funcionam em qualquer programa do Windows: e-mail, Word, WhatsApp, navegador, etc.
+
+- **Jeito mais fácil:** no site, logado, clique em **Baixar o app** › **App + textos rápidos**. O
+  `Instalar Work Flower.cmd` cria o app e instala este agente com os textos rápidos ligados (o arquivo leva um
+  código que vale 30 minutos e uma vez só; o token fica só no seu computador).
+- **Quem já tem o agente:** clique com o botão direito no ícone perto do relógio › **Textos rápidos no
+  Windows** (liga e desliga). **Atualizar textos rápidos** busca na hora o que você mudou no site (sozinho,
+  ele confere a cada 2 minutos). Se a chave do expansor estiver desligada no site, ele fica desligado aqui também.
+- Variáveis `{data}`, `{hora}`, `{data_extenso}`, `{dia_semana}`, `{ano}`, `{nome}`, `{primeiro_nome}`,
+  `{email}` e `{cursor}` funcionam como no site.
+- **Privacidade:** o agente (arquivo `expansor.cs`, compilado pelo próprio Windows ao abrir) guarda só os
+  últimos 40 caracteres digitados, na memória, para reconhecer o atalho. Nada é gravado em disco nem enviado.
+  Mudar de janela, Enter, Tab, setas e atalhos com Ctrl/Alt zeram essa memória.
+- Programas abertos **como administrador** não recebem a troca (o Windows não deixa).
 
 ## Scripts
 

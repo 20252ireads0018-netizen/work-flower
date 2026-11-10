@@ -13,6 +13,18 @@
     .inv-nome { max-width: 14rem; }
     .inv-mes { font-size: 10px; }
     .inv-pb { padding-bottom: .5rem; }
+    /* projeção automática (cartões "Resultado", "Novo ativo" e "Meus ativos") */
+    .inv-mini { font-size: 11px; line-height: 1.4; }
+    .inv-projtotal { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; font-size: .8rem; padding-top: .6rem; border-top: 1px solid var(--linha); }
+    .inv-anos { width: auto; padding: .15rem 1.6rem .15rem .5rem; font-size: .8rem; }
+    .inv-previa { border: 1px dashed var(--prim-linha, var(--linha)); background: var(--prim-suave); border-radius: .75rem; padding: .6rem .7rem; }
+    .inv-projlinha > td { background: color-mix(in srgb, var(--prim) 5%, transparent); }
+    /* colunas pelo espaço do cartão (não da janela): o cartão pode ser estreito ou largo */
+    .inv-proj { display: grid; gap: 1rem; padding: .35rem 0; white-space: normal; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); }
+    .inv-params { display: grid; gap: .5rem; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); align-items: end; }
+    .inv-projtab td, .inv-projtab th { padding: .25rem .4rem; font-size: .75rem; }
+    .inv-projgraf { height: 4.5rem; background: var(--superficie-2); border-radius: .5rem; }
+    .mini-btn.ativo { color: var(--prim-forte); background: var(--prim-suave); }
 </style>
 
 {{-- ================= renda passiva e alocação ================= --}}
@@ -155,7 +167,7 @@
                             <td class="text-xs" x-text="fmtLiq(x.liquidez)"></td>
                             <td>
                                 <div class="flex gap-1 whitespace-nowrap">
-                                    <button type="button" class="chip" title="Adicionar à carteira" @click="paraCarteira(x)">+ Carteira</button>
+                                    <button type="button" class="chip" title="Adicionar à carteira já com a projeção automática (1 cota; ajuste depois)" @click="paraCarteira(x)">+ Carteira</button>
                                     <button type="button" class="chip" title="Acompanhar no radar" @click="paraRadar(x)">Radar</button>
                                     <button type="button" class="chip" title="Comparar no simulador" @click="paraSimulador(x)">Simular</button>
                                 </div>
@@ -182,7 +194,7 @@
         </div>
 
         <div class="space-y-2">
-            <p class="text-xs texto-2">Compare até 4 ativos ou cenários. Com o ticker e o DY vazio, usa o DY dos últimos 12 meses.</p>
+            <p class="text-xs texto-2">Compare até 4 ativos ou cenários. Com o ticker e o DY vazio, usa o DY dos últimos 12 meses. O resultado se refaz sozinho enquanto você digita; em "Meus ativos", o botão de projeção traz cada ativo para cá.</p>
             <template x-for="(a, i) in sim.ativos" :key="i">
                 <div class="inv-simlinha">
                     <span class="w-3 h-3 rounded-full" :style="`background:${coresSim[i % coresSim.length]}`"></span>

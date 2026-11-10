@@ -8,3 +8,6 @@ use Illuminate\Support\Facades\Route;
 Route::get('/ola', [AgenteController::class, 'ola'])->name('ola');
 Route::get('/pendentes', [AgenteController::class, 'pendentes'])->name('pendentes');
 Route::post('/execucoes/{execucao}', [AgenteController::class, 'resultado'])->whereNumber('execucao')->name('resultado');
+// textos rápidos da conta para o expansor no Windows inteiro, e o pacote do agente para o instalador do app
+Route::get('/trechos', [AgenteController::class, 'trechos'])->name('trechos');
+Route::get('/pacote', [AgenteController::class, 'pacote'])->name('pacote');

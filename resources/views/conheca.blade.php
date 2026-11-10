@@ -125,7 +125,10 @@
 @guest
 <div class="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-5 sm:px-8 py-3">
     @include('partials.marca', ['texto' => 'text-xl'])
-    <a href="{{ route('login') }}" class="btn-sec">Entrar</a>
+    <div class="flex items-center gap-2">
+        @include('partials.instalar-app', ['classe' => 'btn-sec', 'texto' => 'Baixar o app'])
+        <a href="{{ route('login') }}" class="btn-sec">Entrar</a>
+    </div>
 </div>
 @endguest
 
@@ -549,6 +552,7 @@
                 <a href="{{ route('registro') }}" class="btn">Criar conta grátis</a>
                 <a href="{{ route('login') }}" class="btn-sec">Já tenho conta</a>
                 <a href="{{ route('demo.motivos') }}" download class="btn-sec">⬇ Por que usar? (PDF)</a>
+                @include('partials.instalar-app', ['classe' => 'btn-sec', 'texto' => 'Baixar o app'])
                 <button type="button" id="rever" class="btn-sec">↻ Ver de novo</button>
             </div>
         </div>
