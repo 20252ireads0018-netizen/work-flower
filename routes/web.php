@@ -119,6 +119,9 @@ Route::middleware('auth')->group(function () {
     Route::middleware(\App\Http\Middleware\SoAdmin::class)->group(function () {
         Route::post('/admin/novos-usuarios/visto', [PainelController::class, 'novosVistos'])->middleware('throttle:30,1')->name('admin.novos.visto');
         Route::get('/admin/pix',[\App\Http\Controllers\PixAdminController::class, 'index'])->name('pix.admin');
+        // quem do Work Flower também se cadastrou nos outros sites da Websight (config/websight.php)
+        Route::get('/admin/sites-websight', [\App\Http\Controllers\SitesWebsightController::class, 'index'])
+            ->middleware('throttle:30,1')->name('admin.sites');
         Route::post('/admin/pix/config', [\App\Http\Controllers\PixAdminController::class, 'config'])->name('pix.admin.config');
         Route::post('/admin/pix/{pix}/confirmar', [\App\Http\Controllers\PixAdminController::class, 'confirmar'])
             ->whereNumber('pix')->name('pix.admin.confirmar');

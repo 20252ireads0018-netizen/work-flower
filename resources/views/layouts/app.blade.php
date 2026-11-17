@@ -918,6 +918,10 @@
                                 <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>
                                 Promoções (admin)
                             </a>
+                            <a href="{{ route('admin.sites') }}" class="menu-item" role="menuitem">
+                                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
+                                Outros sites (admin)
+                            </a>
                         @endif
                         @if (\App\Support\Anuncios::podeVer(auth()->user()))
                             <a href="{{ route('anuncios.index') }}" class="menu-item" role="menuitem">
