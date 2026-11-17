@@ -1034,6 +1034,31 @@
             grupoDe(a) { return grupoDaAba(a, this.cfg); },
             nomeGrupo(g) { return g ? (this.grupos.find(x => x.id === g)?.nome || 'Diverso') : 'Diverso'; },
             irPara(id) { this.aba = id; this.menuBloco = false; this.formAba = null; },
+            /** Muda a ordem das abas: anda uma casa (passo -1/+1) entre as abas visíveis desta área. */
+            moverAba(a, passo) {
+                const vis = this.abasVisiveis(), i = vis.findIndex(x => x.id === a.id), alvo = vis[i + passo];
+                if (i < 0 || !alvo) return;
+                this.trocarOrdemAba(a.id, alvo.id, passo > 0);
+            },
+            /** Põe a aba `id` logo antes (ou depois) da aba `alvoId` no estado (vale para o Diverso e as áreas criadas). */
+            trocarOrdemAba(id, alvoId, depois) {
+                if (id === alvoId) return;
+                const l = this.estado.abas, de = l.findIndex(x => x.id === id);
+                if (de < 0 || l.findIndex(x => x.id === alvoId) < 0) return;
+                const [a] = l.splice(de, 1);
+                const para = l.findIndex(x => x.id === alvoId);
+                l.splice(depois ? para + 1 : para, 0, a);
+            },
+            // arrastar a aba para outra posição
+            abaArrasto: null,
+            abaArrastoIni(e, a) { this.abaArrasto = a.id; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', a.nome); } catch { /* sem dados */ } },
+            abaArrastoSolta(e, a) {
+                const id = this.abaArrasto;
+                this.abaArrasto = null;
+                if (!id || id === a.id) return;
+                const r = e.currentTarget.getBoundingClientRect();
+                this.trocarOrdemAba(id, a.id, e.clientX > r.left + r.width / 2);
+            },
             abrirNovaAba() {
                 if (this.abasVisiveis().length >= MAX_ABAS) { this.aviso(`Limite de ${MAX_ABAS} abas. Exclua alguma para criar outra.`); return; }
                 this.menuBloco = false;

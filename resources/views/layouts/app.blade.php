@@ -113,6 +113,11 @@
     
     {{-- viewport-fit=cover: usa a tela toda em celulares com notch (as áreas seguras são tratadas no CSS) --}}
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    {{-- Zoom da interface escolhido neste aparelho (engrenagem › Tela): muda o tamanho de textos, botões e espaços
+         (tudo em rem), para PCs em que o zoom do navegador não ajuda. Antes de pintar, para não piscar. --}}
+    <script>
+        try { (function () { var z = parseFloat(localStorage.getItem('wf-zoom') || '1'); if (z >= 0.6 && z <= 1.6 && z !== 1) document.documentElement.style.fontSize = (z * 100) + '%'; })(); } catch (e) { /* sem armazenamento */ }
+    </script>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     {{-- App instalável (PWA): manifesto, cor da barra do sistema e ícones (ver AppInstalavelController) --}}
     <link rel="manifest" href="{{ route('app.manifesto') }}">
@@ -384,6 +389,15 @@
     <script src="{{ asset('js/menu-contexto.js') }}?v={{ @filemtime(public_path('js/menu-contexto.js')) }}" defer></script>
     {{-- mãozinha: arrastar para rolar mapas, diagramas e o que for maior que a área visível --}}
     <script src="{{ asset('js/arrastar-mao.js') }}?v={{ @filemtime(public_path('js/arrastar-mao.js')) }}" defer></script>
+    <script>
+        // celular: a faixa de abas mostra a aba aberta (ela pode estar fora da tela, à direita)
+        addEventListener('load', () => setTimeout(() => document.querySelectorAll('.wf-abas-nav').forEach(n => {
+            const a = n.querySelector('.circ.ativo');
+            if (!a || n.scrollWidth <= n.clientWidth) return;
+            const ra = a.getBoundingClientRect(), rn = n.getBoundingClientRect();
+            if (ra.left < rn.left || ra.right > rn.right - 24) n.scrollLeft += ra.left - rn.left - (rn.width - ra.width) / 2;
+        }), 400));
+    </script>
     <script src="{{ asset('js/lixeira.js') }}?v={{ @filemtime(public_path('js/lixeira.js')) }}"></script>
       <script src="{{ asset('js/planos.js') }}?v={{ @filemtime(public_path('js/planos.js')) }}"></script>
       <script src="{{ asset('js/arquivos.js') }}?v={{ @filemtime(public_path('js/arquivos.js')) }}"></script>
@@ -472,6 +486,17 @@
         .wf-bloco, .wf-cresce, .wf-esc, .wf-xl, .wf-xl-rolagem { min-width: 0; max-width: 100%; }
         .wf-xl-rolagem, .wf-esc, .tabela-wrap { -webkit-overflow-scrolling: touch; }
 
+        /* Celular: as abas da área viram uma faixa só, que rola para o lado (antes eram 2–3 linhas de círculos antes do
+           conteúdo); "Reorganizar" some porque os cartões ficam um embaixo do outro. */
+        @media (max-width: 899px) {
+            .wf-so-pc { display: none !important; }
+            .wf-abas-nav { flex-wrap: nowrap !important; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity;
+                           column-gap: .6rem !important; padding: .35rem .25rem .5rem; margin-inline: -.25rem; scrollbar-width: thin;
+                           -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 1.5rem), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 1.5rem), transparent); }
+            .wf-abas-nav > * { flex: none; scroll-snap-align: start; }
+            .wf-abas-nav .circ { width: 4.25rem; gap: .3rem; }
+            .wf-abas-nav .circ-bola { width: 2.9rem; height: 2.9rem; }
+        }
         @media (max-width: 767px) {
             .campo, select, textarea, input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]) { font-size: 16px; }
             .wf-xl-barra .campo, .wf-xl-barra select { font-size: 14px; }
@@ -918,6 +943,10 @@
                                 <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>
                                 Promoções (admin)
                             </a>
+                            <a href="{{ route('admin.sites') }}" class="menu-item" role="menuitem">
+                                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
+                                Outros sites (admin)
+                            </a>
                         @endif
                         @if (\App\Support\Anuncios::podeVer(auth()->user()))
                             <a href="{{ route('anuncios.index') }}" class="menu-item" role="menuitem">
@@ -996,6 +1025,7 @@
             <button type="button" role="tab" class="btn-sec flex-1" :class="{ '!bg-[var(--prim)] !text-[var(--on-prim)]': aba === 'lixeira' }" :aria-selected="aba === 'lixeira'" @click="aba = 'lixeira'; $dispatch('abrir-lixeira')">Histórico</button>
             <button type="button" role="tab" class="btn-sec flex-1" :class="{ '!bg-[var(--prim)] !text-[var(--on-prim)]': aba === 'workflows' }" :aria-selected="aba === 'workflows'" @click="aba = 'workflows'">Workflows</button>
             <button type="button" role="tab" class="btn-sec flex-1" :class="{ '!bg-[var(--prim)] !text-[var(--on-prim)]': aba === 'atalhos' }" :aria-selected="aba === 'atalhos'" @click="aba = 'atalhos'">Atalhos</button>
+            <button type="button" role="tab" class="btn-sec flex-1" :class="{ '!bg-[var(--prim)] !text-[var(--on-prim)]': aba === 'tela' }" :aria-selected="aba === 'tela'" @click="aba = 'tela'">Tela</button>
         </div>
 
         <form method="POST" action="{{ route('tema.update') }}" @submit.prevent="salvar($event)" x-show="aba === 'cores'" class="space-y-5">
@@ -1246,6 +1276,53 @@
                 </div>
             </template>
         </section>
+        {{-- Tela: zoom da interface e tipo de aparelho (cada tipo guarda o próprio layout dos cartões). Vale para este aparelho. --}}
+        <section x-show="aba === 'tela'" x-cloak class="space-y-5"
+                 x-data="{
+                    zoom: (() => { try { return parseFloat(localStorage.getItem('wf-zoom') || '1') || 1; } catch (e) { return 1; } })(),
+                    aparelho: (() => { try { return localStorage.getItem('wf-aparelho') || ''; } catch (e) { return ''; } })(),
+                    usarZoom(z) {
+                        this.zoom = Math.min(1.6, Math.max(0.6, Math.round(z * 10) / 10));
+                        try { this.zoom === 1 ? localStorage.removeItem('wf-zoom') : localStorage.setItem('wf-zoom', String(this.zoom)); } catch (e) {}
+                        document.documentElement.style.fontSize = this.zoom === 1 ? '' : (this.zoom * 100) + '%';
+                    },
+                    usarAparelho(v) {
+                        this.aparelho = v;
+                        try { v ? localStorage.setItem('wf-aparelho', v) : localStorage.removeItem('wf-aparelho'); } catch (e) {}
+                        window.dispatchEvent(new CustomEvent('wf-aparelho', { detail: { aparelho: v } }));
+                    },
+                 }">
+            <div>
+                <h2 class="titulo text-2xl">Tela</h2>
+                <p class="text-sm texto-2 mt-1">Ajustes deste aparelho (ficam só neste navegador). Cada tipo de aparelho tem o próprio layout dos cartões: arrumar no notebook não bagunça o do monitor.</p>
+            </div>
+
+            <div class="space-y-2">
+                <p class="font-semibold text-sm" id="zoom-rotulo">Zoom da interface</p>
+                <p class="text-xs texto-2">Aumenta ou diminui textos, botões e espaços. Útil quando o zoom do navegador (Ctrl + e Ctrl −) não funciona.</p>
+                <div class="flex items-center gap-2" role="group" aria-labelledby="zoom-rotulo">
+                    <button type="button" class="btn-sec !py-1" @click="usarZoom(zoom - 0.1)" :disabled="zoom <= 0.6" aria-label="Diminuir o zoom">−</button>
+                    <input type="range" min="0.6" max="1.6" step="0.1" class="flex-1" :value="zoom" @input="usarZoom(+$event.target.value)" aria-label="Zoom da interface">
+                    <button type="button" class="btn-sec !py-1" @click="usarZoom(zoom + 0.1)" :disabled="zoom >= 1.6" aria-label="Aumentar o zoom">+</button>
+                    <span class="text-sm w-12 text-right" x-text="Math.round(zoom * 100) + '%'"></span>
+                </div>
+                <button type="button" class="link-prim text-xs" x-show="zoom !== 1" @click="usarZoom(1)">Voltar a 100%</button>
+            </div>
+
+            <div class="space-y-2">
+                <label class="font-semibold text-sm block" for="aparelho-sel">Este aparelho é</label>
+                <select id="aparelho-sel" class="campo" :value="aparelho" @change="usarAparelho($event.target.value)">
+                    <option value="">Automático (pela largura da janela)</option>
+                    <option value="p">Notebook pequeno / tablet</option>
+                    <option value="m">Notebook</option>
+                    <option value="g">Monitor</option>
+                    <option value="gg">Monitor grande / TV</option>
+                </select>
+                <p class="text-xs texto-2">Ao trocar, os cartões voltam ao layout guardado para esse tipo (ou ficam como estão, se ainda não houver um). Arrume do seu jeito: fica guardado para esse tipo de aparelho. No celular os cartões ficam um embaixo do outro.</p>
+                <button type="button" class="btn-sec !py-1.5 w-full" @click="window.dispatchEvent(new CustomEvent('wf-reorganizar'))">Organizar a aba atual para este aparelho</button>
+            </div>
+        </section>
+
         {{-- Atalhos: organização automática dos cartões (opcional) e teclas de atalho personalizáveis --}}
         <section x-show="aba === 'atalhos'" x-cloak x-data="atalhosPainel()" class="space-y-5"
                  x-init="$watch('aba', v => { if (v === 'atalhos') atualizar(); else parar() })">

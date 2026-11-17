@@ -827,6 +827,8 @@
                     // aba "Atalhos" das configurações: liga/desliga a organização automática e "Reorganizar agora" (Alt+R)
                     window.addEventListener('wf-organizar-auto', e => { if (e.detail && e.detail.ligado && !this.arrastando) this.autoOrganizar(); });
                     window.addEventListener('wf-reorganizar', () => { if (!this.arrastando) this.reorganizar(); });
+                    // engrenagem › Tela: trocou o tipo de aparelho (o layout desse tipo volta)
+                    window.addEventListener('wf-aparelho', () => { if (!this.arrastando) this.autoOrganizar(); });
                     // teclas de atalho personalizáveis (layout): ações do quadro chegam por este evento
                     window.addEventListener('wf-atalho', e => { if (e.detail && e.detail.id) this.executarAtalho(e.detail.id, e.detail); });
                 }
@@ -1159,10 +1161,15 @@
             },
             /** Guarda para que largura de tela o layout foi arrumado (decide se precisa arrumar de novo). */
             marcarTela() {
-                this.estado.tela = { larg: this.larg || this.col || 1088, em: hoje() };
+                const larg = this.larg || this.col || 1088;
+                this.estado.tela = { larg, faixa: this.faixaTela(larg), em: hoje() };
             },
             /** Faixa de largura de tela: cada faixa tem o seu próprio layout guardado (notebook, monitor, monitor grande...). */
             faixaTela(larg) {
+                // tipo de aparelho escolhido na engrenagem › Tela (vale só neste navegador)
+                let fixo = '';
+                try { fixo = localStorage.getItem('wf-aparelho') || ''; } catch { /* sem armazenamento */ }
+                if (['p', 'm', 'g', 'gg'].includes(fixo)) return fixo;
                 const w = Number(larg) || 0;
                 return w < 1100 ? 'p' : w < 1450 ? 'm' : w < 1900 ? 'g' : 'gg';
             },
@@ -1196,9 +1203,11 @@
              *   Arrumação feita à mão só é tocada se houver sobreposição.
              */
             autoOrganizar() {
-                if (EMBED || this.empilhado() || !this.larg || !autoLigado()) return;
+                // a troca de layout por tipo de aparelho vale mesmo com a organização automática desligada
+                if (EMBED || this.empilhado() || !this.larg) return;
+                const auto = autoLigado();
                 const larg = this.larg, ref = this.estado.tela;
-                const fNova = this.faixaTela(larg), fVelha = ref ? this.faixaTela(ref.larg) : null;
+                const fNova = this.faixaTela(larg), fVelha = ref ? (ref.faixa || this.faixaTela(ref.larg)) : null;
                 const copia = o => JSON.parse(JSON.stringify(o || {}));
                 const antigo = !this.estado.org || this.estado.org.v !== ORG_VERSAO;
                 let n = 0, msg = '';
@@ -1211,12 +1220,13 @@
                         this.restaurarLayout(copia(telas[fNova]));
                         msg = 'Layout desta tela restaurado.';
                     } else {
-                        this.secoesQuadro().forEach(sec => { if (this.organizar(sec)) n++; });
+                        if (auto) this.secoesQuadro().forEach(sec => { if (this.organizar(sec)) n++; });
                         this.marcarTela();
                         if (n) this.aviso('Cartões organizados automaticamente para o tamanho da sua tela.');
                         return;
                     }
                 }
+                if (!auto) { if (!ref || fVelha !== fNova) this.marcarTela(); if (msg) this.aviso(msg); return; }
 
                 this.secoesQuadro().forEach(sec => {
                     if (this.temConflito(sec)) { if (this.organizar(sec)) n++; return; }
