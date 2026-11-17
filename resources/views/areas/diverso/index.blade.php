@@ -363,9 +363,12 @@
 <div x-data="diversoAbasDiagrama()" class="space-y-6">
 
     {{-- Abas: só as que você criar (cada uma com nome e ícone) + o botão de nova aba --}}
-    <nav class="flex flex-wrap items-start gap-x-5 gap-y-4" aria-label="Abas da área">
+    <nav class="wf-abas-nav flex flex-wrap items-start gap-x-5 gap-y-4" aria-label="Abas da área">
         <template x-for="a in abasVisiveis()" :key="a.id">
-            <div class="flex flex-col items-center">
+            <div class="flex flex-col items-center" draggable="true" title="Arraste para mudar a ordem"
+                 :class="abaArrasto === a.id && 'opacity-50'"
+                 @dragstart="abaArrastoIni($event, a)" @dragend="abaArrasto = null"
+                 @dragover="abaArrasto && $event.preventDefault()" @drop.prevent="abaArrastoSolta($event, a)">
                 <button type="button" class="circ" :class="{ 'ativo': aba === a.id, 'wf-novo': novidades[a.id] }"
                         @click="irPara(a.id)" @dblclick="editarAba(a)"
                         :aria-pressed="aba === a.id" :title="a.nome">
@@ -373,6 +376,10 @@
                     <span class="circ-rotulo" style="max-width: 5.5rem; overflow-wrap: anywhere;" x-text="a.nome"></span>
                 </button>
                 <div class="wf-aba-acoes" x-show="aba === a.id" x-cloak>
+                    <button type="button" class="mini-btn" title="Mover para a esquerda" :aria-label="'Mover a aba ' + a.nome + ' para a esquerda'"
+                            x-show="abasVisiveis()[0]?.id !== a.id" @click="moverAba(a, -1)">‹</button>
+                    <button type="button" class="mini-btn" title="Mover para a direita" :aria-label="'Mover a aba ' + a.nome + ' para a direita'"
+                            x-show="abasVisiveis().at(-1)?.id !== a.id" @click="moverAba(a, 1)">›</button>
                     <button type="button" class="mini-btn" title="Editar nome e ícone" :aria-label="'Editar a aba ' + a.nome" @click="editarAba(a)">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>
                     </button>
@@ -425,7 +432,7 @@
         <p class="text-xs texto-2" x-text="rotuloSalvo()" aria-live="polite"></p>
         <div class="flex flex-wrap items-center gap-2" x-show="aba" x-cloak>
             <button type="button" class="btn-sec" @click="$dispatch('abrir-biblioteca')">Biblioteca</button>
-            <button type="button" class="btn-sec" @click="reorganizar()">Reorganizar</button>
+            <button type="button" class="btn-sec wf-so-pc" @click="reorganizar()">Reorganizar</button>
             @include('partials.menu-bloco')
         </div>
     </div>
