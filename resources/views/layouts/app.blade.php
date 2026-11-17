@@ -3,6 +3,8 @@
 
     // ID do AdSense (ca-pub-XXXXXXXXXXXXXXXX). Vazio = nenhum anúncio é carregado.
     $adsenseClient = config('services.adsense.client');
+    // visitantes e plano Gratuito, fora de login, pagamento, planos e admin (App\Support\Publicidade)
+    $comAnuncios = \App\Support\Publicidade::permitida();
 
     $usuario = auth()->user();
     $prim    = $usuario?->cor_primaria  ?? User::COR_PRIMARIA_PADRAO;
@@ -369,11 +371,14 @@
     <meta name="workflows-importar-url" content="{{ \Illuminate\Support\Facades\Route::has('workflows.importar') ? route('workflows.importar') : '' }}">
     <title>Work Flower · @yield('titulo', 'Painel')</title>
 
-    {{-- Google AdSense: carrega para visitantes e para planos com anúncios.
-         Plano Premium (Planos::SEM_ANUNCIOS) NÃO recebe nem o script, então não há Auto ads nem impressões.
-         O ID vem de config('services.adsense.client'), definido por ADSENSE_CLIENT no .env. --}}
-    @if ($adsenseClient && ! $semAnuncios)
+    {{-- Google AdSense: carrega só para visitantes e para o plano Gratuito, fora de login, pagamento, planos e admin.
+         Planos pagos (Planos::SEM_ANUNCIOS) NÃO recebem nem o script, então não há Auto ads nem impressões.
+         O ID vem de config('services.adsense.client') (ADSENSE_CLIENT no .env; padrão: a conta da Websight).
+         A meta de verificação da conta vai em toda página: o Google confere o site por ela. --}}
+    @if ($adsenseClient)
         <meta name="google-adsense-account" content="{{ $adsenseClient }}">
+    @endif
+    @if ($comAnuncios)
         {{-- aviso de cookies (partials/cookies): sem o "Aceitar todos", os anúncios não são personalizados --}}
         <script>
             (function () {

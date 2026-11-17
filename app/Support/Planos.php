@@ -40,8 +40,8 @@ class Planos
         'premium'  => 'Premium',
     ];
 
-    /** Planos que não veem anúncios (mantenha igual a SEM_ANUNCIOS em public/js/planos.js). */
-    public const SEM_ANUNCIOS = ['premium'];
+    /** Planos que não veem anúncios: todos os pagos (mantenha igual a SEM_ANUNCIOS em public/js/planos.js). */
+    public const SEM_ANUNCIOS = ['basico', 'pro', 'premium'];
 
     /** Slugs conhecidos. */
     public static function slugs(): array

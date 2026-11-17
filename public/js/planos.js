@@ -71,7 +71,7 @@
 
     // Planos sem anúncios (o servidor já não carrega o AdSense; isto é só reforço no navegador).
     // Mantenha igual a Planos::SEM_ANUNCIOS no PHP.
-    const SEM_ANUNCIOS = ['premium'];
+    const SEM_ANUNCIOS = ['basico', 'pro', 'premium'];
     const SEM_ANUNCIO = SEM_ANUNCIOS.includes(slugBruto);
     if (SEM_ANUNCIO) {
         const removerAnuncios = () => {

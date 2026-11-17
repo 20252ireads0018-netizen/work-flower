@@ -40,7 +40,7 @@
     <p>Não vendemos os seus dados pessoais.</p>
 
     <h2 id="cookies" class="titulo text-xl pt-4">4. Cookies e tecnologias semelhantes</h2>
-    <p>Usamos cookies para o site funcionar e, nas páginas públicas, para exibir anúncios:</p>
+    <p>Usamos cookies para o site funcionar e, nas páginas públicas e no plano Gratuito, para exibir anúncios:</p>
     <ul class="list-disc pl-6 space-y-1.5">
         <li><strong>Essenciais:</strong> mantêm você conectado durante a sessão e protegem formulários contra ataques. Sem eles, o serviço não funciona.</li>
         <li><strong>Lembrar de mim:</strong> se você marcar “Manter conectado neste aparelho”, um cookie permite que você continue logado depois de fechar o navegador.</li>
@@ -50,8 +50,9 @@
 
     <h2 class="titulo text-xl pt-4">5. Publicidade e Google AdSense</h2>
     <p>
-        Podemos exibir anúncios de terceiros, como os do Google AdSense, nas páginas públicas do site.
-        A área logada do serviço não exibe anúncios.
+        Podemos exibir anúncios de terceiros, como os do Google AdSense, nas páginas públicas do site e para quem usa o plano Gratuito.
+        Os planos pagos (Básico, Pró e Premium, inclusive no período de teste) não exibem anúncios, e as telas de login, cadastro,
+        planos, pagamento e administração nunca exibem anúncios.
     </p>
     <ul class="list-disc pl-6 space-y-1.5">
         <li>O Google e seus parceiros usam cookies para mostrar anúncios com base nas suas visitas anteriores a este e a outros sites.</li>

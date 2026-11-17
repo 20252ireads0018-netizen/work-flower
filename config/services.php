@@ -68,7 +68,8 @@ return [
     'discord' => ['client_id' => env('DISCORD_CLIENT_ID'), 'client_secret' => env('DISCORD_CLIENT_SECRET'), 'redirect' => env('DISCORD_REDIRECT_URI')],
 
     'adsense' => [
-        'client' => env('ADSENSE_CLIENT'),
+        // conta da Websight; ADSENSE_CLIENT no .env troca (vazio no .env = sem anúncios)
+        'client' => env('ADSENSE_CLIENT', 'ca-pub-4781960143966285'),
     ],
 
 ];

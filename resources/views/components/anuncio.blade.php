@@ -1,7 +1,7 @@
 @props(['slot_id'])
 
-{{-- Bloco de anúncio do AdSense. Não renderiza nada para planos sem anúncios (Premium). --}}
-@if (config('services.adsense.client') && ! \App\Support\Planos::semAnuncios(auth()->user()))
+{{-- Bloco de anúncio do AdSense. Não renderiza nada para planos pagos nem nas telas sem anúncio (App\Support\Publicidade). --}}
+@if (\App\Support\Publicidade::permitida())
     <div data-anuncio>
         <ins class="adsbygoogle"
              style="display:block"
