@@ -203,7 +203,7 @@
 <div x-data="menteAbas()" class="space-y-6">
 
     {{-- Mini cards circulares --}}
-    <nav class="flex flex-wrap gap-x-5 gap-y-4" aria-label="Seções de Mente">
+    <nav class="wf-abas-nav flex flex-wrap gap-x-5 gap-y-4" aria-label="Seções de Mente">
         <template x-for="a in abas" :key="a.id">
             <button type="button" class="circ" :class="{ 'ativo': aba === a.id, 'wf-novo': novidades[a.id] }"
                     @click="aba = a.id" :aria-pressed="aba === a.id" :title="a.nome">
@@ -221,7 +221,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-xs texto-2" x-text="rotuloSalvo()" aria-live="polite"></p>
         <div class="flex items-center gap-2">
-            <button type="button" class="btn-sec" @click="reorganizar()">Reorganizar</button>
+            <button type="button" class="btn-sec wf-so-pc" @click="reorganizar()">Reorganizar</button>
             @include('partials.menu-bloco')
         </div>
     </div>
