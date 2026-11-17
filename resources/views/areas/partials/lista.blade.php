@@ -184,6 +184,49 @@
                     f.requestSubmit();
                 }
             });
+
+            // Editar tarefa: o formulário ficava preso dentro do cartão (que corta o que vaza) e saía da tela.
+            // Aberto, ele vira "fixed" ao lado do lápis, sempre inteiro dentro da janela (rola por dentro se precisar).
+            function posicionar(d) {
+                const f = d.querySelector('.tq-form'), s = d.querySelector('summary');
+                if (!f || !s) return;
+                const M = 8, vw = document.documentElement.clientWidth, vh = window.innerHeight;
+                f.style.position = 'fixed'; f.style.right = 'auto'; f.style.maxHeight = (vh - 2 * M) + 'px'; f.style.overflowY = 'auto';
+                f.style.width = Math.min(240, vw - 2 * M) + 'px';
+                const r = s.getBoundingClientRect(), w = f.offsetWidth, h = f.offsetHeight;
+                let x = Math.min(Math.max(M, r.right - w), vw - w - M);
+                let y = r.bottom + 4;
+                if (y + h > vh - M) y = r.top - h - 4 >= M ? r.top - h - 4 : Math.max(M, vh - h - M);
+                f.style.left = x + 'px'; f.style.top = y + 'px';
+                // algum ancestral com transform muda a referência do "fixed": corrige pela diferença
+                const real = f.getBoundingClientRect();
+                if (Math.abs(real.left - x) > 1 || Math.abs(real.top - y) > 1) {
+                    f.style.left = (2 * x - real.left) + 'px'; f.style.top = (2 * y - real.top) + 'px';
+                }
+            }
+            function soltar(d) {
+                const f = d.querySelector('.tq-form');
+                if (f) ['position', 'right', 'left', 'top', 'width', 'maxHeight', 'overflowY'].forEach(p => { f.style[p] = ''; });
+            }
+            document.addEventListener('toggle', e => {
+                const d = e.target;
+                if (!d.classList || !d.classList.contains('tq-edit')) return;
+                if (d.open) {
+                    document.querySelectorAll('details.tq-edit[open]').forEach(o => { if (o !== d) o.open = false; });
+                    posicionar(d);
+                } else soltar(d);
+            }, true);
+            const reposicionar = () => document.querySelectorAll('details.tq-edit[open]').forEach(posicionar);
+            window.addEventListener('resize', reposicionar);
+            document.addEventListener('scroll', e => {
+                // rolar a página (ou o cartão) com o formulário aberto: ele acompanha o lápis; rolagem dentro do próprio formulário não conta
+                if (e.target.closest && e.target.closest('.tq-form')) return;
+                reposicionar();
+            }, true);
+            // clique fora fecha
+            document.addEventListener('pointerdown', e => {
+                document.querySelectorAll('details.tq-edit[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; });
+            }, true);
         })();
     </script>
 @endonce
