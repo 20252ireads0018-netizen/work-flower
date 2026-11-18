@@ -22,11 +22,22 @@ use App\Http\Controllers\CompartilharController;
 
 // Páginas públicas (abrem para qualquer pessoa, logada ou não).
 // A raiz mostra a página inicial para visitantes e leva quem está logado ao painel.
-Route::get('/', function () {
+// Quem chega pelos anúncios de estudos (utm_campaign wf-cadastros / wf-pos-enem) vê a abertura de estudos;
+// /estudos mostra essa mesma versão sem depender da utm.
+Route::get('/', function (\Illuminate\Http\Request $request) {
+    if (auth()->check()) {
+        return redirect()->route('painel');
+    }
+    $estudos = in_array($request->query('utm_campaign'), ['wf-cadastros', 'wf-pos-enem'], true);
+
+    return view('publico.inicio', ['estudos' => $estudos]);
+})->name('inicio');
+
+Route::get('/estudos', function () {
     return auth()->check()
         ? redirect()->route('painel')
-        : view('publico.inicio');
-})->name('inicio');
+        : view('publico.inicio', ['estudos' => true]);
+})->name('estudos');
 
 Route::view('/privacidade', 'publico.privacidade')->name('privacidade');
 Route::view('/termos', 'publico.termos')->name('termos');

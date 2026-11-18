@@ -1,7 +1,9 @@
 {{-- Página inicial pública do Work Flower (para visitantes sem login) --}}
 @extends('layouts.app')
 
-@section('titulo', 'Organize seu trabalho e sua vida em um só lugar')
+{{-- $estudos: abertura de estudos (rota /estudos ou utm_campaign wf-cadastros / wf-pos-enem dos anúncios) --}}
+@php($estudos = $estudos ?? false)
+@section('titulo', $estudos ? 'Automatize seus estudos' : 'Organize seu trabalho e sua vida em um só lugar')
 
 @section('conteudo')
 @include('publico._topo')
@@ -9,6 +11,20 @@
 {{-- ===== Abertura ===== --}}
 <section class="cab-bg painel-tech">
     <div class="max-w-6xl mx-auto px-4 sm:px-8 py-16 sm:py-24 grid gap-12 lg:grid-cols-2 items-center">
+        @if ($estudos)
+        <div data-abertura="estudos">
+            <span class="inline-block rounded-full px-3 py-1 text-sm font-semibold" style="background: var(--prim-forte); color: #fff">Grátis para começar</span>
+            <h1 class="titulo text-4xl sm:text-5xl leading-tight mt-4">Automatize seus estudos</h1>
+            <p class="mt-5 text-lg opacity-80 max-w-xl">
+                A revisão espaçada avisa a hora certa de revisar cada matéria, e os prazos das provas e trabalhos
+                ficam no calendário. Você só senta e estuda.
+            </p>
+            <div class="mt-8 flex flex-wrap items-center gap-3">
+                <a href="{{ route('registro') }}" class="btn text-lg !px-6 !py-3">Criar conta grátis</a>
+                <a href="{{ route('login') }}" class="btn-cab">Já tenho conta</a>
+            </div>
+        </div>
+        @else
         <div>
             <h1 class="titulo text-4xl sm:text-5xl leading-tight">Seu trabalho e sua vida, organizados em um só lugar</h1>
             <p class="mt-5 text-lg opacity-80 max-w-xl">
@@ -21,6 +37,7 @@
                 @include('partials.instalar-app', ['classe' => 'btn-cab', 'texto' => 'Baixar o app'])
             </div>
         </div>
+        @endif
 
         <div class="flex justify-center">
             @include('partials.flor', ['class' => 'w-56 sm:w-72 lg:w-[22rem] max-w-full h-auto'])
@@ -29,6 +46,27 @@
 </section>
 
 <div class="max-w-6xl mx-auto px-4 sm:px-8">
+
+    @if ($estudos)
+    {{-- ===== Para os estudos ===== --}}
+    <section class="pt-14">
+        <h2 class="titulo text-3xl">Chegue à faculdade organizado</h2>
+        <div class="mt-8 grid gap-4 md:grid-cols-3">
+            <article class="card p-5">
+                <h3 class="titulo text-xl">Revisão espaçada</h3>
+                <p class="mt-2 text-sm texto-2 leading-relaxed">Flashcards que voltam no dia certo para cada matéria; as questões que você erra viram cartas de revisão.</p>
+            </article>
+            <article class="card p-5">
+                <h3 class="titulo text-xl">Prazos e calendário</h3>
+                <p class="mt-2 text-sm texto-2 leading-relaxed">Provas, trabalhos e entregas num calendário só, com o plano de estudo da semana ao lado.</p>
+            </article>
+            <article class="card p-5">
+                <h3 class="titulo text-xl">Anotações e PDFs</h3>
+                <p class="mt-2 text-sm texto-2 leading-relaxed">Resumos, mapas mentais e os PDFs das matérias na área Mente, junto do resto da sua rotina.</p>
+            </article>
+        </div>
+    </section>
+    @endif
 
     {{-- ===== O que é ===== --}}
     <section class="py-14 max-w-3xl">

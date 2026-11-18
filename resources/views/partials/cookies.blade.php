@@ -6,9 +6,10 @@
         Usamos cookies essenciais para o login e as suas preferências, e cookies de anúncios para manter o Work Flower gratuito.
         Você escolhe se os anúncios podem ser personalizados. <a class="link-prim" href="{{ \Illuminate\Support\Facades\Route::has('privacidade') ? route('privacidade') : url('/privacidade') }}#cookies">Saiba mais</a>
     </p>
-    <div class="flex flex-wrap gap-2 shrink-0">
+    {{-- "Aceitar todos" em destaque (maior, à direita); "Só os essenciais" continua visível e com um clique --}}
+    <div class="flex flex-wrap items-center gap-2 shrink-0">
         <button type="button" class="btn-sec !py-1.5 text-sm" data-cookies="essenciais">Só os essenciais</button>
-        <button type="button" class="btn !py-1.5 text-sm" data-cookies="tudo">Aceitar todos</button>
+        <button type="button" class="btn wf-cookies-aceitar" data-cookies="tudo">Aceitar todos</button>
     </div>
 </div>
 <style>
@@ -16,6 +17,8 @@
         display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; padding: .9rem 1rem;
         background: var(--superficie, #1b1f24); color: var(--tinta, #e6e6e6); border: 1px solid var(--linha, #333); border-radius: .9rem; box-shadow: 0 16px 40px rgba(0,0,0,.4); }
     .wf-cookies[hidden] { display: none; }
+    .wf-cookies { border-color: var(--prim-forte, #c0392b); }
+    .wf-cookies .wf-cookies-aceitar { padding: .65rem 1.4rem; font-size: 1rem; font-weight: 700; box-shadow: 0 0 0 3px color-mix(in srgb, var(--prim-forte, #c0392b) 35%, transparent); }
     .wf-cookies p { flex: 1 1 18rem; margin: 0; }
 </style>
 <script>
