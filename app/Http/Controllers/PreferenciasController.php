@@ -37,6 +37,7 @@ class PreferenciasController extends Controller
             'favoritos'     => ['sometimes', 'nullable', 'array', 'max:60'],
             'trechos'       => ['sometimes', 'nullable', 'array', 'max:' . self::MAX_TRECHOS],
             'expansorLigado' => ['sometimes', 'boolean'],
+            'ordemAbas'     => ['sometimes', 'nullable', 'array', 'max:20'],
         ]);
 
         $atual = self::de($request->user()->id);
@@ -91,6 +92,17 @@ class PreferenciasController extends Controller
                 ];
             }
             $atual['trechos'] = array_values($trechos);
+        }
+
+        if ($request->has('ordemAbas')) {
+            // ordem das abas fixas das áreas (js/abas-ordem.js): área => ids das abas, na ordem escolhida
+            $ordem = [];
+            foreach ((array) $request->input('ordemAbas', []) as $area => $ids) {
+                if (! is_string($area) || ! preg_match('/^[a-z0-9_-]{1,40}$/', $area) || ! is_array($ids)) continue;
+                $ids = array_values(array_unique(array_filter($ids, fn ($id) => is_string($id) && preg_match('/^[A-Za-z0-9_-]{1,40}$/', $id))));
+                if ($ids) $ordem[$area] = array_slice($ids, 0, 40);
+            }
+            $atual['ordemAbas'] = $ordem;
         }
 
         CorpoDado::updateOrCreate(

@@ -203,9 +203,11 @@
 <div x-data="menteAbas()" class="space-y-6">
 
     {{-- Mini cards circulares --}}
-    <nav class="wf-abas-nav flex flex-wrap gap-x-5 gap-y-4" aria-label="Seções de Mente">
+    {{-- arrastar as abas muda a ordem (js/abas-ordem.js, salva nas preferências da conta) --}}
+    <script src="{{ asset('js/abas-ordem.js') }}?v={{ @filemtime(public_path('js/abas-ordem.js')) }}"></script>
+    <nav class="wf-abas-nav flex flex-wrap gap-x-5 gap-y-4" aria-label="Seções de Mente" x-init="WFAbasOrdem.aplicar('mente', abas)">
         <template x-for="a in abas" :key="a.id">
-            <button type="button" class="circ" :class="{ 'ativo': aba === a.id, 'wf-novo': novidades[a.id] }"
+            <button type="button" class="circ" draggable="true" @dragstart="WFAbasOrdem.ini($event, a)" @dragend="WFAbasOrdem.fim()" @dragover="WFAbasOrdem.sobre($event)" @drop="WFAbasOrdem.soltar($event, 'mente', abas, a)" :class="{ 'ativo': aba === a.id, 'wf-novo': novidades[a.id] }"
                     @click="aba = a.id" :aria-pressed="aba === a.id" :title="a.nome">
                 <span class="circ-bola">
                     <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
