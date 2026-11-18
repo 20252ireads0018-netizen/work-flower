@@ -64,6 +64,12 @@
         </li>
         <li>Quando a lei exigir, pedimos o seu consentimento para cookies de publicidade por meio de uma mensagem no site.</li>
     </ul>
+    <p>
+        Também usamos o <strong>Pixel da Meta</strong> (Facebook e Instagram) para medir as visitas e os cadastros que vêm
+        dos nossos anúncios nessas redes. Ele só envia dados à Meta se você clicar em “Aceitar todos” no aviso de cookies;
+        com “Só os essenciais”, nada é enviado. Veja a
+        <a href="https://www.facebook.com/privacy/policy" target="_blank" rel="noopener" class="link-prim">Política de Privacidade da Meta</a>.
+    </p>
 
     <h2 class="titulo text-xl pt-4">6. Compartilhamento com terceiros</h2>
     <p>Compartilhamos dados apenas quando necessário para operar o serviço:</p>

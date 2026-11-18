@@ -390,6 +390,9 @@
                 crossorigin="anonymous"></script>
     @endif
 
+    {{-- Pixel da Meta: visitas e cadastros vindos dos anúncios (sem META_PIXEL_ID no .env não carrega nada) --}}
+    @include('partials.meta-pixel')
+
     <script src="{{ asset('js/biblioteca.js') }}?v={{ @filemtime(public_path('js/biblioteca.js')) }}"></script>
     <script src="{{ asset('js/menu-contexto.js') }}?v={{ @filemtime(public_path('js/menu-contexto.js')) }}" defer></script>
     {{-- mãozinha: arrastar para rolar mapas, diagramas e o que for maior que a área visível --}}

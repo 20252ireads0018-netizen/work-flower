@@ -72,5 +72,11 @@ return [
         'client' => env('ADSENSE_CLIENT', 'ca-pub-4781960143966285'),
     ],
 
+    // Pixel da Meta (Gerenciador de Eventos > conjunto de dados Web). Vazio = pixel desligado.
+    'meta' => [
+        // conjunto de dados "Web-sight sites"; META_PIXEL_ID no .env troca (vazio no .env = desligado)
+        'pixel' => env('META_PIXEL_ID', '1115433257784212'),
+    ],
+
 ];
 

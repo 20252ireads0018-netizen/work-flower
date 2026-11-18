@@ -147,6 +147,8 @@ class AuthController extends Controller
 
         Auth::login($usuario, true); // conta nova já fica conectada no aparelho (cookie "lembrar")
         $request->session()->regenerate();
+        // pixel da Meta dispara CompleteRegistration na próxima página (partials/meta-pixel)
+        $request->session()->flash('wf_evento_cadastro', true);
 
         return redirect()->route('painel');
     }

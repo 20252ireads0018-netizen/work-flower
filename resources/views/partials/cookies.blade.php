@@ -32,6 +32,8 @@
             var mudou = /(?:^|;\s*)wf_cookies=tudo(?:;|$)/.test(document.cookie) !== (v === 'tudo');
             document.cookie = 'wf_cookies=' + v + '; max-age=31536000; path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
             caixa.hidden = true;
+            // pixel da Meta (partials/meta-pixel) só envia eventos com "Aceitar todos"
+            if (window.fbq) fbq('consent', v === 'tudo' ? 'grant' : 'revoke');
             // os anúncios só mudam de personalização num carregamento novo da página
             if (mudou && escolhido) location.reload();
         });
