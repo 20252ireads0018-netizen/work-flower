@@ -19,7 +19,8 @@
         </template>
 
         <template x-if="igUI(b).d && igUI(b).d.conectado">
-            <div class="ig-corpo">
+            {{-- arquivos do computador soltos no cartão vão para a pasta aberta (igDriveSoltar) --}}
+            <div class="ig-corpo" :class="igUI(b).alvo === '*' && 'ig-alvo'" @dragover="igDriveSobre($event, b, null)" @dragleave="igDriveFora($event, b)" @drop="igDriveSoltar($event, b, null)">
                 <div class="ig-barra">
                     <div class="min-w-0 flex-1">
                         <p class="ig-titulo truncate" x-text="igUI(b).d.email || 'Google Drive'"></p>
@@ -33,9 +34,9 @@
                 {{-- caminho da pasta aberta, criar e lixeira --}}
                 <div class="ig-barra">
                     <nav class="ig-caminho" x-show="!igUI(b).lixeira" aria-label="Pasta aberta">
-                        <button type="button" class="ig-migalha" @click="igDriveIr(b, 0)" title="Voltar para a pasta Work Flower">Work Flower</button>
+                        <button type="button" class="ig-migalha" :class="igUI(b).alvo === '' && 'ig-alvo'" @click="igDriveIr(b, 0)" @dragover="igDriveSobre($event, b, '')" @drop="igDriveSoltar($event, b, '')" title="Voltar para a pasta Work Flower (solte um item aqui para mover)">Work Flower</button>
                         <template x-for="(p, i) in igUI(b).pilha" :key="p.id">
-                            <span class="ig-migalha-par"><span aria-hidden="true">›</span><button type="button" class="ig-migalha" @click="igDriveIr(b, i + 1)" x-text="p.nome"></button></span>
+                            <span class="ig-migalha-par"><span aria-hidden="true">›</span><button type="button" class="ig-migalha" :class="igUI(b).alvo === p.id && 'ig-alvo'" @click="igDriveIr(b, i + 1)" @dragover="igDriveSobre($event, b, p.id)" @drop="igDriveSoltar($event, b, p.id)" x-text="p.nome"></button></span>
                         </template>
                     </nav>
                     <p class="ig-caminho font-medium" x-show="igUI(b).lixeira">Lixeira do Drive</p>
@@ -47,6 +48,9 @@
                         <option value="planilha">📊 Planilha</option>
                         <option value="apresentacao">📽 Apresentação</option>
                     </select>
+                    <label class="btn-sec !py-0.5 cursor-pointer" x-show="!igUI(b).lixeira" title="Enviar arquivos do computador para esta pasta (ou arraste para o cartão)">
+                        ⤒ Enviar<input type="file" multiple class="sr-only" :disabled="!!igUI(b).ocupado" @change="igDriveUpload(b, $event.target.files); $event.target.value = ''">
+                    </label>
                     <button type="button" class="btn-sec !py-0.5" :class="igUI(b).lixeira && 'qz-on'" @click="igDriveVerLixeira(b, !igUI(b).lixeira)"
                             :title="igUI(b).lixeira ? 'Voltar para os arquivos' : 'Ver a lixeira (restaurar ou apagar de vez)'" x-text="igUI(b).lixeira ? '← Arquivos' : '🗑 Lixeira'"></button>
                 </div>
@@ -68,14 +72,16 @@
                     </form>
                 </template>
 
+                <p class="texto-2 text-xs" x-show="igUI(b).progresso" x-text="igUI(b).progresso"></p>
                 <form class="flex gap-1" @submit.prevent="igCarregar(b)">
                     <input class="campo !py-0.5 text-xs flex-1" type="search" x-model="igUI(b).q" :placeholder="igUI(b).lixeira ? 'Buscar na lixeira' : 'Buscar nesta pasta'" aria-label="Buscar no Drive">
                 </form>
                 <ul class="ig-lista">
                     <template x-for="f in igArquivos(b)" :key="f.id">
-                        <li class="ig-item" :class="igEhPasta(f) && !igUI(b).lixeira && 'ig-clique'" draggable="true" @dragstart="igArrastar($event, b, f)"
+                        <li class="ig-item" :class="[igEhPasta(f) && !igUI(b).lixeira && 'ig-clique', igUI(b).alvo === f.id && 'ig-alvo']" draggable="true" @dragstart="igArrastar($event, b, f)"
+                            @dragover="igEhPasta(f) && igDriveSobre($event, b, f.id)" @drop="igEhPasta(f) && igDriveSoltar($event, b, f.id)"
                             @click="igDriveAbrir(b, f)" @keydown.enter.self="igDriveAbrir(b, f)" :tabindex="igEhPasta(f) ? 0 : -1"
-                            :title="igEhPasta(f) && !igUI(b).lixeira ? 'Clique para abrir a pasta' : 'Arraste para o quadro para virar cartão'">
+                            :title="igEhPasta(f) && !igUI(b).lixeira ? 'Clique para abrir a pasta; solte itens aqui para mover' : 'Arraste para uma pasta para mover, ou para o quadro para virar cartão'">
                             <img x-show="f.icone" :src="f.icone" alt="" class="ig-ico" loading="lazy" referrerpolicy="no-referrer">
                             <span x-show="!f.icone" class="ig-ico" aria-hidden="true" x-text="igIcone(f)"></span>
                             <div class="min-w-0 flex-1">

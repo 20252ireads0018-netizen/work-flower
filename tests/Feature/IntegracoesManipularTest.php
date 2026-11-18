@@ -172,6 +172,23 @@ class IntegracoesManipularTest extends TestCase
         Http::assertSent(fn (HttpRequest $r) => str_contains($r->body(), '"parents":["sub-pasta-1"]'));
     }
 
+    public function test_drive_recebe_arquivo_do_computador_na_pasta_aberta(): void
+    {
+        $u = User::factory()->create();
+        $this->drive($u);
+        Http::fake(['www.googleapis.com/upload/drive/v3/files*' => Http::response(['id' => 'up1'])]);
+
+        $arq = \Illuminate\Http\UploadedFile::fake()->createWithContent('relatório final.pdf', '%PDF-1.4 conteudo');
+        $this->actingAs($u)->post('/google/drive/upload', ['arquivo' => $arq, 'pasta' => 'sub-pasta-1'], ['Accept' => 'application/json'])
+            ->assertOk()->assertJson(['ok' => true, 'id' => 'up1']);
+        Http::assertSent(fn (HttpRequest $r) => str_contains($r->body(), '"parents":["sub-pasta-1"]') && str_contains($r->body(), 'final.pdf')
+            && str_contains($r->body(), '%PDF-1.4 conteudo'));
+
+        // sem arquivo, ou sem o Drive conectado
+        $this->actingAs($u)->post('/google/drive/upload', [], ['Accept' => 'application/json'])->assertStatus(422);
+        $this->actingAs(User::factory()->create())->post('/google/drive/upload', ['arquivo' => $arq], ['Accept' => 'application/json'])->assertStatus(409);
+    }
+
     // ------------------------------------------------------------------ Gmail
 
     public function test_gmail_sem_permissao_de_envio_pede_para_permitir(): void

@@ -65,6 +65,8 @@
     .ig-caminho { flex: 1; min-width: 0; display: flex; align-items: center; gap: .2rem; overflow: hidden; white-space: nowrap; }
     .ig-migalha-par { display: inline-flex; align-items: center; gap: .2rem; min-width: 0; }
     .ig-migalha { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: .1rem .3rem; border-radius: .35rem; color: var(--prim); }
+    /* alvo de arrastar no cartão do Drive: pasta, migalha ou o cartão inteiro (arquivos do computador) */
+    .ig-alvo { outline: 2px dashed var(--prim); outline-offset: 2px; background: color-mix(in srgb, var(--prim) 12%, transparent); }
     .ig-migalha:hover, .ig-migalha:focus-visible { background: color-mix(in srgb, var(--prim) 12%, transparent); outline: none; }
     .ig-perigo { color: #dc2626; }
     .ig-campo { display: grid; grid-template-columns: 4rem 1fr; align-items: center; gap: .35rem; color: var(--tinta-2); }

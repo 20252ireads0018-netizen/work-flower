@@ -37,6 +37,9 @@ class GoogleDriveController extends Controller
     /** Maior arquivo que o botão Baixar repassa (o site segura o arquivo na memória antes de mandar). */
     public const MAX_BAIXAR = 25 * 1024 * 1024;
 
+    /** Arquivo do computador enviado pelo cartão (upload). */
+    public const MAX_UPLOAD = 20 * 1024 * 1024;
+
     /** Id de arquivo ou pasta do Drive. */
     private const ID = '/^[A-Za-z0-9_-]{10,100}$/';
 
@@ -288,6 +291,34 @@ class GoogleDriveController extends Controller
         }
 
         return response()->json(['ok' => true, 'id' => $id, 'msg' => "“{$nome}” salvo na pasta Work Flower do seu Drive."]);
+    }
+
+    /**
+     * POST /google/drive/upload (multipart: arquivo, pasta?): arquivo do computador para a pasta aberta no cartão.
+     * Com o escopo drive.file o arquivo enviado passa a ser visto pelo site como os outros que ele criou.
+     */
+    public function upload(Request $request): JsonResponse
+    {
+        $destino = $this->exigir($request);
+        $f = $request->file('arquivo');
+        $mb = self::MAX_UPLOAD / 1048576;
+        if (! $f || ! $f->isValid()) {
+            return response()->json(['ok' => false, 'erro' => "O arquivo não chegou ao servidor (o limite é {$mb} MB)."], 422);
+        }
+        $d = $request->validate(['pasta' => ['nullable', 'string', 'regex:' . self::ID]]);
+        if ($f->getSize() > self::MAX_UPLOAD) {
+            return response()->json(['ok' => false, 'erro' => "Arquivo grande demais: o limite é {$mb} MB."], 422);
+        }
+        $nome = self::nome(mb_substr((string) $f->getClientOriginalName(), 0, 120)) ?: 'arquivo';
+        $mime = (string) ($f->getMimeType() ?: 'application/octet-stream');
+
+        try {
+            $id = $destino->cliente()->enviar($nome, (string) file_get_contents($f->getRealPath()), $mime, $d['pasta'] ?? null);
+        } catch (RuntimeException $e) {
+            return response()->json(['ok' => false, 'erro' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['ok' => true, 'id' => $id, 'msg' => "“{$nome}” enviado ao Drive."]);
     }
 
     /** PATCH /google/drive/arquivos/{id} { nome } */

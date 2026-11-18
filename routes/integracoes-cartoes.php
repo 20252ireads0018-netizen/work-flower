@@ -16,6 +16,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/arquivos/{id}', 'arquivo')->where('id', '[A-Za-z0-9_-]{10,100}')->middleware('throttle:60,1,gd-arquivo')->name('.arquivo');
         Route::patch('/arquivos/{id}', 'renomear')->where('id', '[A-Za-z0-9_-]{10,100}')->middleware('throttle:30,1,gd-renomear')->name('.renomear');
         Route::post('/arquivos', 'enviar')->middleware('throttle:20,1,gd-enviar')->name('.enviar');
+        Route::post('/upload', 'upload')->middleware('throttle:30,1,gd-upload')->name('.upload');
         // mexer no Drive pelo cartão (escopo drive.file): pastas, arquivos novos do Google, mover, lixeira, apagar e baixar
         Route::get('/pastas', 'pastas')->middleware('throttle:30,1,gd-pastas')->name('.pastas');
         Route::post('/novo', 'criar')->middleware('throttle:20,1,gd-novo')->name('.novo');

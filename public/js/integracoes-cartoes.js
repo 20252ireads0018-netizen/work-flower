@@ -147,7 +147,7 @@
         /* ---------- estado de cada cartão (não vai para o banco) ---------- */
         igUI(b) {
             this.igEstado[b.id] ??= { carregando: false, erro: '', d: null, aberto: null, corpo: '', corpoErro: '', lendo: false, q: '', canal: '', pl: null, verPl: false, enviar: '', ocupado: '', novo: null,
-                pilha: [], lixeira: false, mover: null, escrever: null, ytEd: null, ytPls: null, ytPl: '', novaPl: null };
+                pilha: [], lixeira: false, mover: null, escrever: null, ytEd: null, ytPls: null, ytPl: '', novaPl: null, alvo: null, progresso: '' };
             return this.igEstado[b.id];
         },
         igIniciar(b) {
@@ -452,6 +452,64 @@
             const r = await pedir(URL_DRIVE + '/arquivos/' + encodeURIComponent(m.f.id) + '/mover', 'PATCH', { pasta: m.alvo });
             this.aviso(r.ok ? r.json.msg : erroDe(r));
             if (r.ok) { ui.mover = null; this.igCarregar(b); }
+        },
+        /* ---------- arrastar dentro do cartão: item para uma pasta (ou para o caminho) e arquivos do computador para o Drive ---------- */
+        /** dragover numa pasta/migalha (alvo = id da pasta; '' = pasta Work Flower) ou no corpo do cartão (alvo = null: só arquivos do computador). */
+        igDriveSobre(e, b, alvo) {
+            const ui = this.igUI(b);
+            if (ui.lixeira) return;
+            const doPc = e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+            const item = ARRASTO && ARRASTO.de === 'gdrive' && ARRASTO.origem === b.id && alvo !== null && ARRASTO.item.id !== alvo;
+            if (!doPc && !item) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+            ui.alvo = alvo === null ? '*' : alvo;
+        },
+        igDriveFora(e, b) { if (!e.currentTarget.contains(e.relatedTarget)) this.igUI(b).alvo = null; },
+        async igDriveSoltar(e, b, alvo) {
+            const ui = this.igUI(b);
+            ui.alvo = null;
+            if (ui.lixeira) return;
+            const arquivos = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length ? [...e.dataTransfer.files] : null;
+            const a = ARRASTO && ARRASTO.de === 'gdrive' && ARRASTO.origem === b.id ? ARRASTO : null;
+            if (!arquivos && !(a && alvo !== null)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            ARRASTO = null; limparAlvo();
+            // arquivos do computador vão para a pasta onde caíram (ou a aberta); item do cartão vai para a pasta onde foi solto
+            if (arquivos) return this.igDriveUpload(b, arquivos, alvo === null ? this.igDrivePasta(b) : alvo);
+            if (a.item.id === alvo) return;
+            const destino = alvo || (ui.d && ui.d.raiz) || '';
+            if (!destino) { this.aviso('Não achei a pasta de destino.'); return; }
+            const r = await pedir(URL_DRIVE + '/arquivos/' + encodeURIComponent(a.item.id) + '/mover', 'PATCH', { pasta: destino });
+            this.aviso(r.ok ? '“' + a.item.nome + '” movido.' : erroDe(r));
+            if (r.ok) this.igCarregar(b);
+        },
+        /** Botão "Enviar arquivos" ou arquivos soltos no cartão: um por vez, para a pasta indicada (ou a aberta). */
+        async igDriveUpload(b, lista, pasta) {
+            const ui = this.igUI(b), arquivos = [...(lista || [])];
+            if (!arquivos.length) return;
+            const destino = pasta === undefined ? this.igDrivePasta(b) : pasta;
+            const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            let ok = 0;
+            for (let i = 0; i < arquivos.length; i++) {
+                const f = arquivos[i];
+                if (f.size > 20 * 1024 * 1024) { this.aviso('“' + f.name + '” passa de 20 MB e ficou de fora.'); continue; }
+                ui.ocupado = 'upload';
+                ui.progresso = arquivos.length > 1 ? `Enviando ${i + 1} de ${arquivos.length}…` : 'Enviando…';
+                const fd = new FormData();
+                fd.append('arquivo', f, f.name);
+                if (destino) fd.append('pasta', destino);
+                try {
+                    const r = await fetch(URL_DRIVE + '/upload', { method: 'POST', credentials: 'same-origin', body: fd,
+                        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': token } });
+                    const j = await r.json().catch(() => ({}));
+                    if (r.ok) ok++; else this.aviso(erroDe({ status: r.status, json: j }) + ' (' + f.name + ')');
+                } catch (_) { this.aviso('Sem conexão com o servidor.'); }
+            }
+            ui.ocupado = ''; ui.progresso = '';
+            if (ok) { this.aviso(ok === 1 ? 'Arquivo enviado ao Drive.' : ok + ' arquivos enviados ao Drive.'); this.igCarregar(b); }
         },
         /** Baixa pelo site (Documentos/Planilhas/Apresentações saem em .docx/.xlsx/.pptx); erro vira aviso, não página de JSON. */
         async igDriveBaixar(b, f) {
