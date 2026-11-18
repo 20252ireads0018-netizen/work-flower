@@ -15,7 +15,8 @@ class InicioEstudosTest extends TestCase
     {
         $this->get('/')->assertOk()
             ->assertSee('Seu trabalho e sua vida, organizados em um só lugar')
-            ->assertDontSee('data-abertura="estudos"', false);
+            ->assertDontSee('data-abertura="estudos"', false)
+            ->assertDontSee('conta paga vitalícia');
         $this->get('/?utm_campaign=outra')->assertOk()->assertDontSee('data-abertura="estudos"', false);
     }
 
@@ -27,6 +28,7 @@ class InicioEstudosTest extends TestCase
                 ->assertSee('Automatize seus estudos')
                 ->assertSee('Grátis para começar')
                 ->assertSee('Criar conta grátis')
+                ->assertSee('Os 3 primeiros cadastros ganham a conta paga vitalícia.')
                 ->assertSee(route('registro'), false);
         }
     }

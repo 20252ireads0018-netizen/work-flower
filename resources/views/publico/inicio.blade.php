@@ -23,6 +23,8 @@
                 <a href="{{ route('registro') }}" class="btn text-lg !px-6 !py-3">Criar conta grátis</a>
                 <a href="{{ route('login') }}" class="btn-cab">Já tenho conta</a>
             </div>
+            {{-- promoção dos anúncios; a conta vitalícia é concedida à mão, por isso sem contador de vagas --}}
+            <p class="mt-4 text-sm font-semibold" data-promo-vitalicia>Os 3 primeiros cadastros ganham a conta paga vitalícia.</p>
         </div>
         @else
         <div>
