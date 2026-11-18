@@ -617,9 +617,10 @@
         ['Documentos e arquivos', ['documento', 'editorpdf', 'banco']],
         ['Estudos', ['flashcards', 'pomodoro', 'planoestudo', 'matematica', 'questoes']],
         ['Hábitos e números', ['habitos', 'grafico']],
-        ['Mídia e criação', ['editorimg', 'editorvid', 'musica', 'criador', 'tabletop']],
+        ['Mídia e criação', ['editorimg', 'editorvid', 'musica', 'criador', 'cenas', 'tabletop']],
         ['Trabalho e equipe', ['rh', 'codigo']],
         ['Inteligência artificial', ['claude']],
+        ['Integrações', ['notion', 'discord', 'gdrive', 'gmail', 'youtube', 'lembretes', 'textos']],
     ];
     const SETOR_DE = Object.fromEntries(SETORES.flatMap(([s, ids], i) => ids.map(id => [id, i])));
 
@@ -1632,7 +1633,12 @@
                 };
                 WFMenuCtx.abrir(e, [
                     { titulo: 'Novo cartão aqui' },
-                    ...(this.tiposBloco || []).map(t => ({ rotulo: t.nome, icone: '+', acao: () => criar(t.id) })),
+                    // agrupado por categoria, como o "+ Bloco" (blocosPorSetor); com um grupo só, a lista vem direto
+                    ...(() => {
+                        const gs = this.blocosPorSetor ? (() => { const q = this.buscaBloco; this.buscaBloco = ''; const r = this.blocosPorSetor(); this.buscaBloco = q; return r; })() : [{ setor: '', tipos: this.tiposBloco || [] }];
+                        const item = t => ({ rotulo: t.nome, icone: '+', acao: () => criar(t.id) });
+                        return gs.length === 1 ? gs[0].tipos.map(item) : gs.map(g => ({ rotulo: g.setor, icone: '▸', sub: g.tipos.map(item) }));
+                    })(),
                     '-',
                     { rotulo: 'Reorganizar os cartões', icone: '⤢', acao: () => this.reorganizar() },
                     { rotulo: 'Selecionar todos', icone: '▣', acao: () => this.selecionarTodos(sec) },
