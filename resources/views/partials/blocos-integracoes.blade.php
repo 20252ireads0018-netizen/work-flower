@@ -98,26 +98,32 @@
             </div>
         </template>
 
+        {{-- lista: árvore das páginas (arraste uma página para dentro de outra para mover) --}}
         <template x-if="biUI(b).d && biUI(b).d?.conectado && !biUI(b).aberto">
             <div class="bi-corpo">
                 <form class="bi-barra" @submit.prevent="biNtBuscar(b)">
                     <input class="campo !py-0.5 text-xs flex-1 min-w-0" type="search" x-model="b.dados.q" maxlength="100" placeholder="Buscar página pelo título" aria-label="Buscar no Notion">
                     <button class="btn-sec !py-0.5" :disabled="biUI(b).ocupado === 'buscar'" x-text="biUI(b).ocupado === 'buscar' ? '…' : 'Buscar'"></button>
                 </form>
-                <p class="texto-2 truncate" x-text="(biUI(b).d?.workspace ? 'Espaço ' + biUI(b).d?.workspace + ' · ' : '') + 'só aparecem as páginas compartilhadas com a integração (no Notion: ••• › Conexões)'"></p>
+                <p class="texto-2 truncate" x-text="(biUI(b).d?.workspace ? 'Espaço ' + biUI(b).d?.workspace + ' · ' : '') + 'arraste uma página para dentro de outra para mover; só aparecem as compartilhadas com a integração'"></p>
                 <ul class="bi-lista">
                     <li class="bi-vazio" x-show="biUI(b).itens === null || biUI(b).ocupado === 'buscar'">Lendo as páginas…</li>
-                    <template x-for="it in (biUI(b).itens || [])" :key="it.id">
-                        <li class="bi-item bi-clique" tabindex="0" @click="biNtAbrir(b, it)" @keydown.enter="biNtAbrir(b, it)" title="Clique para abrir aqui">
-                            <span class="bi-ico" aria-hidden="true" x-text="it.icone || (it.tipo === 'banco' ? '▦' : '📄')"></span>
+                    <template x-for="n in biNtArvore(b)" :key="n.it.id">
+                        <li class="bi-item bi-clique" tabindex="0" :style="'margin-left:' + (n.nivel * 1.1) + 'rem'" :class="biUI(b).ntAlvo === n.it.id && 'bi-alvo'"
+                            draggable="true" @dragstart="biNtArrIni($event, b, n.it)" @dragend="biUI(b).ntArr = null; biUI(b).ntAlvo = ''"
+                            @dragover="biNtArrSobre($event, b, n.it)" @dragleave="biUI(b).ntAlvo === n.it.id && (biUI(b).ntAlvo = '')" @drop="biNtArrSoltar($event, b, n.it)"
+                            @click="biNtAbrir(b, n.it, 'raiz')" @keydown.enter="biNtAbrir(b, n.it, 'raiz')" title="Clique para abrir e editar aqui">
+                            <button type="button" class="bi-seta" x-show="n.temFilhos" @click.stop="biNtExpandir(b, n.it)" :aria-label="biUI(b).ntExp[n.it.id] ? 'Fechar' : 'Abrir as subpáginas'"
+                                    x-text="biUI(b).ntExp[n.it.id] ? '▾' : '▸'"></button>
+                            <span class="bi-ico" aria-hidden="true" x-text="n.it.icone || (n.it.tipo === 'banco' ? '▦' : '📄')"></span>
                             <div class="min-w-0 flex-1">
-                                <p class="truncate font-medium" x-text="it.titulo || 'Sem título'"></p>
-                                <p class="texto-2 truncate" x-text="(it.tipo === 'banco' ? 'Banco de dados' : 'Página') + (it.editado ? ' · editado em ' + biDataHora(it.editado) : '')"></p>
+                                <p class="truncate font-medium" x-text="n.it.titulo || 'Sem título'"></p>
+                                <p class="texto-2 truncate" x-text="(n.it.tipo === 'banco' ? 'Banco de dados' : 'Página') + (n.it.editado ? ' · editado em ' + biDataHora(n.it.editado) : '')"></p>
                             </div>
                             <div class="bi-acoes">
-                                <button type="button" class="mini-btn" title="Trazer para o quadro" aria-label="Trazer para o quadro" :disabled="biUI(b).ocupado === 'importar:' + it.id"
-                                        @click.stop="biNtImportar(b, it)">⇲</button>
-                                <a class="mini-btn" x-show="it.url" :href="it.url" target="_blank" rel="noopener" @click.stop title="Abrir no Notion" aria-label="Abrir no Notion">↗</a>
+                                <button type="button" class="mini-btn" title="Trazer para o quadro" aria-label="Trazer para o quadro" :disabled="biUI(b).ocupado === 'importar:' + n.it.id"
+                                        @click.stop="biNtImportar(b, n.it)">⇲</button>
+                                <a class="mini-btn" x-show="n.it.url" :href="n.it.url" target="_blank" rel="noopener" @click.stop title="Abrir no Notion" aria-label="Abrir no Notion">↗</a>
                             </div>
                         </li>
                     </template>
@@ -126,31 +132,93 @@
             </div>
         </template>
 
-        {{-- página aberta dentro do bloco --}}
+        {{-- página ou banco de dados aberto dentro do cartão --}}
         <template x-if="biUI(b).aberto">
             <div class="bi-corpo">
                 <div class="bi-barra">
-                    <button type="button" class="btn-sec !py-0.5" @click="biUI(b).aberto = null">← Voltar</button>
-                    <p class="truncate font-medium flex-1" x-text="(biUI(b).aberto?.resumo.icone ? biUI(b).aberto?.resumo.icone + ' ' : '') + (biUI(b).aberto?.resumo.titulo || 'Sem título')"></p>
-                    <button type="button" class="btn !py-0.5" :disabled="biUI(b).lendo" @click="biNtImportar(b, biUI(b).aberto?.resumo)" title="Vira um cartão desta aba">No quadro</button>
-                    <a class="btn-sec !py-0.5" x-show="biUI(b).aberto?.resumo.url" :href="biUI(b).aberto?.resumo.url" target="_blank" rel="noopener" title="Abrir no Notion">↗</a>
+                    <button type="button" class="btn-sec !py-0.5" @click="biNtVoltar(b)" :title="biUI(b).ntPilha.length ? 'Voltar para a página anterior' : 'Voltar para a lista'">←</button>
+                    <span class="bi-ico" aria-hidden="true" x-text="biUI(b).aberto?.resumo.icone || (biUI(b).aberto?.resumo.tipo === 'banco' ? '▦' : '📄')"></span>
+                    <input class="bi-titulo campo flex-1 min-w-0" x-show="biUI(b).aberto?.pagina" x-model="biUI(b).aberto.titulo" maxlength="200" aria-label="Título da página"
+                           @keydown.enter.prevent="$event.target.blur()" @blur="biNtRenomear(b)">
+                    <p class="truncate font-medium flex-1" x-show="!biUI(b).aberto?.pagina" x-text="biUI(b).aberto?.resumo.titulo || 'Sem título'"></p>
+                    <a class="btn-sec !py-0.5" x-show="biUI(b).aberto?.resumo.url" :href="biUI(b).aberto?.resumo.url" target="_blank" rel="noopener" title="Abrir no Notion" aria-label="Abrir no Notion">↗</a>
                 </div>
-                <p class="bi-vazio" x-show="biUI(b).lendo">Abrindo a página…</p>
+                <div class="bi-barra" x-show="!biUI(b).lendo && !biUI(b).aberto?.erro">
+                    <button type="button" class="btn-sec !py-0.5" :disabled="biUI(b).ocupado === 'nt-nova'" @click="biNtNovaPagina(b)"
+                            x-text="biUI(b).aberto?.banco ? '+ Linha' : '+ Subpágina'"></button>
+                    <button type="button" class="btn-sec !py-0.5" x-show="biUI(b).aberto?.pagina" @click="biUI(b).ntMover = biUI(b).ntMover ? null : ''" title="Mover para dentro de outra página">⇄ Mover</button>
+                    <button type="button" class="btn-sec !py-0.5" @click="biNtImportar(b, biUI(b).aberto?.resumo)" title="Vira um cartão desta aba">⇲ No quadro</button>
+                    <button type="button" class="btn-sec !py-0.5 bi-perigo" x-show="biUI(b).aberto?.pagina" @click="biNtArquivar(b)" title="Mandar para a lixeira do Notion">🗑</button>
+                </div>
+                <form class="bi-barra" x-show="biUI(b).ntMover !== null" @submit.prevent="biNtMover(b, biUI(b).aberto?.resumo, biUI(b).ntMover).then(ok => { if (ok) biUI(b).ntMover = null; })">
+                    <select class="campo !py-0.5 !text-xs flex-1 min-w-0" x-model="biUI(b).ntMover" aria-label="Página de destino">
+                        <option value="">Mover para dentro de…</option>
+                        <template x-for="p in biNtDestinos(b)" :key="p.id"><option :value="p.id" x-text="(p.icone ? p.icone + ' ' : '') + (p.titulo || 'Sem título')"></option></template>
+                    </select>
+                    <button class="btn !py-0.5" :disabled="!biUI(b).ntMover">Mover</button>
+                </form>
+                <p class="bi-vazio" x-show="biUI(b).lendo">Abrindo…</p>
                 <p class="bi-erro" x-show="biUI(b).aberto?.erro" x-text="biUI(b).aberto?.erro"></p>
-                <template x-if="biUI(b).aberto?.item && biUI(b).aberto?.item.tipo !== 'banco'">
-                    <div class="bi-leitura" x-text="biUI(b).aberto?.item.texto || '(página vazia)'"></div>
-                </template>
-                <template x-if="biUI(b).aberto?.item && biUI(b).aberto?.item.tipo === 'banco'">
-                    <div class="bi-leitura !p-0">
-                        <table class="gr-tab w-full">
-                            <thead><tr><template x-for="(c, i) in (biUI(b).aberto?.item.cab || [])" :key="i"><th class="text-left" x-text="c"></th></template></tr></thead>
-                            <tbody>
-                                <template x-for="(l, j) in (biUI(b).aberto?.item.linhas || []).slice(0, 100)" :key="j">
-                                    <tr><template x-for="(c, i) in l" :key="i"><td x-text="c"></td></template></tr>
+
+                {{-- página: propriedades (leitura) e blocos editáveis; salva ao sair do campo --}}
+                <template x-if="biUI(b).aberto?.pagina">
+                    <div class="bi-leitura bi-editor">
+                        <template x-for="(pr, i) in biUI(b).aberto.pagina.propriedades" :key="'p' + i">
+                            <p class="texto-2 text-xs"><span class="font-semibold" x-text="pr.nome + ': '"></span><span x-text="pr.valor"></span></p>
+                        </template>
+                        <template x-for="bl in biUI(b).aberto.pagina.blocos" :key="bl.id">
+                            <div class="bi-bloco" :class="'bi-b-' + bl.tipo">
+                                <template x-if="bl.tipo === 'child_page' || bl.tipo === 'child_database'">
+                                    <button type="button" class="bi-sub" @click="biNtAbrirFilho(b, bl)" x-text="(bl.tipo === 'child_database' ? '▦ ' : '📄 ') + bl.texto"></button>
                                 </template>
-                            </tbody>
-                        </table>
+                                <template x-if="bl.editavel">
+                                    <div class="flex items-start gap-1">
+                                        <template x-if="bl.tipo === 'to_do'"><input type="checkbox" class="mt-1" :checked="bl.marcado" @change="biNtMarcar(b, bl, $event.target.checked)" aria-label="Feito"></template>
+                                        <span class="bi-marca" x-show="bl.tipo === 'bulleted_list_item'" aria-hidden="true">•</span>
+                                        <span class="bi-marca" x-show="bl.tipo === 'callout'" aria-hidden="true" x-text="bl.icone || '💡'"></span>
+                                        <textarea class="bi-txt" rows="1" :data-nt-bloco="bl.id" :value="bl.texto" :aria-label="biNtRotuloTipo(bl.tipo)"
+                                                  x-init="$nextTick(() => { $el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'; })"
+                                                  @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"
+                                                  @blur="biNtSalvarBloco(b, bl, $event.target.value)"></textarea>
+                                        <span class="bi-bloco-acoes">
+                                            <button type="button" class="mini-btn" title="Bloco novo abaixo" aria-label="Bloco novo abaixo" @click="biNtNovoBloco(b, bl)">+</button>
+                                            <button type="button" class="mini-btn" title="Apagar o bloco" aria-label="Apagar o bloco" @click="biNtApagarBloco(b, bl)">✕</button>
+                                        </span>
+                                    </div>
+                                </template>
+                                <template x-if="!bl.editavel && bl.tipo !== 'child_page' && bl.tipo !== 'child_database'">
+                                    <p class="texto-2 whitespace-pre-wrap" x-text="bl.texto || '(' + bl.tipo + ': edite no Notion)'"></p>
+                                </template>
+                            </div>
+                        </template>
+                        <p class="texto-2 text-xs" x-show="!biUI(b).aberto.pagina.blocos.length">Página vazia. Escreva o primeiro bloco abaixo.</p>
+                        <p class="texto-2 text-xs" x-show="biUI(b).aberto.pagina.longa">Página longa: os blocos depois dos 300 primeiros ficam só no Notion.</p>
+                        <form class="bi-novo" @submit.prevent="biNtNovoBloco(b)">
+                            <select class="campo !py-0.5 !text-xs !w-auto" x-model="biUI(b).ntNovo.tipo" aria-label="Tipo do bloco novo">
+                                <template x-for="t in ['paragraph','heading_1','heading_2','heading_3','bulleted_list_item','numbered_list_item','to_do','quote','callout','code']" :key="t">
+                                    <option :value="t" x-text="biNtRotuloTipo(t)"></option>
+                                </template>
+                            </select>
+                            <input class="campo !py-0.5 text-xs flex-1 min-w-0" x-model="biUI(b).ntNovo.texto" maxlength="20000" placeholder="Escreva e tecle Enter" aria-label="Texto do bloco novo">
+                            <button class="btn !py-0.5" :disabled="biUI(b).ocupado === 'nt-bloco'">+</button>
+                        </form>
                     </div>
+                </template>
+
+                {{-- banco de dados: cada linha é uma página (abre e edita como as outras) --}}
+                <template x-if="biUI(b).aberto?.banco">
+                    <ul class="bi-lista">
+                        <template x-for="l in biUI(b).aberto.banco.linhas" :key="l.id">
+                            <li class="bi-item bi-clique" tabindex="0" @click="biNtAbrir(b, l)" @keydown.enter="biNtAbrir(b, l)">
+                                <span class="bi-ico" aria-hidden="true" x-text="l.icone || '📄'"></span>
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate font-medium" x-text="l.titulo || 'Sem título'"></p>
+                                    <p class="texto-2 truncate" x-text="(l.valores || []).filter(Boolean).join(' · ')"></p>
+                                </div>
+                            </li>
+                        </template>
+                        <li class="bi-vazio" x-show="!biUI(b).aberto.banco.linhas.length">Banco vazio. Crie a primeira linha em “+ Linha”.</li>
+                    </ul>
                 </template>
             </div>
         </template>

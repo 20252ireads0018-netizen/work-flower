@@ -37,4 +37,15 @@ Route::prefix('/integracoes/notion')->name('integracoes.notion')->controller(\Ap
     Route::delete('/', 'remover')->middleware('throttle:20,1')->name('.remover');
     Route::get('/paginas', 'paginas')->middleware('throttle:30,1')->name('.paginas');
     Route::post('/conteudo', 'conteudo')->middleware('throttle:30,1')->name('.conteudo');
+    // mini Notion no cartão (public/js/blocos-integracoes.js): abrir, editar blocos, criar, renomear, mover e arquivar páginas
+    $nid = '[0-9a-fA-F-]{32,36}';
+    Route::get('/paginas/{id}', 'pagina')->where('id', $nid)->middleware('throttle:60,1,nt-pagina')->name('.pagina');
+    Route::get('/bancos/{id}/linhas', 'linhas')->where('id', $nid)->middleware('throttle:60,1,nt-linhas')->name('.linhas');
+    Route::post('/paginas', 'criarPagina')->middleware('throttle:30,1,nt-criar')->name('.criar');
+    Route::patch('/paginas/{id}', 'renomear')->where('id', $nid)->middleware('throttle:30,1,nt-renomear')->name('.renomear');
+    Route::patch('/paginas/{id}/arquivar', 'arquivar')->where('id', $nid)->middleware('throttle:30,1,nt-arquivar')->name('.arquivar');
+    Route::patch('/paginas/{id}/mover', 'mover')->where('id', $nid)->middleware('throttle:30,1,nt-mover')->name('.mover');
+    Route::post('/paginas/{id}/blocos', 'novoBloco')->where('id', $nid)->middleware('throttle:120,1,nt-bloco')->name('.bloco.novo');
+    Route::patch('/blocos/{id}', 'editarBloco')->where('id', $nid)->middleware('throttle:120,1,nt-bloco')->name('.bloco.editar');
+    Route::delete('/blocos/{id}', 'apagarBloco')->where('id', $nid)->middleware('throttle:60,1,nt-bloco-x')->name('.bloco.apagar');
 });

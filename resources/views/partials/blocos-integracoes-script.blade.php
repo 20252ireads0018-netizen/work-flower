@@ -43,6 +43,29 @@
     .bi-texto { min-height: 4.5rem; resize: none; }
     .bi-leitura { flex: 1; min-height: 4rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; padding: .6rem;
         border-radius: .6rem; border: 1px solid var(--linha); font-size: .8rem; user-select: text; cursor: text; }
+    /* mini Notion: árvore, editor de blocos (cada bloco é um textarea que salva ao sair) */
+    .bi-seta { width: 1.1rem; flex: none; border-radius: .3rem; color: var(--tinta-2); }
+    .bi-seta:hover { background: color-mix(in srgb, var(--prim) 14%, transparent); }
+    .bi-alvo { outline: 2px dashed var(--prim); outline-offset: 1px; background: color-mix(in srgb, var(--prim) 12%, transparent); }
+    .bi-titulo { font-weight: 600; padding: .15rem .4rem !important; }
+    .bi-editor { white-space: normal; display: flex; flex-direction: column; gap: .15rem; }
+    .bi-bloco { position: relative; }
+    .bi-txt { width: 100%; resize: none; overflow: hidden; background: transparent; border: 1px solid transparent; border-radius: .4rem; padding: .15rem .3rem; color: inherit; font: inherit; line-height: 1.45; }
+    .bi-txt:hover { border-color: var(--linha); }
+    .bi-txt:focus { outline: none; border-color: var(--prim); background: color-mix(in srgb, var(--prim) 6%, transparent); }
+    .bi-b-heading_1 .bi-txt { font-size: 1.35em; font-weight: 700; }
+    .bi-b-heading_2 .bi-txt { font-size: 1.18em; font-weight: 700; }
+    .bi-b-heading_3 .bi-txt { font-size: 1.05em; font-weight: 700; }
+    .bi-b-quote .bi-txt { border-left: 3px solid var(--linha); border-radius: 0 .4rem .4rem 0; font-style: italic; }
+    .bi-b-callout > div { background: color-mix(in srgb, var(--prim) 8%, transparent); border-radius: .5rem; padding: .2rem; }
+    .bi-b-code .bi-txt { font-family: ui-monospace, monospace; font-size: .85em; background: color-mix(in srgb, var(--tinta) 6%, transparent); }
+    .bi-marca { flex: none; padding-top: .2rem; }
+    .bi-bloco-acoes { display: flex; gap: .15rem; opacity: 0; transition: opacity .15s; }
+    .bi-bloco:hover .bi-bloco-acoes, .bi-bloco:focus-within .bi-bloco-acoes { opacity: 1; }
+    .bi-sub { text-align: left; padding: .2rem .4rem; border-radius: .4rem; text-decoration: underline; text-underline-offset: 3px; }
+    .bi-sub:hover { background: color-mix(in srgb, var(--prim) 12%, transparent); }
+    .bi-novo { display: flex; gap: .3rem; align-items: center; margin-top: .4rem; padding-top: .4rem; border-top: 1px dashed var(--linha); }
+    .bi-perigo:hover { color: #e5484d; }
     .bi-status { padding: .45rem .6rem; border-radius: .6rem; line-height: 1.4; }
     .bi-espera { background: color-mix(in srgb, #d97706 14%, transparent); }
     .bi-form { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .4rem; padding: .5rem; border-radius: .6rem; border: 1px dashed var(--linha); }

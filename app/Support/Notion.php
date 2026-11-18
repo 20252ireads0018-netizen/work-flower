@@ -103,6 +103,8 @@ class Notion
             $r->status() === 401 => 'O Notion recusou o acesso (a conexão foi removida ou o token mudou). Conecte de novo.',
             $r->status() === 404 || $codigo === 'object_not_found' => 'Página não encontrada. No Notion, compartilhe a página com a integração (••• › Conexões).',
             $r->status() === 429 => 'O Notion pediu uma pausa (muitos pedidos). Tente de novo em um minuto.',
+            $r->status() === 403 => 'A integração não tem permissão para isso. No Notion, nas Capacidades da integração, ligue “Ler”, “Atualizar” e “Inserir conteúdo”.',
+            $r->status() === 400 && $codigo === 'validation_error' => 'O Notion não aceitou a mudança: ' . mb_substr((string) $r->json('message'), 0, 160),
             default => 'O Notion respondeu com erro (' . $r->status() . '). Tente de novo.',
         }, $r->status());
     }
@@ -296,6 +298,183 @@ class Notion
         array_splice($linhas, 1, 0, [$recuo . '|' . str_repeat(' --- |', max(1, $n))]);
 
         return implode("\n", $linhas);
+    }
+
+    /* ---------------- mini Notion: navegar e editar dentro do cartão ---------------- */
+
+    /** Blocos de texto que o cartão edita (o resto aparece só para ler). */
+    public const EDITAVEIS = ['paragraph', 'heading_1', 'heading_2', 'heading_3', 'bulleted_list_item', 'numbered_list_item', 'to_do', 'quote', 'callout', 'toggle', 'code'];
+
+    public const MAX_BLOCOS_EDITOR = 300;
+
+    /**
+     * Página aberta no cartão: resumo, propriedades (só leitura), blocos do primeiro nível
+     * ({ id, tipo, texto, marcado?, editavel, filhos }) e subpáginas/bancos (tipo child_page/child_database).
+     */
+    public function pagina(string $id): array
+    {
+        $p = $this->conferir($this->http()->get(self::API . '/pages/' . $id));
+        $props = [];
+        foreach ((array) ($p['properties'] ?? []) as $nome => $v) {
+            if (! is_array($v) || ($v['type'] ?? '') === 'title') continue;
+            $t = self::valorPropriedade($v);
+            if ($t !== '') $props[] = ['nome' => (string) $nome, 'valor' => $t];
+        }
+
+        $blocos = [];
+        $cursor = null;
+        do {
+            $q = ['page_size' => 100] + ($cursor ? ['start_cursor' => $cursor] : []);
+            $j = $this->conferir($this->http()->get(self::API . '/blocks/' . $id . '/children', $q));
+            foreach ((array) ($j['results'] ?? []) as $b) {
+                if (! is_array($b) || ! empty($b['archived']) || ! empty($b['in_trash'])) continue;
+                $blocos[] = $this->blocoEditor($b);
+            }
+            $cursor = ! empty($j['has_more']) ? ($j['next_cursor'] ?? null) : null;
+        } while ($cursor && count($blocos) < self::MAX_BLOCOS_EDITOR);
+
+        return $this->resumo($p) + ['propriedades' => $props, 'blocos' => array_slice($blocos, 0, self::MAX_BLOCOS_EDITOR), 'longa' => (bool) $cursor];
+    }
+
+    private function blocoEditor(array $b): array
+    {
+        $tipo = (string) ($b['type'] ?? '');
+        $d = (array) ($b[$tipo] ?? []);
+        $x = ['id' => (string) ($b['id'] ?? ''), 'tipo' => $tipo, 'editavel' => in_array($tipo, self::EDITAVEIS, true), 'filhos' => ! empty($b['has_children'])];
+        if ($x['editavel']) {
+            $x['texto'] = self::texto($d['rich_text'] ?? []);
+            if ($tipo === 'to_do') $x['marcado'] = ! empty($d['checked']);
+            if ($tipo === 'callout' && data_get($d, 'icon.type') === 'emoji') $x['icone'] = (string) data_get($d, 'icon.emoji');
+        } elseif ($tipo === 'child_page' || $tipo === 'child_database') {
+            $x['texto'] = (string) ($d['title'] ?? '') ?: 'Sem título';
+        } else {
+            // o resto (imagem, tabela, embed…) aparece como texto de leitura, no mesmo formato da importação
+            [$md] = $this->bloco($b, $tipo, 0, 1);
+            $x['texto'] = (string) ($md ?? '');
+        }
+
+        return $x;
+    }
+
+    /** Linhas de um banco de dados (cada uma é uma página): { id, titulo, icone, editado, url, valores }. */
+    public function linhas(string $id): array
+    {
+        $d = $this->conferir($this->http()->get(self::API . '/databases/' . $id));
+        $cab = [];
+        foreach ((array) ($d['properties'] ?? []) as $nome => $p) {
+            if (($p['type'] ?? '') !== 'title') $cab[] = (string) $nome;
+        }
+        $cab = array_slice($cab, 0, 4);
+        $linhas = [];
+        $cursor = null;
+        do {
+            $corpo = ['page_size' => 100] + ($cursor ? ['start_cursor' => $cursor] : []);
+            $j = $this->conferir($this->http()->post(self::API . '/databases/' . $id . '/query', $corpo));
+            foreach ((array) ($j['results'] ?? []) as $pg) {
+                if (! is_array($pg) || ! empty($pg['archived']) || ! empty($pg['in_trash'])) continue;
+                $props = (array) ($pg['properties'] ?? []);
+                $linhas[] = $this->resumo($pg) + ['valores' => array_map(fn ($c) => isset($props[$c]) ? self::valorPropriedade($props[$c]) : '', $cab)];
+            }
+            $cursor = ! empty($j['has_more']) ? ($j['next_cursor'] ?? null) : null;
+        } while ($cursor && count($linhas) < self::MAX_LINHAS);
+
+        return $this->resumo($d) + ['colunas' => $cab, 'linhas' => array_slice($linhas, 0, self::MAX_LINHAS)];
+    }
+
+    /** rich_text de texto simples, em pedaços de 2000 caracteres (limite do Notion por pedaço). */
+    private static function richText(string $t): array
+    {
+        $t = str_replace("\r\n", "\n", $t);
+        if ($t === '') return [];
+
+        return array_map(fn ($p) => ['type' => 'text', 'text' => ['content' => $p]], mb_str_split($t, 2000));
+    }
+
+    /** Corpo de um bloco de texto do tipo pedido (para criar ou atualizar). */
+    private static function corpoBloco(string $tipo, string $texto, ?bool $marcado = null): array
+    {
+        $d = ['rich_text' => self::richText($texto)];
+        if ($tipo === 'to_do') $d['checked'] = (bool) $marcado;
+        if ($tipo === 'code') $d['language'] = 'plain text';
+
+        return [$tipo => $d];
+    }
+
+    /** Troca o texto (e o "feito" do to_do) de um bloco. A formatação do bloco editado vira texto simples. */
+    public function editarBloco(string $id, string $tipo, string $texto, ?bool $marcado = null): void
+    {
+        $corpo = self::corpoBloco($tipo, $texto, $marcado);
+        if ($tipo === 'code') unset($corpo['code']['language']); // mantém a linguagem que já estava
+        $this->conferir($this->http()->patch(self::API . '/blocks/' . $id, $corpo));
+    }
+
+    /** Só marca/desmarca um to_do, sem mexer no texto (nem na formatação). */
+    public function marcarTarefa(string $id, bool $marcado): void
+    {
+        $this->conferir($this->http()->patch(self::API . '/blocks/' . $id, ['to_do' => ['checked' => $marcado]]));
+    }
+
+    /** Bloco novo no fim da página (ou logo depois de $depois). Devolve o bloco no formato do editor. */
+    public function novoBloco(string $pagina, string $tipo, string $texto, ?string $depois = null): array
+    {
+        $corpo = ['children' => [['object' => 'block', 'type' => $tipo] + self::corpoBloco($tipo, $texto, false)]];
+        if ($depois) $corpo['after'] = $depois;
+        $j = $this->conferir($this->http()->patch(self::API . '/blocks/' . $pagina . '/children', $corpo));
+        $b = (array) ($j['results'][0] ?? []);
+
+        return $b ? $this->blocoEditor($b) : ['id' => '', 'tipo' => $tipo, 'texto' => $texto, 'editavel' => true, 'filhos' => false];
+    }
+
+    public function apagarBloco(string $id): void
+    {
+        $this->conferir($this->http()->delete(self::API . '/blocks/' . $id));
+    }
+
+    /** Nome da propriedade de título de uma página ou banco (em banco de dados ela pode ter qualquer nome). */
+    private static function propTitulo(array $o): string
+    {
+        foreach ((array) ($o['properties'] ?? []) as $nome => $v) {
+            if (is_array($v) && ($v['type'] ?? '') === 'title') return (string) $nome;
+        }
+
+        return 'title';
+    }
+
+    /** Página nova dentro de uma página ($paiTipo pagina) ou linha nova num banco de dados ($paiTipo banco). */
+    public function criarPagina(string $pai, string $paiTipo, string $titulo): array
+    {
+        $rt = self::richText($titulo !== '' ? $titulo : 'Sem título');
+        if ($paiTipo === 'banco') {
+            $d = $this->conferir($this->http()->get(self::API . '/databases/' . $pai));
+            $corpo = ['parent' => ['database_id' => $pai], 'properties' => [self::propTitulo($d) => ['title' => $rt]]];
+        } else {
+            $corpo = ['parent' => ['page_id' => $pai], 'properties' => ['title' => ['title' => $rt]]];
+        }
+
+        return $this->resumo($this->conferir($this->http()->post(self::API . '/pages', $corpo)));
+    }
+
+    public function renomear(string $id, string $titulo): void
+    {
+        $p = $this->conferir($this->http()->get(self::API . '/pages/' . $id));
+        $this->conferir($this->http()->patch(self::API . '/pages/' . $id, ['properties' => [self::propTitulo($p) => ['title' => self::richText($titulo)]]]));
+    }
+
+    /** Arquivar manda para a lixeira do Notion (restaurável por lá ou pelo cartão, com $sim = false). */
+    public function arquivar(string $id, bool $sim): void
+    {
+        $this->conferir($this->http()->patch(self::API . '/pages/' . $id, ['archived' => $sim]));
+    }
+
+    /**
+     * Move a página para dentro de outra página (endpoint "move page" da API do Notion, de 2025).
+     * Linhas de banco de dados não mudam de banco por aqui.
+     */
+    public function mover(string $id, string $paraPagina): void
+    {
+        $this->conferir(Http::withToken($this->token)->acceptJson()->asJson()->timeout(30)
+            ->withHeaders(['Notion-Version' => '2025-09-03'])
+            ->post(self::API . '/pages/' . $id . '/move', ['parent' => ['type' => 'page_id', 'page_id' => $paraPagina]]));
     }
 
     /* ---------------- banco de dados → tabela ---------------- */

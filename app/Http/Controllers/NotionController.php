@@ -162,6 +162,120 @@ class NotionController extends Controller
         return response()->json(['itens' => $itens, 'erros' => $erros]);
     }
 
+    /* ---------------- mini Notion no cartão: navegar, editar, criar, mover e arquivar ---------------- */
+
+    private const ID = '/^[0-9a-fA-F-]{32,36}$/';
+
+    /** Roda $f com o cliente do Notion da conta; erro do Notion vira resposta JSON. */
+    private function comNotion(Request $request, callable $f): JsonResponse
+    {
+        $i = $this->exigir($request);
+        try {
+            return response()->json(['ok' => true] + (array) $f(new Notion($i->access_token)));
+        } catch (NotionErro $e) {
+            return $this->falhou($i, $e);
+        }
+    }
+
+    private static function id(string $id): string
+    {
+        abort_unless(preg_match(self::ID, $id) === 1, 404);
+
+        return $id;
+    }
+
+    /** GET /integracoes/notion/paginas/{id}: página aberta no cartão (blocos editáveis e subpáginas). */
+    public function pagina(Request $request, string $id): JsonResponse
+    {
+        return $this->comNotion($request, fn (Notion $n) => ['pagina' => $n->pagina(self::id($id))]);
+    }
+
+    /** GET /integracoes/notion/bancos/{id}/linhas: linhas (páginas) de um banco de dados. */
+    public function linhas(Request $request, string $id): JsonResponse
+    {
+        return $this->comNotion($request, fn (Notion $n) => ['banco' => $n->linhas(self::id($id))]);
+    }
+
+    /** PATCH /integracoes/notion/blocos/{id} { tipo, texto?, marcado? } (corpo em b64 por causa do mod_security). */
+    public function editarBloco(Request $request, string $id): JsonResponse
+    {
+        $this->decodificarCorpo($request);
+        $d = $request->validate([
+            'tipo'    => ['required', 'in:' . implode(',', Notion::EDITAVEIS)],
+            'texto'   => ['nullable', 'string', 'max:20000'],
+            'marcado' => ['nullable', 'boolean'],
+        ]);
+
+        return $this->comNotion($request, function (Notion $n) use ($id, $d, $request) {
+            // só o "feito" de um to_do: não reescreve o texto (que perderia a formatação)
+            if ($d['tipo'] === 'to_do' && ! $request->has('texto')) {
+                $n->marcarTarefa(self::id($id), (bool) ($d['marcado'] ?? false));
+            } else {
+                $n->editarBloco(self::id($id), $d['tipo'], (string) ($d['texto'] ?? ''), isset($d['marcado']) ? (bool) $d['marcado'] : null);
+            }
+
+            return [];
+        });
+    }
+
+    /** POST /integracoes/notion/paginas/{id}/blocos { tipo, texto, depois? } */
+    public function novoBloco(Request $request, string $id): JsonResponse
+    {
+        $this->decodificarCorpo($request);
+        $d = $request->validate([
+            'tipo'   => ['required', 'in:' . implode(',', Notion::EDITAVEIS)],
+            'texto'  => ['nullable', 'string', 'max:20000'],
+            'depois' => ['nullable', 'string', 'regex:' . self::ID],
+        ]);
+
+        return $this->comNotion($request, fn (Notion $n) => ['bloco' => $n->novoBloco(self::id($id), $d['tipo'], (string) ($d['texto'] ?? ''), $d['depois'] ?? null)]);
+    }
+
+    /** DELETE /integracoes/notion/blocos/{id} */
+    public function apagarBloco(Request $request, string $id): JsonResponse
+    {
+        return $this->comNotion($request, function (Notion $n) use ($id) { $n->apagarBloco(self::id($id)); return []; });
+    }
+
+    /** POST /integracoes/notion/paginas { pai, pai_tipo: pagina|banco, titulo } */
+    public function criarPagina(Request $request): JsonResponse
+    {
+        $this->decodificarCorpo($request);
+        $d = $request->validate([
+            'pai'      => ['required', 'string', 'regex:' . self::ID],
+            'pai_tipo' => ['required', 'in:pagina,banco'],
+            'titulo'   => ['nullable', 'string', 'max:200'],
+        ], ['pai.required' => 'Abra a página onde a nova vai ficar.']);
+
+        return $this->comNotion($request, fn (Notion $n) => ['pagina' => $n->criarPagina($d['pai'], $d['pai_tipo'], trim((string) ($d['titulo'] ?? '')))]);
+    }
+
+    /** PATCH /integracoes/notion/paginas/{id} { titulo } */
+    public function renomear(Request $request, string $id): JsonResponse
+    {
+        $this->decodificarCorpo($request);
+        $d = $request->validate(['titulo' => ['required', 'string', 'max:200']]);
+
+        return $this->comNotion($request, function (Notion $n) use ($id, $d) { $n->renomear(self::id($id), trim($d['titulo'])); return []; });
+    }
+
+    /** PATCH /integracoes/notion/paginas/{id}/arquivar { arquivar: bool } */
+    public function arquivar(Request $request, string $id): JsonResponse
+    {
+        $d = $request->validate(['arquivar' => ['required', 'boolean']]);
+
+        return $this->comNotion($request, function (Notion $n) use ($id, $d) { $n->arquivar(self::id($id), (bool) $d['arquivar']); return []; });
+    }
+
+    /** PATCH /integracoes/notion/paginas/{id}/mover { pai } */
+    public function mover(Request $request, string $id): JsonResponse
+    {
+        $d = $request->validate(['pai' => ['required', 'string', 'regex:' . self::ID]], ['pai.required' => 'Escolha a página de destino.']);
+        abort_if($d['pai'] === $id, 422, 'Uma página não pode ir para dentro dela mesma.');
+
+        return $this->comNotion($request, function (Notion $n) use ($id, $d) { $n->mover(self::id($id), $d['pai']); return []; });
+    }
+
     private function exigir(Request $request): NotionIntegracao
     {
         $i = $this->minha($request);

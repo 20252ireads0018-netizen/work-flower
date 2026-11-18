@@ -66,7 +66,8 @@
         biUI(b) {
             this.biEstado[b.id] ??= {
                 carregando: false, erro: '', d: null, ver: 'msg', webhook: '', ocupado: '', msg: { titulo: '', texto: '', link: '' }, nota: '', cartao: '',
-                canais: null, canaisErro: '', itens: null, aberto: null, lendo: false, q: '', ed: { i: -1, atalho: '', nome: '', texto: '' }, editando: false, edErro: '', filtro: '',
+                canais: null, canaisErro: '', itens: null, aberto: null, lendo: false,
+                ntPilha: [], ntExp: {}, ntNovo: { tipo: 'paragraph', texto: '' }, ntMover: null, ntArr: null, ntAlvo: '', q: '', ed: { i: -1, atalho: '', nome: '', texto: '' }, editando: false, edErro: '', filtro: '',
             };
             return this.biEstado[b.id];
         },
@@ -200,15 +201,150 @@
             const x = (r.json.itens || [])[0];
             return x ? { item: x } : { erro: ((r.json.erros || [])[0] || {}).erro || 'O Notion não devolveu esta página.' };
         },
-        async biNtAbrir(b, it) {
+        /* ---------- mini Notion: árvore, página editável, banco de dados ---------- */
+        /** Árvore das páginas da busca: raízes = itens cujo pai não está na lista; filhos aparecem ao abrir (▸). */
+        biNtArvore(b) {
+            const ui = this.biUI(b), itens = ui.itens || [];
+            if ((b.dados.q || '').trim()) return itens.map(it => ({ it, nivel: 0, temFilhos: false }));
+            const ids = new Set(itens.map(i => i.id)), filhos = new Map();
+            itens.forEach(i => { const p = ids.has(i.pai) ? i.pai : ''; if (!filhos.has(p)) filhos.set(p, []); filhos.get(p).push(i); });
+            const saida = [], visto = new Set();
+            const andar = (pai, nivel) => (filhos.get(pai) || []).forEach(it => {
+                if (visto.has(it.id)) return;
+                visto.add(it.id);
+                const tem = filhos.has(it.id);
+                saida.push({ it, nivel, temFilhos: tem });
+                if (tem && ui.ntExp[it.id]) andar(it.id, nivel + 1);
+            });
+            andar('', 0);
+            return saida;
+        },
+        biNtExpandir(b, it) { const e = this.biUI(b).ntExp; e[it.id] = !e[it.id]; },
+        /** Abre página (editor) ou banco (linhas) dentro do cartão; empilha para o "← Voltar". */
+        /** modo: 'empilhar' (abriu de dentro de outra página), 'raiz' (abriu pela lista) ou 'voltar'. */
+        async biNtAbrir(b, it, modo = 'empilhar') {
             const ui = this.biUI(b);
-            ui.aberto = { resumo: it, item: null, erro: '' }; ui.lendo = true;
-            const c = await this.biNtLer(it);
+            if (modo === 'empilhar' && ui.aberto && ui.aberto.resumo) ui.ntPilha.push(ui.aberto.resumo);
+            if (modo === 'raiz') ui.ntPilha = [];
+            ui.aberto = { resumo: it, pagina: null, banco: null, erro: '', titulo: it.titulo || '' }; ui.lendo = true;
+            ui.ntNovo = { tipo: 'paragraph', texto: '' }; ui.ntMover = null;
+            const url = it.tipo === 'banco' ? URL_NOTION + '/bancos/' + it.id + '/linhas' : URL_NOTION + '/paginas/' + it.id;
+            const r = await pedir(url);
             if (!ui.aberto || ui.aberto.resumo !== it) return;
             ui.lendo = false;
-            ui.aberto.item = c.item || null;
-            ui.aberto.erro = c.erro || '';
+            if (!r.ok) { ui.aberto.erro = erroDe(r); if (r.status === 409 && ui.d) ui.d.conectado = false; return; }
+            if (it.tipo === 'banco') ui.aberto.banco = r.json.banco; else { ui.aberto.pagina = r.json.pagina; ui.aberto.titulo = r.json.pagina.titulo || ''; }
         },
+        biNtVoltar(b) {
+            const ui = this.biUI(b), ant = ui.ntPilha.pop();
+            if (ant) this.biNtAbrir(b, ant, 'voltar');
+            else { ui.aberto = null; this.biNtBuscar(b); }
+        },
+        /** Subpágina ou banco que aparece como bloco (child_page/child_database) vira item para abrir. */
+        biNtAbrirFilho(b, bl) { this.biNtAbrir(b, { id: bl.id, tipo: bl.tipo === 'child_database' ? 'banco' : 'pagina', titulo: bl.texto }); },
+        async biNtRenomear(b) {
+            const ui = this.biUI(b), a = ui.aberto, t = (a && a.titulo || '').trim();
+            if (!a || !a.pagina || !t || t === a.pagina.titulo) return;
+            const r = await pedir(URL_NOTION + '/paginas/' + a.resumo.id, 'PATCH', b64({ titulo: t }));
+            if (!r.ok) { this.aviso(erroDe(r)); a.titulo = a.pagina.titulo; return; }
+            a.pagina.titulo = t; a.resumo.titulo = t;
+            const na = (ui.itens || []).find(x => x.id === a.resumo.id); if (na) na.titulo = t;
+            this.aviso('Título salvo no Notion.');
+        },
+        /** Texto de um bloco editado: salva ao sair do campo, só se mudou. */
+        async biNtSalvarBloco(b, bl, texto) {
+            if (texto === bl.texto) return;
+            const antes = bl.texto;
+            bl.texto = texto;
+            const r = await pedir(URL_NOTION + '/blocos/' + bl.id, 'PATCH', b64({ tipo: bl.tipo, texto, marcado: bl.tipo === 'to_do' ? !!bl.marcado : null }));
+            if (!r.ok) { bl.texto = antes; this.aviso(erroDe(r)); }
+        },
+        async biNtMarcar(b, bl, v) {
+            bl.marcado = v;
+            const r = await pedir(URL_NOTION + '/blocos/' + bl.id, 'PATCH', b64({ tipo: 'to_do', marcado: v }));
+            if (!r.ok) { bl.marcado = !v; this.aviso(erroDe(r)); }
+        },
+        async biNtApagarBloco(b, bl) {
+            const ui = this.biUI(b), p = ui.aberto && ui.aberto.pagina;
+            if (!p || !confirm('Apagar este bloco no Notion? (ele vai para a lixeira do Notion)')) return;
+            const r = await pedir(URL_NOTION + '/blocos/' + bl.id, 'DELETE');
+            if (!r.ok) { this.aviso(erroDe(r)); return; }
+            p.blocos = p.blocos.filter(x => x !== bl);
+        },
+        /** Bloco novo: no fim (depois = null) ou logo abaixo de um bloco. */
+        async biNtNovoBloco(b, depois = null) {
+            const ui = this.biUI(b), p = ui.aberto && ui.aberto.pagina;
+            if (!p) return;
+            const tipo = depois ? 'paragraph' : ui.ntNovo.tipo, texto = depois ? '' : ui.ntNovo.texto;
+            if (!depois && !texto.trim() && tipo !== 'to_do') { this.aviso('Escreva o texto do bloco novo.'); return; }
+            ui.ocupado = 'nt-bloco';
+            const r = await pedir(URL_NOTION + '/paginas/' + p.id + '/blocos', 'POST', b64({ tipo, texto, depois: depois ? depois.id : null }));
+            ui.ocupado = '';
+            if (!r.ok) { this.aviso(erroDe(r)); return; }
+            const i = depois ? p.blocos.indexOf(depois) + 1 : p.blocos.length;
+            p.blocos.splice(i, 0, r.json.bloco);
+            if (!depois) ui.ntNovo.texto = '';
+            else this.$nextTick && this.$nextTick(() => { const el = document.querySelector(`[data-nt-bloco="${r.json.bloco.id}"]`); if (el) el.focus(); });
+        },
+        /** Página nova: dentro da página aberta, linha nova no banco aberto, ou (na lista) dentro da página escolhida. */
+        async biNtNovaPagina(b) {
+            const ui = this.biUI(b), a = ui.aberto;
+            if (!a) { this.aviso('Abra a página (ou o banco de dados) onde a nova vai ficar.'); return; }
+            const banco = !!a.banco;
+            const titulo = prompt(banco ? 'Nome da nova linha:' : 'Título da nova subpágina:', '');
+            if (titulo === null) return;
+            ui.ocupado = 'nt-nova';
+            const r = await pedir(URL_NOTION + '/paginas', 'POST', b64({ pai: a.resumo.id, pai_tipo: banco ? 'banco' : 'pagina', titulo: titulo.trim() }));
+            ui.ocupado = '';
+            if (!r.ok) { this.aviso(erroDe(r)); return; }
+            const nova = r.json.pagina;
+            (ui.itens ||= []).unshift(nova);
+            this.aviso(banco ? 'Linha criada no Notion.' : 'Subpágina criada no Notion.');
+            this.biNtAbrir(b, nova);
+        },
+        async biNtArquivar(b) {
+            const ui = this.biUI(b), a = ui.aberto;
+            if (!a || !confirm('Mandar “' + (a.resumo.titulo || 'Sem título') + '” para a lixeira do Notion? Dá para restaurar pelo Notion.')) return;
+            const r = await pedir(URL_NOTION + '/paginas/' + a.resumo.id + '/arquivar', 'PATCH', { arquivar: true });
+            if (!r.ok) { this.aviso(erroDe(r)); return; }
+            ui.itens = (ui.itens || []).filter(x => x.id !== a.resumo.id);
+            this.aviso('Foi para a lixeira do Notion.');
+            this.biNtVoltar(b);
+        },
+        /** Páginas para onde dá para mover (as da lista, menos a própria e as linhas de banco). */
+        biNtDestinos(b) {
+            const ui = this.biUI(b), a = ui.aberto, id = a && a.resumo.id;
+            return (ui.itens || []).filter(x => x.tipo === 'pagina' && x.id !== id && x.id !== (a && a.pagina && a.pagina.pai) && !this.biNtDentroDe(b, x.id, id));
+        },
+        /** $alvo fica dentro de $id (subpágina, neta…)? Pelas ligações de pai da lista; uma página não vai para dentro de uma filha. */
+        biNtDentroDe(b, alvo, id) {
+            const pais = new Map((this.biUI(b).itens || []).map(x => [x.id, x.pai]));
+            for (let p = pais.get(alvo), i = 0; p && i < 50; p = pais.get(p), i++) if (p === id) return true;
+            return false;
+        },
+        async biNtMover(b, it, pai) {
+            if (!it || !pai || it.id === pai) return;
+            const r = await pedir(URL_NOTION + '/paginas/' + it.id + '/mover', 'PATCH', { pai });
+            if (!r.ok) { this.aviso(erroDe(r)); return false; }
+            const na = (this.biUI(b).itens || []).find(x => x.id === it.id); if (na) na.pai = pai;
+            this.aviso('Página movida no Notion.');
+            return true;
+        },
+        /* arrastar uma página da árvore para dentro de outra */
+        biNtArrIni(e, b, it) { this.biUI(b).ntArr = it; try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.titulo || ''); } catch (_) { /* navegador antigo */ } },
+        biNtArrSobre(e, b, alvo) {
+            const ui = this.biUI(b), a = ui.ntArr;
+            if (!a || a.id === alvo.id || alvo.tipo !== 'pagina' || a.tipo !== 'pagina' || this.biNtDentroDe(b, alvo.id, a.id)) return;
+            e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; ui.ntAlvo = alvo.id;
+        },
+        async biNtArrSoltar(e, b, alvo) {
+            const ui = this.biUI(b), a = ui.ntArr;
+            ui.ntArr = null; ui.ntAlvo = '';
+            if (!a || a.id === alvo.id || alvo.tipo !== 'pagina' || a.tipo !== 'pagina' || this.biNtDentroDe(b, alvo.id, a.id)) return;
+            e.preventDefault(); e.stopPropagation();
+            if (await this.biNtMover(b, a, alvo.id)) ui.ntExp[alvo.id] = true;
+        },
+        biNtRotuloTipo(t) { return { paragraph: 'Texto', heading_1: 'Título 1', heading_2: 'Título 2', heading_3: 'Título 3', bulleted_list_item: '• Lista', numbered_list_item: '1. Lista numerada', to_do: '☐ Tarefa', quote: '❝ Citação', callout: '💡 Destaque', toggle: '▸ Alternância', code: '</> Código' }[t] || t; },
         /** Página vira cartão de texto (banco de dados vira tabela), com a marca do Notion para sincronizar depois. */
         async biNtImportar(b, it) {
             const ui = this.biUI(b);
