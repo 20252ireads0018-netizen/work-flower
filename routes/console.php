@@ -20,4 +20,5 @@ Artisan::command('inspire', function () {
 Schedule::command('emails:sincronizar')->everyFifteenMinutes()->withoutOverlapping(30);
 
 // sequência de ativação por e-mail para quem se cadastra (App\Support\Ativacao)
-Schedule::command('emails:ativacao')->hourlyAt(7)->withoutOverlapping(30);
+// hora cheia: o cron do cPanel roda o schedule:run a cada 15 minutos (:00, :15, :30, :45), não a cada minuto
+Schedule::command('emails:ativacao')->hourly()->withoutOverlapping(30);
