@@ -17,5 +17,9 @@
         @if (session('wf_evento_cadastro'))
             fbq('track', 'CompleteRegistration', { content_name: 'Conta Work Flower', status: true });
         @endif
+        {{-- Subscribe: assinatura paga confirmada em /admin/pix, avisada uma vez na primeira página depois (App\Support\MetaEventos) --}}
+        @foreach (\App\Support\MetaEventos::assinaturasPendentes(auth()->id()) as $ass)
+            fbq('track', 'Subscribe', @json(['value' => $ass['valor'], 'currency' => 'BRL', 'content_name' => 'Plano ' . \App\Support\Planos::nome($ass['plano']) . ($ass['vitalicio'] ? ' vitalício' : '')]), { eventID: @json('wf-assinatura-' . $ass['id']) });
+        @endforeach
     </script>
 @endif

@@ -18,3 +18,6 @@ Artisan::command('inspire', function () {
 
 // E-mails conectados (Negócios › E-mails): lê as caixas a cada 15 minutos.
 Schedule::command('emails:sincronizar')->everyFifteenMinutes()->withoutOverlapping(30);
+
+// sequência de ativação por e-mail para quem se cadastra (App\Support\Ativacao)
+Schedule::command('emails:ativacao')->hourlyAt(7)->withoutOverlapping(30);

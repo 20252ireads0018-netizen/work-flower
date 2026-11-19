@@ -201,7 +201,9 @@
             df: vazioDisc(), dfErro: '', af: vazioAval(), afErro: '',
 
             init() {
-                const guardada = sessionStorage.getItem('mente.aba');
+                // ?aba=estudos (links dos e-mails de boas-vindas) tem prioridade sobre a aba guardada
+                const pedida = new URLSearchParams(location.search).get('aba');
+                const guardada = this.abas.some(a => a.id === pedida) ? pedida : sessionStorage.getItem('mente.aba');
                 this.aba = this.abas.some(a => a.id === guardada) ? guardada : 'tarefas';
                 this.$watch('aba', v => { sessionStorage.setItem('mente.aba', v); this.menuBloco = false; });
                 // avisa o ambiente (partials/ambiente) de qual setor está aberto: cada aba pode ter fundo e música próprios

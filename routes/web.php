@@ -41,6 +41,13 @@ Route::get('/estudos', function () {
 
 Route::view('/privacidade', 'publico.privacidade')->name('privacidade');
 Route::view('/termos', 'publico.termos')->name('termos');
+
+// descadastro dos e-mails de ativação (link assinado em cada e-mail, sem precisar entrar na conta)
+Route::get('/emails/sair/{user}', function (\App\Models\User $user) {
+    \App\Support\Ativacao::sair($user->id);
+
+    return view('publico.descadastro');
+})->middleware(['signed', 'throttle:20,1'])->name('emails.sair');
 Route::view('/contato', 'publico.contato')->name('contato');
 
 // Work Flower como app instalável (PWA): manifesto, service worker e página "sem conexão".
