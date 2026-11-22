@@ -248,6 +248,16 @@ class WorkflowsProntos
             throw ValidationException::withMessages(['tema' => 'Tema desconhecido.']);
         }
 
+        return self::criarDeTema($request, $u, $t, self::ilustracao($tema) ?? FundoTema::gerar($t['cores'], $t['padrao'], crc32($tema)));
+    }
+
+    /**
+     * Cria a área a partir de um tema já montado (os prontos acima ou o gerador por tema, GeradorWorkflow).
+     * Além de texto/lista/tabela, aceita ['imagem', título, dataURL, legenda]: a imagem vai para diverso_dados "img.{id}".
+     */
+    public static function criarDeTema(Request $request, User $u, array $t, ?string $fundo): array
+    {
+
         $valor = DiversoDado::where('user_id', $u->id)->where('chave', 'estado')->value('valor');
         $e = AbasRetiradas::decodificar($valor) ?? new \stdClass;
         if ($valor !== null && ($e->v ?? null) !== 2) {
@@ -265,9 +275,9 @@ class WorkflowsProntos
             $nome = $t['nome'] . ' ' . $i;
         }
 
-        return DB::transaction(function () use ($request, $u, $t, $tema, $e, $nome) {
+        return DB::transaction(function () use ($request, $u, $t, $fundo, $e, $nome) {
             $area = AreasConta::criarExtra($u, $nome);
-            $fundo = self::ilustracao($tema) ?? FundoTema::gerar($t['cores'], $t['padrao'], crc32($tema));
+            $imagens = [];
             $usados = [];
             $setores = [];
 
@@ -283,9 +293,11 @@ class WorkflowsProntos
                         'texto'  => ['texto' => implode("\n", $c[2]), 'tam' => 'm'],
                         'lista'  => ['itens' => array_values(array_map(fn ($it) => ['id' => self::uid(), 't' => $it, 'f' => false], array_filter($c[2], fn ($it) => $it !== '')))],
                         'tabela' => ['cab' => $c[2], 'linhas' => $c[3]],
+                        'imagem' => ['ajuste' => 'cover', 'legenda' => (string) ($c[3] ?? ''), 'prop' => 0],
                     };
                     $h = self::altura($tipo, $c);
                     $bid = self::novoId('b', $usados);
+                    if ($tipo === 'imagem') $imagens[$bid] = (string) $c[2];
                     $e->blocos[] = (object) ['id' => $bid, 'secao' => $abaId, 'tipo' => $tipo, 'titulo' => $titulo, 'links' => [], 'dados' => $dados];
                     // mural: cada cartão entra na coluna mais baixa (alturas diferentes, como no Pinterest)
                     $col = array_keys($alturas, min($alturas))[0];
@@ -300,6 +312,10 @@ class WorkflowsProntos
             }
 
             DiversoDado::updateOrCreate(['user_id' => $u->id, 'chave' => 'estado'], ['valor' => AbasRetiradas::codificar($e)]);
+            // imagens dos cartões de imagem: mesmo formato que o diverso.js grava (JSON da data URL)
+            foreach ($imagens as $bid => $src) {
+                DiversoDado::updateOrCreate(['user_id' => $u->id, 'chave' => 'img.' . $bid], ['valor' => json_encode($src)]);
+            }
 
             // ambiente de cada aba: fundo do tema e a rádio do YouTube
             $livres = 60 - CorpoDado::where('user_id', $u->id)->where('chave', 'like', 'amb.diverso.s.%')->where('chave', 'not like', '%.img')->count();
@@ -340,6 +356,7 @@ class WorkflowsProntos
             'texto'  => max(180, 96 + 26 * count($c[2])),
             'lista'  => max(200, 120 + 34 * count(array_filter($c[2], fn ($it) => $it !== ''))),
             'tabela' => max(200, 110 + 38 * (count($c[3]) + 1)),
+            'imagem' => 260,
         };
     }
 

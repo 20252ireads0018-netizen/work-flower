@@ -67,6 +67,9 @@ return [
     // App do Discord (conectar com um clique: o Discord devolve o webhook do canal escolhido). Vazio: colar o webhook.
     'discord' => ['client_id' => env('DISCORD_CLIENT_ID'), 'client_secret' => env('DISCORD_CLIENT_SECRET'), 'redirect' => env('DISCORD_REDIRECT_URI')],
 
+    // imagens do gerador de workflows (App\Support\ImagensLivres): Openverse funciona sem chave; com PEXELS_API_KEY usa o Pexels primeiro
+    'pexels' => ['chave' => env('PEXELS_API_KEY', '')],
+
     // rede de anúncios: "ambos" (padrão), "adsense" ou "adsterra" (a meta de verificação do AdSense fica sempre)
     'anuncios_rede' => env('ANUNCIOS_REDE') ?: 'ambos',
 

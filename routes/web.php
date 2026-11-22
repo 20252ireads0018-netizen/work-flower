@@ -336,6 +336,9 @@ Route::middleware('auth')->group(function () {
     // Workflows prontos (painel): área temática com abas, cartões e ambiente em um clique
     Route::post('/workflows-prontos/{tema}', [\App\Http\Controllers\WorkflowsProntosController::class, 'criar'])
         ->where('tema', '[a-z]+')->middleware('throttle:10,1')->name('workflows.prontos.criar');
+    // gerador por tema (App\Support\GeradorWorkflow): abas e cartões por palavra-chave e imagens de bancos livres
+    Route::post('/workflows-gerar', [\App\Http\Controllers\WorkflowsProntosController::class, 'gerar'])
+        ->middleware('throttle:6,1')->name('workflows.gerar');
 
     // Áreas da conta: esconder, renomear, reordenar, criar/excluir e mover cartões entre áreas
     Route::prefix('/areas-config')->name('areas.config.')->controller(\App\Http\Controllers\AreasContaController::class)->group(function () {

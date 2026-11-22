@@ -17,6 +17,16 @@
                 </div>
                 <button type="button" class="wf-prontos-x" @click="aberto = false" aria-label="Fechar">&times;</button>
             </div>
+            {{-- gerador por tema (App\Support\GeradorWorkflow) --}}
+            <form method="POST" action="{{ route('workflows.gerar') }}" class="wf-prontos-gerar" @submit="criando = 'tema'">
+                @csrf
+                <label for="wf-gerar-tema" class="font-semibold text-sm">✨ Criar com o meu tema</label>
+                <div class="flex flex-wrap gap-2 mt-1">
+                    <input id="wf-gerar-tema" name="tema" class="campo flex-1 min-w-[12rem]" required minlength="3" maxlength="80" placeholder="Ex.: Academia e dieta, Aprender violão, ENEM 2027">
+                    <button class="btn" :disabled="criando !== null" x-text="criando === 'tema' ? 'Montando…' : 'Gerar workflow'">Gerar workflow</button>
+                </div>
+                <p class="texto-2 text-xs mt-1">Monta abas e cartões para o tema e busca imagens em bancos gratuitos com licença livre (Openverse), com os créditos na aba Visão geral.</p>
+            </form>
             <div class="wf-prontos-mural">
                 @foreach ($wfTemas as $i => $t)
                     <form method="POST" action="{{ route('workflows.prontos.criar', $t['id']) }}" class="wf-prontos-item"
@@ -53,6 +63,7 @@
     .wf-prontos-caixa { width: min(60rem, 100%); max-height: calc(100vh - 2rem); overflow: auto; border-radius: 1.4rem; padding: 1.4rem;
         background: var(--papel); color: var(--tinta); border: 1px solid var(--linha); box-shadow: 0 24px 60px rgba(0,0,0,.35); }
     .wf-prontos-x { font-size: 1.6rem; line-height: 1; opacity: .7; background: none; border: 0; color: inherit; cursor: pointer; }
+    .wf-prontos-gerar { margin-top: 1rem; padding: .9rem 1rem; border-radius: 1rem; border: 1px dashed var(--linha); background: var(--prim-suave); }
     .wf-prontos-mural { margin-top: 1rem; column-width: 13.5rem; column-gap: 1rem; }
     .wf-prontos-item { break-inside: avoid; margin-bottom: 1rem; }
     .wf-prontos-cartao { width: 100%; text-align: left; display: flex; flex-direction: column; border-radius: 1.1rem; overflow: hidden;
