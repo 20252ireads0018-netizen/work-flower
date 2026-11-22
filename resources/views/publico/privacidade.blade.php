@@ -65,6 +65,11 @@
         <li>Quando a lei exigir, pedimos o seu consentimento para cookies de publicidade por meio de uma mensagem no site.</li>
     </ul>
     <p>
+        Nas páginas públicas (para quem não entrou na conta) também podem aparecer banners da <strong>Adsterra</strong>.
+        Eles só carregam depois que você clica em “Aceitar todos” no aviso de cookies e nunca aparecem dentro das ferramentas,
+        no login, no pagamento ou para assinantes. Veja a <a href="https://adsterra.com/privacy-policy/" target="_blank" rel="noopener" class="link-prim">Política de Privacidade da Adsterra</a>.
+    </p>
+    <p>
         Também usamos o <strong>Pixel da Meta</strong> (Facebook e Instagram) para medir as visitas e os cadastros que vêm
         dos nossos anúncios nessas redes. Ele só envia dados à Meta se você clicar em “Aceitar todos” no aviso de cookies;
         com “Só os essenciais”, nada é enviado. Veja a
@@ -76,7 +81,7 @@
     <ul class="list-disc pl-6 space-y-1.5">
         <li><strong>Pagamentos:</strong> os planos pagos são pagos por Pix direto na conta do Work Flower. Guardamos só o valor, o plano, a data e, se você informar, o nome de quem pagou, para conferir o pagamento no extrato. Os dados bancários do Pix ficam com o seu banco.</li>
         <li><strong>Hospedagem e infraestrutura:</strong> os dados ficam armazenados em servidores de um provedor de hospedagem contratado por nós.</li>
-        <li><strong>Publicidade:</strong> o Google AdSense, conforme descrito acima.</li>
+        <li><strong>Publicidade:</strong> o Google AdSense e a Adsterra, conforme descrito acima.</li>
         <li><strong>Obrigação legal:</strong> autoridades, quando houver ordem legal ou judicial.</li>
     </ul>
 

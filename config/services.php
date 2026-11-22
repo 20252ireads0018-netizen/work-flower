@@ -67,6 +67,21 @@ return [
     // App do Discord (conectar com um clique: o Discord devolve o webhook do canal escolhido). Vazio: colar o webhook.
     'discord' => ['client_id' => env('DISCORD_CLIENT_ID'), 'client_secret' => env('DISCORD_CLIENT_SECRET'), 'redirect' => env('DISCORD_REDIRECT_URI')],
 
+    // rede de anúncios: "ambos" (padrão), "adsense" ou "adsterra" (a meta de verificação do AdSense fica sempre)
+    'anuncios_rede' => env('ANUNCIOS_REDE') ?: 'ambos',
+
+    // Adsterra (App\Support\Publicidade): cada chave aceita os 32 caracteres ou o endereço do invoke.js do código da Adsterra. Vazia = não aparece.
+    // Só Banner (rodapé das páginas públicas; 728x90 no computador, o de celular é opcional) e Native Banner. Nunca Popunder nem Social Bar.
+    'adsterra' => [
+        'banner' => env('ADSTERRA_BANNER_KEY', ''),
+        'banner_tamanho' => env('ADSTERRA_BANNER_TAMANHO') ?: '728x90',
+        'banner_movel' => env('ADSTERRA_BANNER_MOVEL_KEY', ''),
+        'banner_movel_tamanho' => env('ADSTERRA_BANNER_MOVEL_TAMANHO') ?: '300x250',
+        'banner_host' => env('ADSTERRA_BANNER_HOST') ?: 'www.highperformanceformat.com',
+        'native' => env('ADSTERRA_NATIVE_KEY', ''),
+        'native_host' => env('ADSTERRA_NATIVE_HOST', ''),
+    ],
+
     'adsense' => [
         // conta da Websight; ADSENSE_CLIENT no .env troca (vazio no .env = sem anúncios)
         'client' => env('ADSENSE_CLIENT', 'ca-pub-4781960143966285'),

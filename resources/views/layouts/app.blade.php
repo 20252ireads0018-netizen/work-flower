@@ -1976,6 +1976,8 @@
             'Contato'                 => \Illuminate\Support\Facades\Route::has('contato') ? route('contato') : url('/contato'),
         ];
     @endphp
+    {{-- banner da Adsterra acima do rodapé (só visitantes, depois do aceite dos cookies; vazio sem chave no .env) --}}
+    @include('partials.adsterra-espaco', ['tipo' => 'banner'])
     <footer class="max-w-6xl mx-auto px-4 sm:px-8 py-8 mt-8 text-xs texto-2" style="border-top: 1px solid var(--linha)">
         <nav class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2" aria-label="Informações legais">
             @foreach ($linksLegais as $nome => $url)
@@ -1985,6 +1987,7 @@
         </nav>
         <p class="text-center mt-3">© {{ date('Y') }} Work Flower</p>
     </footer>
+    @include('partials.adsterra')
 @endguest
 
 </body>

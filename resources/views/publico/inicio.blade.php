@@ -197,6 +197,9 @@
         </div>
     </section>
 
+    {{-- Native Banner da Adsterra no fim do conteúdo (só com chave no .env e depois do aceite dos cookies) --}}
+    @include('partials.adsterra-espaco', ['tipo' => 'native'])
+
     {{-- ===== Chamada final ===== --}}
     <section class="pb-16">
         <div class="card p-8 sm:p-10 text-center">

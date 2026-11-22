@@ -3,7 +3,7 @@
      O layout lê esse cookie antes do AdSense. "Cookies" no rodapé ou em window.wfCookies() abre o aviso de novo. --}}
 <div id="wf-cookies" class="wf-cookies" role="dialog" aria-live="polite" aria-label="Aviso de cookies" hidden>
     <p class="text-sm">
-        Usamos cookies essenciais para o login e as suas preferências, e cookies de anúncios para manter o Work Flower gratuito.
+        Usamos cookies essenciais para o login e as suas preferências, e cookies de anúncios (Google AdSense e Adsterra) para manter o Work Flower gratuito.
         Você escolhe se os anúncios podem ser personalizados. <a class="link-prim" href="{{ \Illuminate\Support\Facades\Route::has('privacidade') ? route('privacidade') : url('/privacidade') }}#cookies">Saiba mais</a>
     </p>
     {{-- "Aceitar todos" em destaque (maior, à direita); "Só os essenciais" continua visível e com um clique --}}
@@ -37,6 +37,8 @@
             caixa.hidden = true;
             // pixel da Meta (partials/meta-pixel) só envia eventos com "Aceitar todos"
             if (window.fbq) fbq('consent', v === 'tudo' ? 'grant' : 'revoke');
+            // espaços da Adsterra (partials/adsterra) só carregam com "Aceitar todos"
+            if (v === 'tudo' && window.wfCarregarAdsterra) window.wfCarregarAdsterra();
             // os anúncios só mudam de personalização num carregamento novo da página
             if (mudou && escolhido) location.reload();
         });
