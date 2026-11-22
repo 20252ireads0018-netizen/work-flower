@@ -13,6 +13,15 @@
     const num = v => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : 0; };
     const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
     const snap = v => Math.round(v / 8) * 8;
+    // prévia de onde o cartão arrastado cai (arrastar) e cartão em movimento sem atraso de transição
+    if (typeof document !== 'undefined' && !document.getElementById('wf-previa-css')) {
+        const css = document.createElement('style');
+        css.id = 'wf-previa-css';
+        css.textContent = '.wf-previa{position:absolute;z-index:0;pointer-events:none;border:2px dashed var(--prim,#2f6fc7);border-radius:.9rem;'
+            + 'background:color-mix(in srgb,var(--prim,#2f6fc7) 10%,transparent);transition:left .08s,top .08s}.wf-previa[hidden]{display:none}'
+            + '.wf-item.arrastando{transition:none!important;box-shadow:0 18px 40px rgba(0,0,0,.35);opacity:.96}';
+        document.head.appendChild(css);
+    }
     const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
     const dataBR = s => { const [, m, d] = s.split('-'); return `${d}/${m}`; };
 
@@ -944,27 +953,62 @@
                 e.preventDefault();
                 const l = this.entrada(sec, id);
                 const larg = this.larg, ox = this.ox;
-                const x0 = e.clientX, y0 = e.clientY, lx = l.x, ly = l.y;
+                const x0 = e.clientX, y0 = e.clientY, lx = l.x, ly = l.y, sy0 = window.scrollY;
                 this.arrastando = id;
                 // soltar em cima de uma pasta guarda o cartão nela; soltar na barra da pasta aberta tira o cartão dela
                 const ehBloco = this.estado.blocos.some(b => b.id === id);
                 let destino;
-                const mover = ev => {
-                    l.x = clamp(snap(lx + ev.clientX - x0), -ox, Math.max(-ox, larg - ox - Math.min(l.w, larg)));
-                    l.y = Math.max(0, snap(ly + ev.clientY - y0));
+                // o cartão segue o dedo/mouse sem pular de 8 em 8; a prévia tracejada mostra onde ele cai (já na grade)
+                const quadro = e.target.closest('.wf-quadro');
+                const previa = quadro ? document.createElement('div') : null;
+                if (previa) { previa.className = 'wf-previa'; previa.setAttribute('aria-hidden', 'true'); quadro.appendChild(previa); }
+                const limiteX = x => clamp(x, -ox, Math.max(-ox, larg - ox - Math.min(l.w, larg)));
+                let ultimo = { x: x0, y: y0 }, pendente = false, rolando = 0, ativo = true;
+                const aplicar = () => {
+                    pendente = false;
+                    if (!ativo) return; // quadro pedido antes de soltar não mexe mais no cartão já encaixado
+                    const ev = ultimo;
+                    l.x = limiteX(lx + ev.x - x0);
+                    l.y = Math.max(0, ly + ev.y - y0 + window.scrollY - sy0);
                     if (ehBloco) {
-                        destino = this.destinoSob(ev.clientX, ev.clientY, sec, id);
+                        destino = this.destinoSob(ev.x, ev.y, sec, id);
                         const alvo = destino ? destino.pasta || 'sair' : null;
                         if (alvo !== this.alvoPasta) { this.alvoPasta = alvo; this.atualizarCssPastas(); }
                     }
+                    if (previa) {
+                        previa.style.cssText = `left:${limiteX(snap(l.x)) + ox}px;top:${snap(l.y)}px;width:${Math.min(l.w, larg)}px;height:${l.h}px`;
+                        previa.hidden = !!destino; // indo para uma pasta: a pasta é que fica marcada
+                    }
                 };
+                const agendarMov = () => { if (!pendente) { pendente = true; requestAnimationFrame(aplicar); } };
+                // rolagem automática perto da borda de cima ou de baixo da janela (mais rápida quanto mais perto)
+                // para baixo, só até o fim do que já existe mais a altura do cartão (o quadro cresce junto e não pode rolar sem fim)
+                const BORDA = 70;
+                const maxRolar = document.documentElement.scrollHeight - window.innerHeight + l.h + 160;
+                const rolar = () => {
+                    const y = ultimo.y, h = window.innerHeight;
+                    let v = y < BORDA ? -Math.ceil((BORDA - y) / 4) : y > h - BORDA ? Math.ceil((y - (h - BORDA)) / 4) : 0;
+                    v = clamp(v, -20, 20);
+                    if (v && (v < 0 ? window.scrollY > 0 : window.scrollY < maxRolar)) { window.scrollBy(0, v); agendarMov(); }
+                    rolando = requestAnimationFrame(rolar);
+                };
+                rolando = requestAnimationFrame(rolar);
+                const mover = ev => { ultimo = { x: ev.clientX, y: ev.clientY }; agendarMov(); };
                 const fim = () => {
+                    cancelAnimationFrame(rolando);
+                    if (pendente) aplicar();
+                    ativo = false;
                     this.arrastando = null;
+                    if (previa) previa.remove();
                     if (destino && ehBloco) {
                         // cartões selecionados junto com este vão todos
                         const ids = this.sel.includes(id) ? [...this.sel] : [id];
                         l.x = lx; l.y = ly;
                         this.moverParaPasta(sec, ids, destino.pasta);
+                    } else {
+                        // cai encaixado na grade, onde a prévia mostrava
+                        l.x = limiteX(snap(l.x));
+                        l.y = Math.max(0, snap(l.y));
                     }
                     destino = null;
                     if (this.alvoPasta) { this.alvoPasta = null; this.atualizarCssPastas(); }
