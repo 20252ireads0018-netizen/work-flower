@@ -532,7 +532,7 @@
                 <x-slot name="cabeca">
                     <h2 class="titulo text-base flex-1 truncate">Hora de revisar</h2>
                     <span class="text-xs texto-2" x-text="pendencias() + ' pendente' + (pendencias() === 1 ? '' : 's')"></span>
-                    <button type="button" class="btn-sec !py-0.5 !px-2 text-xs shrink-0" x-show="pendencias() > 1" @click="revisarTudo()" title="Marca todos os conteúdos pendentes como revisados hoje">Revisei tudo</button>
+                    <button type="button" class="btn-sec !py-0.5 !px-2 text-xs shrink-0" x-show="pendencias() > 0" @click="revisarTudo()" title="Marca todos os conteúdos pendentes como revisados hoje">Revisei tudo</button>
                 </x-slot>
                 <p x-show="!aRevisar().length" class="text-sm texto-2">Nada para revisar hoje. Os conteúdos aparecem aqui quando passa o intervalo de revisão.</p>
                 <ul class="space-y-2">
