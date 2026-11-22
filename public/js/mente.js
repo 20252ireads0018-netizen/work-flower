@@ -679,6 +679,14 @@
                 it.ultimo = d; it.arq = false;
                 this.aviso(`“${it.titulo}” revisado. Próxima revisão em ${dataBR(this.proxima(it))}.`);
             },
+            /** "Revisei tudo": marca como revisados hoje todos os conteúdos da lista "Hora de revisar". */
+            revisarTudo() {
+                const lista = this.aRevisar();
+                if (!lista.length || !confirm(`Marcar os ${lista.length} conteúdos pendentes como revisados hoje?`)) return;
+                const d = hoje();
+                lista.forEach(it => { if (it.ultimo !== d) { it.hist.push(d); if (it.hist.length > 60) it.hist.shift(); } it.ultimo = d; it.arq = false; });
+                this.aviso(`${lista.length} conteúdos revisados. Próxima revisão em ${this.intervalo()} dias.`);
+            },
             excluirEstudo(it) {
                 if (!confirm(`Excluir "${it.titulo}"?`)) return;
                 const i = this.estado.estudos.itens.findIndex(x => x.id === it.id);
