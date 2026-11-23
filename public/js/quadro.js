@@ -14,11 +14,11 @@
     const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
     const snap = v => Math.round(v / 8) * 8;
     // prévia de onde o cartão arrastado cai (arrastar) e cartão em movimento sem atraso de transição
-    if (typeof document !== 'undefined' && !document.getElementById('wf-previa-css')) {
+    if (typeof document !== 'undefined' && !document.getElementById('wf-soltura-css')) {
         const css = document.createElement('style');
-        css.id = 'wf-previa-css';
-        css.textContent = '.wf-previa{position:absolute;z-index:0;pointer-events:none;border:2px dashed var(--prim,#2f6fc7);border-radius:.9rem;'
-            + 'background:color-mix(in srgb,var(--prim,#2f6fc7) 10%,transparent);transition:left .08s,top .08s}.wf-previa[hidden]{display:none}'
+        css.id = 'wf-soltura-css';
+        css.textContent = '.wf-soltura{position:absolute;z-index:0;pointer-events:none;border:2px dashed var(--prim,#2f6fc7);border-radius:.9rem;'
+            + 'background:color-mix(in srgb,var(--prim,#2f6fc7) 10%,transparent);transition:left .08s,top .08s}.wf-soltura[hidden]{display:none}'
             + '.wf-item.arrastando{transition:none!important;box-shadow:0 18px 40px rgba(0,0,0,.35);opacity:.96}';
         document.head.appendChild(css);
     }
@@ -961,7 +961,7 @@
                 // o cartão segue o dedo/mouse sem pular de 8 em 8; a prévia tracejada mostra onde ele cai (já na grade)
                 const quadro = e.target.closest('.wf-quadro');
                 const previa = quadro ? document.createElement('div') : null;
-                if (previa) { previa.className = 'wf-previa'; previa.setAttribute('aria-hidden', 'true'); quadro.appendChild(previa); }
+                if (previa) { previa.className = 'wf-soltura'; previa.setAttribute('aria-hidden', 'true'); quadro.appendChild(previa); }
                 const limiteX = x => clamp(x, -ox, Math.max(-ox, larg - ox - Math.min(l.w, larg)));
                 let ultimo = { x: x0, y: y0 }, pendente = false, rolando = 0, ativo = true;
                 const aplicar = () => {
