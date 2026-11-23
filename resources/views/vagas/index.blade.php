@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
-<head>
-<meta charset="utf-8">
+<head><meta charset="utf-8">
+
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <title>Vagas Work Flower</title>
@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap">
 <style>
-  /* Layout: cabeçalho da vaga em cima; abaixo, formulário à esquerda e aba lateral "Recomendação da empresa" à direita (empilha no celular). */
+  /* Layout: cabeçalho da vaga em cima; abaixo, formulário à esquerda e aba lateral "Curso opcional" à direita (empilha no celular). */
   :root {
     /* dark-first, como o painel Work Flower */
     --bg: #101612;
@@ -91,6 +91,7 @@
   .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   .field { display: grid; gap: 6px; min-width: 0; }
   .field > label, .field > .legend { font-size: 14px; font-weight: 600; }
+  .opt { font-weight: 400; color: var(--muted); }
   input[type="text"], input[type="email"], input[type="tel"], select, textarea {
     width: 100%; font: inherit; color: var(--fg); background: var(--surface-2);
     border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; min-height: 44px;
@@ -118,8 +119,14 @@
   .check.invalid { color: var(--danger); }
   .btn { font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 0 22px; min-height: 48px; cursor: pointer; background: var(--accent); color: var(--accent-ink); }
   .btn:hover { filter: brightness(1.06); }
+  .btn:disabled { opacity: .55; cursor: not-allowed; filter: none; }
   .btn.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
   .note { font-size: 13px; color: var(--muted); }
+
+  /* detalhes opcionais (recolhidos para o formulário parecer curto) */
+  .mais { border-top: 1px solid var(--line); padding-top: 14px; }
+  .mais > summary { font-size: 14px; }
+  .mais-corpo { display: grid; gap: 18px; margin-top: 16px; }
 
   /* confirmação */
   .done h2 { font-size: 1.5rem; }
@@ -136,11 +143,6 @@
   .side[data-open] .tab-head { color: var(--fg); }
   .side[data-open] .tab-head i { background: var(--accent); }
   .tab-body { background: var(--surface); border: 1px solid var(--line); border-radius: 0 0 14px 14px; padding: 22px; display: grid; gap: 16px; }
-  .pending p { color: var(--muted); }
-  .pending .ghostlines { display: grid; gap: 8px; margin-top: 4px; }
-  .pending .ghostlines span { height: 10px; border-radius: 6px; background: var(--surface-2); }
-  .pending .ghostlines span:nth-child(2) { width: 82%; }
-  .pending .ghostlines span:nth-child(3) { width: 58%; }
   .course h3 { font-size: 1.45rem; }
   .course .meta { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
   .course .hello { color: var(--muted); }
@@ -148,6 +150,9 @@
   .fit { display: flex; align-items: baseline; gap: 12px; padding: 12px 14px; background: var(--surface-2); border-radius: 10px; }
   .fit b { font-family: var(--font-display); font-size: 1.6rem; color: var(--leaf); white-space: nowrap; }
   .fit span { font-size: 14px; color: var(--muted); }
+  .course[data-locked] .preview { position: relative; }
+  .course[data-locked] .preview::after { content: ""; position: absolute; inset: auto 0 0 0; height: 56px; background: linear-gradient(to bottom, transparent, var(--surface)); pointer-events: none; }
+  .trava { font-size: 14px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); color: var(--muted); }
   details { border-top: 1px solid var(--line); padding-top: 12px; }
   summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 10px; }
   summary::-webkit-details-marker { display: none; }
@@ -164,6 +169,15 @@
   /* compra do curso por Pix (opcional, separada da candidatura) */
   .preco { font-family: var(--font-display); font-size: 1.5rem; color: var(--leaf); }
   .separado { font-size: 14px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
+
+  /* destaque de que o curso é opcional */
+  .selo-opcional { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .selo-opcional .tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: var(--leaf); color: var(--bg); font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+  .selo-opcional .tag-2 { font-family: var(--font-mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .destaque-opcional { border: 2px solid var(--leaf); border-radius: 12px; padding: 14px 16px; display: grid; gap: 6px; background: var(--surface-2); }
+  .destaque-opcional strong { font-family: var(--font-display); font-size: 1.1rem; color: var(--leaf); line-height: 1.2; }
+  .destaque-opcional span { font-size: 14px; color: var(--fg); }
+
   .checkout { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
   .checkout .qr { width: 196px; height: 196px; margin: 0 auto; padding: 10px; background: #fff; border-radius: 10px; }
   .checkout textarea { width: 100%; min-height: 76px; resize: none; font-family: var(--font-mono); font-size: 12px; padding: 8px 10px; border-radius: 8px;
@@ -217,11 +231,11 @@
   </header>
 
   <section class="job" aria-labelledby="vaga-titulo">
-    <h1 id="vaga-titulo">Trabalhe de casa e receba por <em>estar disponível</em></h1>
+    <h1 id="vaga-titulo">Trabalhe de casa e receba por <em>horas disponíveis</em></h1>
     <p class="lead">A Work Flower organiza a rotina de pessoas e equipes em quatro áreas: Corpo, Mente, Carteira e Diverso. Estamos contratando assistentes de organização para atuar em home-office, em meio período.</p>
     <dl class="facts">
       <div><dt>Modalidade</dt><dd>Home-office</dd></div>
-      <div><dt>Jornada</dt><dd>Meio período</dd></div>
+      <div><dt>Jornada</dt><dd>Negocíavel</dd></div>
       <div><dt>Pagamento</dt><dd>Por disponibilidade</dd></div>
       <div><dt>Local</dt><dd>100% remoto</dd></div>
     </dl>
@@ -245,108 +259,117 @@
     <section class="panel" aria-labelledby="form-titulo">
       <div id="formArea">
         <h2 id="form-titulo">Candidate-se</h2>
-        <p class="sub">Leva cerca de três minutos. Candidatar-se não tem custo.</p>
+        <p class="sub">Leva menos de um minuto. Só pedimos seu nome e um contato. Candidatar-se não tem custo.</p>
 
         <form id="applyForm" novalidate data-action="{{ route('vagas.store') }}">
           <div class="hp" aria-hidden="true"><label>Não preencha <input type="text" name="site" id="site" tabindex="-1" autocomplete="off"></label></div>
           <div class="row">
             <div class="field" id="f-nome">
-              <label for="nome">Nome completo</label>
+              <label for="nome">Nome</label>
               <input type="text" id="nome" name="nome" autocomplete="name" aria-describedby="e-nome">
               <div class="err" id="e-nome"></div>
             </div>
-            <div class="field" id="f-email">
-              <label for="email">E-mail</label>
-              <input type="email" id="email" name="email" autocomplete="email" aria-describedby="e-email">
-              <div class="err" id="e-email"></div>
-            </div>
-          </div>
-
-          <div class="row">
             <div class="field" id="f-fone">
-              <label for="fone">WhatsApp</label>
+              <label for="fone">WhatsApp <span class="opt">(ou e-mail abaixo)</span></label>
               <input type="tel" id="fone" name="fone" autocomplete="tel" placeholder="(77) 90000-0000" aria-describedby="e-fone">
               <div class="err" id="e-fone"></div>
             </div>
-            <div class="field" id="f-cidade">
-              <label for="cidade">Cidade e estado</label>
-              <input type="text" id="cidade" name="cidade" autocomplete="address-level2" placeholder="Cidade - UF" aria-describedby="e-cidade">
-              <div class="err" id="e-cidade"></div>
-            </div>
           </div>
 
-          <div class="row">
-            <div class="field" id="f-escolaridade">
-              <label for="escolaridade">Escolaridade</label>
-              <select id="escolaridade" name="escolaridade" aria-describedby="e-escolaridade">
-                <option value="">Selecione</option>
-                <option>Ensino médio completo</option>
-                <option>Ensino técnico</option>
-                <option>Superior em andamento</option>
-                <option>Superior completo</option>
-              </select>
-              <div class="err" id="e-escolaridade"></div>
-            </div>
-            <div class="field" id="f-exp">
-              <label for="exp">Experiência com trabalho remoto</label>
-              <select id="exp" name="exp" aria-describedby="e-exp">
-                <option value="">Selecione</option>
-                <option>Nenhuma ainda</option>
-                <option>Menos de 1 ano</option>
-                <option>De 1 a 3 anos</option>
-                <option>Mais de 3 anos</option>
-              </select>
-              <div class="err" id="e-exp"></div>
-            </div>
+          <div class="field" id="f-email">
+            <label for="email">E-mail <span class="opt">(ou WhatsApp acima)</span></label>
+            <input type="email" id="email" name="email" autocomplete="email" aria-describedby="e-email">
+            <div class="err" id="e-email"></div>
           </div>
 
-          <fieldset class="field" id="f-dias">
-            <legend class="legend" style="font-size:14px;font-weight:600;padding:0;margin-bottom:6px">Dias em que você fica disponível</legend>
-            <div class="days" role="group" aria-describedby="e-dias">
-              <label class="chip"><input type="checkbox" name="dias" value="Seg"><span>Seg</span></label>
-              <label class="chip"><input type="checkbox" name="dias" value="Ter"><span>Ter</span></label>
-              <label class="chip"><input type="checkbox" name="dias" value="Qua"><span>Qua</span></label>
-              <label class="chip"><input type="checkbox" name="dias" value="Qui"><span>Qui</span></label>
-              <label class="chip"><input type="checkbox" name="dias" value="Sex"><span>Sex</span></label>
-              <label class="chip"><input type="checkbox" name="dias" value="Sáb"><span>Sáb</span></label>
-              <label class="chip"><input type="checkbox" name="dias" value="Dom"><span>Dom</span></label>
-            </div>
-            <div class="err" id="e-dias"></div>
-          </fieldset>
-
-          <div class="row">
-            <div class="field" id="f-turno">
-              <label for="turno">Melhor período do dia</label>
-              <select id="turno" name="turno" aria-describedby="e-turno">
-                <option value="">Selecione</option>
-                <option>Manhã (6h às 12h)</option>
-                <option>Tarde (12h às 18h)</option>
-                <option>Noite (18h às 23h)</option>
-                <option>Varia conforme o dia</option>
-              </select>
-              <div class="err" id="e-turno"></div>
-            </div>
-            <div class="field range-wrap">
-              <div class="range-top">
-                <label for="horas" style="font-size:14px;font-weight:600">Horas disponíveis por semana</label>
-                <output id="horasOut" for="horas">15 h</output>
+          <details class="mais" id="maisDetalhes">
+            <summary>Quer adicionar mais detalhes? (opcional)</summary>
+            <div class="mais-corpo">
+              <div class="row">
+                <div class="field" id="f-cidade">
+                  <label for="cidade">Cidade e estado <span class="opt">(opcional)</span></label>
+                  <input type="text" id="cidade" name="cidade" autocomplete="address-level2" placeholder="Cidade - UF" aria-describedby="e-cidade">
+                  <div class="err" id="e-cidade"></div>
+                </div>
+                <div class="field" id="f-escolaridade">
+                  <label for="escolaridade">Escolaridade <span class="opt">(opcional)</span></label>
+                  <select id="escolaridade" name="escolaridade" aria-describedby="e-escolaridade">
+                    <option value="">Selecione</option>
+                    <option>Ensino médio completo</option>
+                    <option>Ensino técnico</option>
+                    <option>Superior em andamento</option>
+                    <option>Superior completo</option>
+                  </select>
+                  <div class="err" id="e-escolaridade"></div>
+                </div>
               </div>
-              <input type="range" id="horas" name="horas" min="10" max="25" step="1" value="15">
-              <div class="scale"><span>10 h</span><span>25 h</span></div>
+
+              <div class="field" id="f-exp">
+                <label for="exp">Experiência com trabalho remoto <span class="opt">(opcional)</span></label>
+                <select id="exp" name="exp" aria-describedby="e-exp">
+                  <option value="">Selecione</option>
+                  <option>Nenhuma ainda</option>
+                  <option>Menos de 1 ano</option>
+                  <option>De 1 a 3 anos</option>
+                  <option>Mais de 3 anos</option>
+                </select>
+                <div class="err" id="e-exp"></div>
+              </div>
+
+              <fieldset class="field" id="f-dias">
+                <legend class="legend" style="font-size:14px;font-weight:600;padding:0;margin-bottom:6px">Dias em que você fica disponível <span class="opt">(opcional)</span></legend>
+                <div class="days" role="group" aria-describedby="e-dias">
+                  <label class="chip"><input type="checkbox" name="dias" value="Seg"><span>Seg</span></label>
+                  <label class="chip"><input type="checkbox" name="dias" value="Ter"><span>Ter</span></label>
+                  <label class="chip"><input type="checkbox" name="dias" value="Qua"><span>Qua</span></label>
+                  <label class="chip"><input type="checkbox" name="dias" value="Qui"><span>Qui</span></label>
+                  <label class="chip"><input type="checkbox" name="dias" value="Sex"><span>Sex</span></label>
+                  <label class="chip"><input type="checkbox" name="dias" value="Sáb"><span>Sáb</span></label>
+                  <label class="chip"><input type="checkbox" name="dias" value="Dom"><span>Dom</span></label>
+                </div>
+                <div class="err" id="e-dias"></div>
+              </fieldset>
+
+              <div class="row">
+                <div class="field" id="f-turno">
+                  <label for="turno">Melhor período do dia <span class="opt">(opcional)</span></label>
+                  <select id="turno" name="turno" aria-describedby="e-turno">
+                    <option value="">Selecione</option>
+                    <option>Manhã (6h às 12h)</option>
+                    <option>Tarde (12h às 18h)</option>
+                    <option>Noite (18h às 23h)</option>
+                    <option>Varia conforme o dia</option>
+                  </select>
+                  <div class="err" id="e-turno"></div>
+                </div>
+                <div class="field range-wrap">
+                  <div class="range-top">
+                    <label for="horas" style="font-size:14px;font-weight:600">Horas disponíveis por semana</label>
+                    <output id="horasOut" for="horas">15 h</output>
+                  </div>
+                  <input type="range" id="horas" name="horas" min="10" max="25" step="1" value="15">
+                  <div class="scale"><span>10 h</span><span>25 h</span></div>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="msg">Quer contar algo sobre você? <span class="opt">(opcional)</span></label>
+                <textarea id="msg" name="msg" placeholder="Experiências, ferramentas que você usa, o que gosta de organizar"></textarea>
+              </div>
+
+              <div class="field" id="f-equip">
+                <label class="check" for="equip"><input type="checkbox" id="equip" name="equip"><span>Tenho computador e internet estável para trabalhar de casa.</span></label>
+                <div class="err" id="e-equip"></div>
+              </div>
+              <div class="field" id="f-curso">
+                <label class="check" for="curso"><input type="checkbox" id="curso" name="curso"><span>Tenho pelo menos um curso de 5 horas mínimas (Você pode terminar um em até 15 dias antes de sua admissão).</span></label>
+                <div class="err" id="e-curso"></div>
+              </div>
             </div>
-          </div>
+          </details>
 
-          <div class="field">
-            <label for="msg">Quer contar algo sobre você? (opcional)</label>
-            <textarea id="msg" name="msg" placeholder="Experiências, ferramentas que você usa, o que gosta de organizar"></textarea>
-          </div>
-
-          <div class="field" id="f-equip">
-            <label class="check" for="equip"><input type="checkbox" id="equip" name="equip"><span>Tenho computador e internet estável para trabalhar de casa.</span></label>
-            <div class="err" id="e-equip"></div>
-          </div>
           <div class="field" id="f-lgpd">
-            <label class="check" for="lgpd"><input type="checkbox" id="lgpd" name="lgpd"><span>Autorizo a Work Flower a usar estes dados apenas para analisar minha candidatura.</span></label>
+            <label class="check" for="lgpd"><input type="checkbox" id="lgpd" name="lgpd" checked><span>Autorizo a Work Flower a usar estes dados apenas para analisar minha candidatura.</span></label>
             <div class="err" id="e-lgpd"></div>
           </div>
 
@@ -366,24 +389,27 @@
       </div>
     </section>
 
-    <aside class="side" id="side" aria-label="Curso opcional">
-      <div class="tab-head"><i></i><span>Curso opcional</span></div>
+    <aside class="side" id="side" aria-label="Curso opcional, não obrigatório">
+      <div class="tab-head"><i></i><span>Curso opcional · não obrigatório</span></div>
       <div class="tab-body" aria-live="polite">
-        <div class="pending" id="pending">
-          <p>Depois que você enviar seus dados, aparece aqui um curso opcional sobre a rotina de trabalho remoto.</p>
-          <div class="ghostlines" aria-hidden="true"><span></span><span></span><span></span></div>
-        </div>
-
         @php $precoBr = 'R$ ' . number_format($preco ?? 19.90, 2, ',', '.'); @endphp
-        <div class="course" id="course" hidden>
-          <div class="label">Curso opcional</div>
+        {{-- O curso já aparece parcialmente antes do envio (data-locked); a compra é liberada depois da candidatura --}}
+        <div class="course" id="course" data-locked>
+          <div class="selo-opcional">
+            <span class="tag">Opcional</span>
+            <span class="tag-2">Não é exigido para a vaga</span>
+          </div>
           <h3>Organização Digital para Trabalho Remoto</h3>
           <div class="meta">Online · 4 semanas · 20 horas</div>
-          <p class="hello" id="hello"></p>
-          <div class="fit"><b>5 h/sem</b><span id="fitText"></span></div>
-          <p class="separado"><b>Separado da candidatura.</b> Comprar ou não o curso não muda em nada a análise da sua candidatura nem a chance de contratação.</p>
-          <div class="preco">{{ $precoBr }} <small style="font-size:13px;color:var(--muted);font-family:var(--font-body)">pagamento único por Pix</small></div>
-          <button type="button" class="btn" id="cursoBtn">Comprar o curso · {{ $precoBr }}</button>
+          <div class="destaque-opcional">
+            <strong>Você não precisa comprar este curso.</strong>
+            <span>Ele não é requisito para a vaga, não conta pontos e não muda em nada a análise da sua candidatura nem a chance de ser contratado(a). Quem não compra é analisado(a) exatamente como quem compra.</span>
+          </div>
+          <p class="hello" id="hello" hidden></p>
+          <div class="fit" id="fit" hidden><b>5 h/sem</b><span id="fitText"></span></div>
+          <div class="preco">{{ $precoBr }} <small style="font-size:13px;color:var(--muted);font-family:var(--font-body)">pagamento único por Pix, só se você quiser</small></div>
+          <p class="trava" id="trava">Você já pode ver o conteúdo. Se quiser comprar, a compra é liberada depois que você enviar a candidatura.</p>
+          <button type="button" class="btn" id="cursoBtn" disabled>Disponível após enviar a candidatura</button>
 
           {{-- Pix na chave da Work Flower; o acesso chega por e-mail ou WhatsApp depois da confirmação --}}
           <div class="checkout" id="checkout" hidden>
@@ -396,16 +422,18 @@
             <button type="button" class="btn" id="pagueiPix">Já paguei</button>
           </div>
           <p class="aviso-pix" id="avisoPix" hidden role="status"></p>
-          <details>
-            <summary>O que o curso ensina</summary>
-            <ol class="weeks">
-              <li><b>Semana 1</b><span>Áreas da rotina: Corpo, Mente, Carteira e Diverso</span></li>
-              <li><b>Semana 2</b><span>Tarefas, prioridades e blocos de horário</span></li>
-              <li><b>Semana 3</b><span>Comunicação por escrito e registro de disponibilidade</span></li>
-              <li><b>Semana 4</b><span>Arquivos, planilhas e entrega de relatórios</span></li>
-            </ol>
-          </details>
-          <p class="optional">O curso é opcional. Sua candidatura é analisada da mesma forma com ou sem ele. Depois que o pagamento é confirmado, o acesso chega no e-mail ou WhatsApp que você informou.</p>
+          <div class="preview">
+            <details open>
+              <summary>O que o curso ensina</summary>
+              <ol class="weeks">
+                <li><b>Semana 1</b><span>Áreas da rotina: Corpo, Mente, Carteira e Diverso</span></li>
+                <li><b>Semana 2</b><span>Tarefas, prioridades e blocos de horário</span></li>
+                <li><b>Semana 3</b><span>Comunicação por escrito e registro de disponibilidade</span></li>
+                <li><b>Semana 4</b><span>Arquivos, planilhas e entrega de relatórios</span></li>
+              </ol>
+            </details>
+          </div>
+          <p class="optional"><b>Lembrando: o curso é totalmente opcional.</b> Sua candidatura é analisada da mesma forma com ou sem ele, e você pode se candidatar sem nunca comprá-lo. Se você optar por comprar, depois que o pagamento é confirmado o acesso chega no e-mail ou WhatsApp que você informou.</p>
         </div>
       </div>
     </aside>
@@ -419,8 +447,9 @@
   var $ = function (id) { return document.getElementById(id); };
   var form = $('applyForm');
   var horas = $('horas');
-  var CAMPOS = ['nome','email','fone','cidade','escolaridade','exp','dias','turno','equip','lgpd'];
+  var CAMPOS = ['nome','email','fone','cidade','escolaridade','exp','dias','turno','equip','lgpd','curso'];
   var codigo = null, cursoUrl = null, enviando = false;
+  var ROTULO_COMPRA = @json('Quero comprar o curso opcional · ' . $precoBr);
   horas.addEventListener('input', function () { $('horasOut').textContent = horas.value + ' h'; });
 
   function setErr(key, msg) {
@@ -431,27 +460,32 @@
   }
   function clearAll() { CAMPOS.forEach(function (k) { setErr(k, ''); }); $('e-geral').textContent = ''; }
 
+  /* Validação leve: só exige um nome, pelo menos um contato (WhatsApp ou e-mail) e a autorização de uso dos dados.
+     O resto é opcional. E-mail e WhatsApp só são conferidos se a pessoa preencher. */
   function validate() {
     clearAll();
     var bad = [];
     function need(key, cond, msg) { if (!cond) { setErr(key, msg); bad.push(key); } }
     var nome = $('nome').value.trim();
-    need('nome', nome.split(/\s+/).filter(Boolean).length >= 2, 'Digite nome e sobrenome.');
-    need('email', /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test($('email').value.trim()), 'Digite um e-mail válido, como nome@exemplo.com.');
-    need('fone', $('fone').value.replace(/\D/g, '').length >= 10, 'Digite o WhatsApp com DDD.');
-    need('cidade', $('cidade').value.trim().length >= 3, 'Informe sua cidade e estado.');
-    need('escolaridade', $('escolaridade').value !== '', 'Selecione sua escolaridade.');
-    need('exp', $('exp').value !== '', 'Selecione uma opção.');
-    need('dias', form.querySelectorAll('input[name="dias"]:checked').length > 0, 'Marque pelo menos um dia.');
-    need('turno', $('turno').value !== '', 'Selecione o melhor período.');
-    need('equip', $('equip').checked, 'Esta vaga exige computador e internet estável.');
-    need('lgpd', $('lgpd').checked, 'Sem esta autorização não podemos analisar a candidatura.');
+    var email = $('email').value.trim();
+    var fone = $('fone').value.replace(/\D/g, '');
+    need('nome', nome.length >= 2, 'Digite seu nome.');
+    if (!email && !fone) {
+      setErr('fone', 'Informe um WhatsApp ou um e-mail para entrarmos em contato.');
+      bad.push('fone');
+    } else {
+      if (email) need('email', /^\S+@\S+\.\S+$/.test(email), 'Confira o e-mail digitado.');
+      if (fone) need('fone', fone.length >= 8, 'Confira o número do WhatsApp.');
+    }
+    need('lgpd', $('lgpd').checked, 'Precisamos desta autorização para analisar a candidatura.');
     return bad;
   }
 
   function focusField(key) {
     var box = $('f-' + key);
     if (!box) return;
+    var det = box.closest('details');
+    if (det) det.open = true;
     var target = box.querySelector('input, select, textarea');
     if (target) target.focus();
     box.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -502,7 +536,7 @@
       if (res.data && res.data.ok) mostrarCompra(res.data);
       else aviso((res.data && res.data.erro) || 'Não foi possível gerar o Pix agora. Tente de novo em instantes.', true);
     }).catch(function () { aviso('Sem conexão. Tente de novo.', true); })
-      .then(function () { b.disabled = false; b.textContent = @json('Comprar o curso · ' . $precoBr); });
+      .then(function () { b.disabled = false; b.textContent = ROTULO_COMPRA; });
   });
   $('copiarPix').addEventListener('click', function () {
     var t = $('copiaPix'); t.select();
@@ -521,6 +555,11 @@
     var primeiro = nome.split(/\s+/)[0];
     var dias = Array.prototype.map.call(form.querySelectorAll('input[name="dias"]:checked'), function (c) { return c.value; });
     var h = parseInt(horas.value, 10);
+    var turno = $('turno').value;
+    var dispo = [];
+    if (dias.length) dispo.push(dias.join(', '));
+    if (turno) dispo.push(turno);
+    if (dias.length || turno) dispo.push(h + ' h por semana');
 
     $('doneSub').textContent = 'Obrigado, ' + primeiro + '. Recebemos sua candidatura. Confira abaixo o que você informou.';
     var s = $('summary');
@@ -532,26 +571,35 @@
       ['Cidade', $('cidade').value.trim()],
       ['Escolaridade', $('escolaridade').value],
       ['Experiência remota', $('exp').value],
-      ['Disponibilidade', dias.join(', ') + ' · ' + $('turno').value + ' · ' + h + ' h por semana']
+      ['Curso de 5 h ou mais', $('curso').checked ? 'Sim' : ''],
+      ['Disponibilidade', dispo.join(' · ')]
     ].forEach(function (p) {
+      if (!p[1]) return;
       var d = document.createElement('div');
       d.appendChild(el('dt', p[0]));
       d.appendChild(el('dd', p[1]));
       s.appendChild(d);
     });
 
-    $('hello').textContent = primeiro + ', se quiser se preparar para a rotina de trabalho remoto, a Work Flower oferece este curso opcional.';
+    $('hello').textContent = primeiro + ', sua candidatura já está registrada e não depende do curso. Se, por vontade própria, quiser se preparar para a rotina de trabalho remoto, a Work Flower oferece este curso opcional.';
+    $('hello').hidden = false;
     $('fitText').textContent = 'Você indicou ' + h + ' h por semana. O curso ocupa cerca de 5 h por semana, então ' +
       (h >= 15 ? 'cabe com folga na sua disponibilidade.' : 'cabe na sua disponibilidade, usando boa parte dela.');
-
+    $('fit').hidden = (dias.length === 0 && !turno && h === 15 && !$('maisDetalhes').open);
 
     $('formArea').hidden = true;
     $('doneArea').hidden = false;
-    $('pending').hidden = true;
+
+    /* libera a compra do curso */
     var c = $('course');
-    c.hidden = false;
+    c.removeAttribute('data-locked');
+    $('trava').hidden = true;
+    var btn = $('cursoBtn');
+    btn.disabled = false;
+    btn.textContent = ROTULO_COMPRA;
     c.classList.remove('reveal'); void c.offsetWidth; c.classList.add('reveal');
     $('side').setAttribute('data-open', '');
+
     $('doneTitle').focus({ preventScroll: true });
     var narrow = window.matchMedia('(max-width: 920px)').matches;
     (narrow ? $('side') : $('doneArea')).scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -578,7 +626,8 @@
       horas: parseInt(horas.value, 10),
       msg: $('msg').value.trim(),
       equip: $('equip').checked,
-      lgpd: $('lgpd').checked
+      lgpd: $('lgpd').checked,
+      curso: $('curso').checked
     };
 
     var btn = $('submitBtn');
