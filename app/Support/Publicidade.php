@@ -99,6 +99,12 @@ class Publicidade
     private static function analisar(string $valor, string $host): ?array
     {
         $valor = trim($valor);
+        // formato novo do painel da Adsterra: https://host/22/CHAVE (qualquer caminho com a chave de 32 hex); guarda o src completo
+        if (preg_match('#^(?:https?:)?//((?:[a-z0-9-]+\.)+[a-z]{2,})(/[a-z0-9/_.-]*)$#i', $valor, $m)
+            && ! str_contains($m[2], '..') && ! preg_match('#/invoke\.js$#i', $m[2])
+            && preg_match('#(?:^|/)([a-f0-9]{32})(?:/|$)#i', $m[2], $k)) {
+            return ['chave' => strtolower($k[1]), 'host' => strtolower($m[1]), 'src' => 'https://'.strtolower($m[1]).$m[2]];
+        }
         if (preg_match('#^(?:https?:)?//([a-z0-9.-]+)/([a-f0-9]{32})/invoke\.js#i', $valor, $m)) {
             [$host, $chave] = [$m[1], $m[2]];
         } elseif (preg_match('/^[a-f0-9]{32}$/i', $valor)) {

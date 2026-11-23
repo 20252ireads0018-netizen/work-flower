@@ -37,7 +37,7 @@
         var op = JSON.stringify({ key: b.chave, format: 'iframe', height: b.altura, width: b.largura, params: {} });
         f.srcdoc = '<!doctype html><html><' + 'head><style>html,body{margin:0;padding:0;overflow:hidden;background:transparent}</style></' + 'head><body>' +
             '<script>atOptions=' + op + ';<\/script>' +
-            '<script src="https://' + b.host + '/' + b.chave + '/invoke.js"><\/script></body></html>';
+            '<script src="' + (b.src || 'https://' + b.host + '/' + b.chave + '/invoke.js') + '"><\/script></body></html>';
         // banner maior que o espaço (728 no celular sem o banner de celular): diminui na proporção
         var escala = Math.min(1, Math.max(0, largura - 32) / b.largura) || 1;
         espaco.style.height = Math.ceil(b.altura * escala) + 'px';
@@ -55,7 +55,7 @@
         var s = document.createElement('script');
         s.async = true;
         s.setAttribute('data-cfasync', 'false');
-        s.src = 'https://' + nativo.host + '/' + nativo.chave + '/invoke.js';
+        s.src = (nativo.src || 'https://' + nativo.host + '/' + nativo.chave + '/invoke.js');
         document.body.appendChild(s);
         return true;
     }
