@@ -399,8 +399,8 @@
     <script src="{{ asset('js/arrastar-mao.js') }}?v={{ @filemtime(public_path('js/arrastar-mao.js')) }}" defer></script>
     <script>
         // celular: a faixa de abas mostra a aba aberta (ela pode estar fora da tela, à direita)
-        addEventListener('load', () => setTimeout(() => document.querySelectorAll('.wf-abas-nav').forEach(n => {
-            const a = n.querySelector('.circ.ativo');
+        addEventListener('load', () => setTimeout(() => document.querySelectorAll('.wf-abas-nav, .wf-faixa-areas').forEach(n => {
+            const a = n.querySelector('.circ.ativo, a.ativo');
             if (!a || n.scrollWidth <= n.clientWidth) return;
             const ra = a.getBoundingClientRect(), rn = n.getBoundingClientRect();
             if (ra.left < rn.left || ra.right > rn.right - 24) n.scrollLeft += ra.left - rn.left - (rn.width - ra.width) / 2;
@@ -550,6 +550,18 @@
         .nav-link { display: flex; align-items: center; border-bottom: 2px solid transparent; opacity: .7; transition: opacity .15s; white-space: nowrap; }
         .nav-link:hover { opacity: 1; }
         .nav-link.ativo { opacity: 1; border-color: var(--prim); font-weight: 600; }
+        /* tablets: o menu de cima rola em vez de cortar as últimas abas */
+        .wf-nav-pc { scrollbar-width: none; }
+        .wf-nav-pc::-webkit-scrollbar { display: none; }
+        @media (min-width: 768px) and (max-width: 1023px) { .wf-nav-pc { gap: 1rem; } }
+        /* celular: faixa de abas das áreas logo abaixo do cabeçalho */
+        .wf-faixa-areas { display: flex; gap: .4rem; overflow-x: auto; padding: .1rem 1rem .6rem; scrollbar-width: none;
+                          overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+        .wf-faixa-areas::-webkit-scrollbar { display: none; }
+        .wf-faixa-areas a { flex: none; scroll-snap-align: start; padding: .4rem .85rem; border-radius: 9999px; font-size: .85rem; white-space: nowrap;
+                            border: 1px solid rgba(255,255,255,.22); opacity: .85; }
+        .wf-faixa-areas a.ativo { opacity: 1; font-weight: 600; background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.5); }
+        @media (min-width: 768px) { .wf-faixa-areas { display: none; } }
         .nav-mobile a { display: block; padding: .5rem .75rem; border-radius: .375rem; opacity: .8; }
         .nav-mobile a.ativo { background: color-mix(in srgb, var(--on-cab) 12%, transparent); opacity: 1; font-weight: 600; }
         /* Navegação de desktop com muitas áreas: rola na horizontal em vez de quebrar o cabeçalho */
@@ -836,7 +848,7 @@
                 @include('partials.marca', ['texto' => 'text-xl'])
             </a>
 
-            <nav class="hidden md:flex items-stretch h-16 gap-6 text-sm" aria-label="Principal">
+            <nav class="wf-nav-pc hidden md:flex items-stretch h-16 gap-6 text-sm min-w-0 overflow-x-auto" aria-label="Principal">
                 <a href="{{ route('painel') }}" class="nav-link {{ request()->routeIs('painel') ? 'ativo' : '' }}">Painel</a>
                 @foreach ($wfAreasNav as $slug => $a)
                     <a href="{{ $a['url'] }}" class="nav-link {{ $wfUrlAqui === $a['url'] ? 'ativo' : '' }}">{{ $a['nome'] }}</a>
@@ -982,6 +994,15 @@
         </div>
 
         <nav x-show="menu" x-cloak class="nav-mobile md:hidden px-4 pb-3 space-y-1 text-sm" aria-label="Principal (celular)">
+            <a href="{{ route('painel') }}" class="{{ request()->routeIs('painel') ? 'ativo' : '' }}">Painel</a>
+            @foreach ($wfAreasNav as $slug => $a)
+                <a href="{{ $a['url'] }}" class="{{ $wfUrlAqui === $a['url'] ? 'ativo' : '' }}">{{ $a['nome'] }}</a>
+            @endforeach
+            @if (\Illuminate\Support\Facades\Route::has('flower'))<a href="{{ route('flower') }}" class="{{ request()->routeIs('flower') ? 'ativo' : '' }}">Meu Flower</a>@endif
+        </nav>
+
+        {{-- Celular e app: as abas das áreas sempre à vista, numa faixa que rola para o lado (antes só existiam no menu ☰) --}}
+        <nav class="wf-faixa-areas md:hidden" aria-label="Áreas">
             <a href="{{ route('painel') }}" class="{{ request()->routeIs('painel') ? 'ativo' : '' }}">Painel</a>
             @foreach ($wfAreasNav as $slug => $a)
                 <a href="{{ $a['url'] }}" class="{{ $wfUrlAqui === $a['url'] ? 'ativo' : '' }}">{{ $a['nome'] }}</a>
